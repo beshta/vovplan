@@ -1,7 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcryptjs';
 import { registerSchema, loginSchema } from '@vovplan/shared';
-import { ProjectRole } from '@prisma/client';
 import prisma from '../../db/prisma.js';
 
 export default async function authRoutes(fastify: FastifyInstance) {

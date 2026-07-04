@@ -22,8 +22,8 @@ async function buildServer(): Promise<FastifyInstance> {
   await fastify.register(projectRoutes, { prefix: '/api/projects' });
 
   // ── Error handler ──────────────────────────
-  fastify.setErrorHandler((error, request, reply) => {
-    const statusCode = error.statusCode ?? 500;
+  fastify.setErrorHandler((error: any, request, reply) => {
+    const statusCode: number = error.statusCode ?? 500;
 
     if (statusCode >= 500) {
       request.log.error({ err: error }, 'Internal server error');

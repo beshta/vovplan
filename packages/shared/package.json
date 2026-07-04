@@ -16,6 +16,7 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@types/geojson": "^7946.0.16",
     "zod": "^3.24.1"
   },
   "devDependencies": {

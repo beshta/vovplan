@@ -1,14 +1,18 @@
 import type { FastifyRequest } from 'fastify';
-import { Prisma, type ProjectRole } from '@prisma/client';
-import { hasPermission as checkPerm, hasRoleLevel } from '@vovplan/shared';
-import type { Permission } from '@vovplan/shared';
+import { type ProjectRole as PrismaRole } from '@prisma/client';
+import {
+  hasPermission as checkPerm,
+  hasRoleLevel,
+  ProjectRole as SharedRole,
+  type Permission,
+} from '@vovplan/shared';
 import prisma from '../db/prisma.js';
 
 /**
  * Get the user's role in a specific project.
  * Returns null if user is not a member.
  */
-export async function getUserRole(userId: string, projectId: string): Promise<ProjectRole | null> {
+export async function getUserRole(userId: string, projectId: string): Promise<PrismaRole | null> {
   const member = await prisma.projectMember.findUnique({
     where: { projectId_userId: { projectId, userId } },
     select: { role: true },
@@ -24,7 +28,7 @@ export async function requirePermission(
   request: FastifyRequest,
   projectId: string,
   permission: Permission,
-): Promise<ProjectRole> {
+): Promise<PrismaRole> {
   const userId = request.user.userId;
   const role = await getUserRole(userId, projectId);
 
@@ -32,8 +36,8 @@ export async function requirePermission(
     throw { statusCode: 404, error: 'NOT_FOUND', message: 'Проект не найден или нет доступа' };
   }
 
-  // Map Prisma enum to shared enum
-  const sharedRole = role as unknown as import('@vovplan/shared').ProjectRole;
+  // Prisma enum values are identical strings to shared enum
+  const sharedRole = role as unknown as SharedRole;
 
   if (!checkPerm(sharedRole, permission)) {
     throw { statusCode: 403, error: 'FORBIDDEN', message: 'Недостаточно прав' };
@@ -49,7 +53,7 @@ export async function requireMaster(request: FastifyRequest, projectId: string):
   const userId = request.user.userId;
   const role = await getUserRole(userId, projectId);
 
-  if (!role || !hasRoleLevel(role as unknown as import('@vovplan/shared').ProjectRole, import('@vovplan/shared').ProjectRole.MASTER)) {
+  if (!role || !hasRoleLevel(role as unknown as SharedRole, SharedRole.MASTER)) {
     throw { statusCode: 403, error: 'FORBIDDEN', message: 'Требуются права Мастера' };
   }
 }

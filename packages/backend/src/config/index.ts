@@ -1,7 +1,6 @@
-import dotenv from 'dotenv';
-import path from 'path';
+import * as dotenv from 'dotenv';
 
-dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
+dotenv.config();
 
 function required(key: string, fallback?: string): string {
   const val = process.env[key] ?? fallback;
