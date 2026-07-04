@@ -1,0 +1,55 @@
+import Fastify, { type FastifyInstance } from 'fastify';
+import { config } from './config/index.js';
+import corsPlugin from './plugins/cors.js';
+import authPlugin from './plugins/auth.js';
+import authRoutes from './modules/auth/routes.js';
+import projectRoutes from './modules/projects/routes.js';
+
+async function buildServer(): Promise<FastifyInstance> {
+  const fastify = Fastify({
+    logger: config.isDev,
+  });
+
+  // ── Plugins ────────────────────────────────
+  await fastify.register(corsPlugin);
+  await fastify.register(authPlugin);
+
+  // ── Health check ───────────────────────────
+  fastify.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+
+  // ── API Routes ─────────────────────────────
+  await fastify.register(authRoutes, { prefix: '/api/auth' });
+  await fastify.register(projectRoutes, { prefix: '/api/projects' });
+
+  // ── Error handler ──────────────────────────
+  fastify.setErrorHandler((error, request, reply) => {
+    const statusCode = error.statusCode ?? 500;
+
+    if (statusCode >= 500) {
+      request.log.error({ err: error }, 'Internal server error');
+    }
+
+    reply.code(statusCode).send({
+      error: error.code ?? 'INTERNAL_ERROR',
+      message: statusCode >= 500 && !config.isDev ? 'Внутренняя ошибка сервера' : error.message,
+      statusCode,
+    });
+  });
+
+  return fastify;
+}
+
+async function start() {
+  try {
+    const server = await buildServer();
+
+    await server.listen({ port: config.port, host: config.host });
+    server.log.info(`🚀 VOVPLAN backend running at http://${config.host}:${config.port}`);
+    server.log.info(`   Environment: ${config.nodeEnv}`);
+  } catch (err) {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
+}
+
+start();

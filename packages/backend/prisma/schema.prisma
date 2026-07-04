@@ -1,0 +1,197 @@
+// VOVPLAN — Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════════
+// Enums
+// ═══════════════════════════════════════════════
+
+enum ProjectRole {
+  MASTER
+  DESIGNER
+  SUPER_SPECTATOR
+  SPECTATOR
+  EXTERNAL_SPECTATOR
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum UtilityType {
+  WATER
+  GAS
+  ELECTRIC
+  SEWAGE
+  TELECOM
+  HEAT
+}
+
+enum UtilityLocation {
+  UNDERGROUND
+  OVERHEAD
+}
+
+// ═══════════════════════════════════════════════
+// User
+// ═══════════════════════════════════════════════
+
+model User {
+  id           String           @id @default(cuid())
+  email        String           @unique
+  passwordHash String
+  displayName  String
+  avatarUrl    String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  memberships  ProjectMember[]
+  models       Model3D[]
+  comments     Comment[]
+  objects      SceneObject[]
+
+  @@map("users")
+}
+
+// ═══════════════════════════════════════════════
+// Project
+// ═══════════════════════════════════════════════
+
+model Project {
+  id          String           @id @default(cuid())
+  name        String
+  description String?
+  bounds      Json
+  centerLat   Float
+  centerLng   Float
+  terrainUrl  String?
+  status      ProjectStatus    @default(DRAFT)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  members     ProjectMember[]
+  models      Model3D[]
+  objects     SceneObject[]
+  utilities   UtilityNetwork[]
+  comments    Comment[]
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        String      @id @default(cuid())
+  projectId String
+  userId    String
+  role      ProjectRole
+  createdAt DateTime    @default(now())
+
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+// ═══════════════════════════════════════════════
+// 3D Models (assets)
+// ═══════════════════════════════════════════════
+
+model Model3D {
+  id            String      @id @default(cuid())
+  projectId     String
+  name          String
+  glbUrl        String
+  lod0Url       String?
+  lod1Url       String?
+  lod2Url       String?
+  thumbnailUrl  String?
+  boundingBox   Json
+  fileSize      Int
+  format        String      @default("glb")
+  uploadedById  String
+  createdAt     DateTime    @default(now())
+
+  project       Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy    User        @relation(fields: [uploadedById], references: [id])
+  objects       SceneObject[]
+
+  @@map("models_3d")
+}
+
+// ═══════════════════════════════════════════════
+// Scene Objects (placed models in 3D scene)
+// ═══════════════════════════════════════════════
+
+model SceneObject {
+  id          String   @id @default(cuid())
+  projectId   String
+  modelId     String
+  name        String
+  position    Json
+  rotation    Json
+  scale       Json
+  visible     Boolean  @default(true)
+  authorId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  model       Model3D  @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  author      User     @relation(fields: [authorId], references: [id])
+
+  @@map("scene_objects")
+}
+
+// ═══════════════════════════════════════════════
+// Utility Networks (engineering communications)
+// ═══════════════════════════════════════════════
+
+model UtilityNetwork {
+  id          String           @id @default(cuid())
+  projectId   String
+  name        String
+  type        UtilityType
+  location    UtilityLocation
+  geometry    Json
+  depth       Float?
+  diameter    Float?
+  material    String?
+  color       String           @default("#ff6600")
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("utility_networks")
+}
+
+// ═══════════════════════════════════════════════
+// Comments / Annotations
+// ═══════════════════════════════════════════════
+
+model Comment {
+  id          String    @id @default(cuid())
+  projectId   String
+  objectId    String?
+  anchor      Json?
+  authorId    String
+  text        String
+  resolved    Boolean   @default(false)
+  parentId    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author      User      @relation(fields: [authorId], references: [id])
+
+  @@map("comments")
+}
