@@ -1,4 +1,4 @@
-import type { User, AuthResponse, Project } from '@vovplan/shared';
+import type { User, AuthResponse, Project, ProjectMember } from '@vovplan/shared';
 
 const API_URL = import.meta.env.VITE_API_URL ?? '';
 const TOKEN_KEY = 'vovplan_token';
@@ -69,4 +69,23 @@ export const projectsApi = {
 
   delete: (id: string) =>
     apiFetch<void>(`/api/projects/${id}`, { method: 'DELETE' }),
+
+  // ── Members ─────────────────────────────────
+  listMembers: (id: string) =>
+    apiFetch<{ data: ProjectMember[] }>(`/api/projects/${id}/members`),
+
+  inviteMember: (id: string, data: { email: string; role: string }) =>
+    apiFetch<ProjectMember>(`/api/projects/${id}/members`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateMemberRole: (id: string, userId: string, role: string) =>
+    apiFetch<ProjectMember>(`/api/projects/${id}/members/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    }),
+
+  removeMember: (id: string, userId: string) =>
+    apiFetch<void>(`/api/projects/${id}/members/${userId}`, { method: 'DELETE' }),
 };

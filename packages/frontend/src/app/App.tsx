@@ -4,6 +4,7 @@ import { useAuthStore } from '../shared/authStore';
 import LoginPage from '../pages/LoginPage';
 import RegisterPage from '../pages/RegisterPage';
 import DashboardPage from '../pages/DashboardPage';
+import ProjectPage from '../pages/ProjectPage';
 import LoadingScreen from '../components/LoadingScreen';
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
       <Route path="/register" element={isAuthenticated ? <Navigate to="/" /> : <RegisterPage />} />
 
       {/* Protected routes */}
+      <Route path="/projects/:id" element={isAuthenticated ? <ProjectPage /> : <Navigate to="/login" />} />
       <Route path="/*" element={isAuthenticated ? <DashboardPage /> : <Navigate to="/login" />} />
     </Routes>
   );

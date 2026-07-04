@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectsApi } from '../shared/api';
 import { useAuthStore } from '../shared/authStore';
@@ -86,8 +87,12 @@ export default function DashboardPage() {
 
 // ── Project Card ──────────────────────────────
 function ProjectCard({ project }: { project: Project }) {
+  const navigate = useNavigate();
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-shadow cursor-pointer">
+    <div
+      onClick={() => navigate(`/projects/${project.id}`)}
+      className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md hover:border-vovplan-300 transition-all cursor-pointer"
+    >
       <div className="flex items-start justify-between mb-3">
         <h3 className="text-lg font-semibold text-slate-800">{project.name}</h3>
         {project.myRole && (
