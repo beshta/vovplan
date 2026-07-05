@@ -25,14 +25,14 @@ export default function Scene({ currentUserId, projectId }: { currentUserId: str
         antialias: !quality.isMobile,
         powerPreference: 'high-performance',
         toneMapping: ACESFilmicToneMapping,
-        toneMappingExposure: 1.1,
+        toneMappingExposure: 1.8,
       }}
-      camera={{ fov: 50, near: 0.1, far: 1000, position: [40, 45, 40] }}
+      camera={{ fov: 50, near: 0.1, far: 1000, position: [50, 55, 50] }}
       onPointerMissed={() => selectObject(null)}
     >
       {/* Sky background color */}
-      <color attach="background" args={['#87a8d8']} />
-      <fog attach="fog" args={['#87a8d8', 100, 400]} />
+      <color attach="background" args={['#a8c8e8']} />
+      <fog attach="fog" args={['#a8c8e8', 120, 500]} />
 
       <Suspense fallback={null}>
         <Lighting shadowMapSize={quality.shadowMapSize} />

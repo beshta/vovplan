@@ -19,8 +19,8 @@ export default function Terrain({ size = 200 }: { size?: number }) {
       <planeGeometry args={[size, size, 1, 1]} />
       <meshStandardMaterial
         map={gridTexture}
-        color="#3a4a3a"
-        roughness={0.9}
+        color="#5a7a5a"
+        roughness={0.85}
         metalness={0}
       />
     </mesh>
@@ -35,11 +35,11 @@ function createGridTexture(size: number): THREE.Texture {
   const ctx = canvas.getContext('2d')!;
 
   // Dark green base
-  ctx.fillStyle = '#2d3a2d';
+  ctx.fillStyle = '#4a6a4a';
   ctx.fillRect(0, 0, 512, 512);
 
   // Grid lines every 64px (represents 10m in world space)
-  ctx.strokeStyle = '#3d5a3d';
+  ctx.strokeStyle = '#6a8a5a';
   ctx.lineWidth = 1;
   for (let i = 0; i <= 512; i += 64) {
     ctx.beginPath();
@@ -53,7 +53,7 @@ function createGridTexture(size: number): THREE.Texture {
   }
 
   // Major lines every 256px
-  ctx.strokeStyle = '#4d7a4d';
+  ctx.strokeStyle = '#8aaa7a';
   ctx.lineWidth = 2;
   for (let i = 0; i <= 512; i += 256) {
     ctx.beginPath();

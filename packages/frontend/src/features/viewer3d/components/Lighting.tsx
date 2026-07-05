@@ -18,14 +18,14 @@ export default function Lighting({ shadowMapSize = 2048 }: { shadowMapSize?: num
     <>
       {/* Ambient sky light — soft blue from above, warm from below */}
       <hemisphereLight
-        args={['#b1d8ff', '#5a4a35', 0.6]}
+        args={['#d0e8ff', '#aa9566', 2.0]}
       />
 
       {/* Sun — directional with shadows */}
       <directionalLight
         ref={sunRef}
         position={sunPosition}
-        intensity={1.8}
+        intensity={5.0}
         color="#fff4e6"
         castShadow
         shadow-mapSize-width={shadowMapSize}
