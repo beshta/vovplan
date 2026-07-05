@@ -46,6 +46,10 @@ interface ViewerState {
   modelUrls: Record<string, string>;
   setModelUrls: (urls: Record<string, string>) => void;
 
+  // ── Model cache (modelId → {glbUrl, lod1Url, lod2Url}) ──
+  modelCache: Record<string, { glbUrl: string; lod1Url: string | null; lod2Url: string | null }>;
+  setModelCache: (cache: Record<string, { glbUrl: string; lod1Url: string | null; lod2Url: string | null }>) => void;
+
   // ── Model loading state ───────────────────
   loadingModels: Set<string>;
   setLoadingModel: (modelId: string, loading: boolean) => void;
@@ -101,6 +105,10 @@ export const useViewerStore = create<ViewerState>((set) => ({
   // Model URLs
   modelUrls: {},
   setModelUrls: (modelUrls) => set({ modelUrls }),
+
+  // Model cache (with LOD)
+  modelCache: {},
+  setModelCache: (modelCache) => set({ modelCache }),
 
   // Model loading state
   loadingModels: new Set<string>(),

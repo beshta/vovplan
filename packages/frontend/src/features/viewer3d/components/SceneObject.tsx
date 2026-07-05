@@ -1,10 +1,10 @@
-import { useRef, Suspense, Component } from 'react';
-import type { ReactNode } from 'react';
-import { TransformControls, useGLTF } from '@react-three/drei';
+import { useRef } from 'react';
+import { TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useViewerStore } from '../stores/viewerStore';
 import type { SceneObjectData } from '../types';
 import ModelPlaceholder from './ModelPlaceholder';
+import LodModel from './LodModel';
 import { sceneApi } from '../../../shared/api';
 
 interface Props {
@@ -13,39 +13,9 @@ interface Props {
   projectId: string;
 }
 
-interface GLBModelProps {
-  url: string;
-}
-
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
-
-/** Load and render a GLB model — falls back to placeholder on error */
-function GLBModel({ url }: GLBModelProps) {
-  const fullUrl = url.startsWith('http') ? url : `${API_URL}${url}`;
-  const { scene } = useGLTF(fullUrl);
-  // Clone to avoid modifying the cached original
-  const cloned = scene.clone(true);
-  return <primitive object={cloned} />;
-}
-
-/** Error boundary that shows a placeholder if GLB fails to load */
-class ErrorBoundarySafe extends Component<{ children: ReactNode }, { hasError: boolean }> {
-  state = { hasError: false };
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-  render() {
-    if (this.state.hasError) {
-      return <ModelPlaceholder position={[0, 0, 0]} name="⚠ Ошибка" color="#ef4444" />;
-    }
-    return this.props.children;
-  }
-}
-
 /**
  * A single placed object in the 3D scene.
- * If object has a modelId with a GLB URL, render the actual model.
- * Otherwise, fall back to a placeholder.
+ * Uses LodModel for distance-based detail switching.
  */
 export default function SceneObject({ data, currentUserId, projectId }: Props) {
   const groupRef = useRef<THREE.Group>(null);
@@ -56,7 +26,7 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
   const updateObject = useViewerStore((s) => s.updateObject);
   const transformMode = useViewerStore((s) => s.transformMode);
   const showHidden = useViewerStore((s) => s.showHidden);
-  const modelUrls = useViewerStore((s) => s.modelUrls);
+  const modelCache = useViewerStore((s) => s.modelCache);
 
   if (data.hidden && !showHidden) return null;
 
@@ -92,8 +62,8 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
     });
   };
 
-  // Determine which model URL to use (if any)
-  const glbUrl = data.modelId ? modelUrls[data.modelId] : undefined;
+  // Look up model cache entry for this object's modelId
+  const model = data.modelId ? modelCache[data.modelId] : undefined;
   const color = data.hidden ? '#f59e0b' : isSelected ? '#10b981' : '#3b82f6';
 
   return (
@@ -103,13 +73,14 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
       rotation={data.rotation}
       scale={data.scale}
     >
-      {/* Render GLB model or placeholder */}
-      {glbUrl ? (
-        <Suspense fallback={<ModelPlaceholder position={[0, 0, 0]} name="" color="#94a3b8" />}>
-          <ErrorBoundarySafe>
-            <GLBModel url={glbUrl} />
-          </ErrorBoundarySafe>
-        </Suspense>
+      {/* Render LOD model or placeholder */}
+      {model?.glbUrl ? (
+        <LodModel
+          glbUrl={model.glbUrl}
+          lod1Url={model.lod1Url}
+          lod2Url={model.lod2Url}
+          name={data.name}
+        />
       ) : (
         <ModelPlaceholder position={[0, 0, 0]} name={data.name} color={color} />
       )}

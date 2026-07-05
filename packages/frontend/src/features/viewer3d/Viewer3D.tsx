@@ -22,7 +22,7 @@ interface Viewer3DProps {
 export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const initFromRole = useViewerStore((s) => s.initFromRole);
   const setObjects = useViewerStore((s) => s.setObjects);
-  const setModelUrls = useViewerStore((s) => s.setModelUrls);
+  const setModelCache = useViewerStore((s) => s.setModelCache);
   const addObject = useViewerStore((s) => s.addObject);
   const cameraView = useViewerStore((s) => s.cameraView);
   const setCameraView = useViewerStore((s) => s.setCameraView);
@@ -64,15 +64,19 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
     );
   }, [sceneData, setObjects]);
 
-  // ── Build modelUrls mapping (modelId → glbUrl) ──
+  // ── Build modelCache (modelId → {glbUrl, lod1Url, lod2Url}) ──
   useEffect(() => {
     if (!modelsData?.data) return;
-    const urls: Record<string, string> = {};
+    const cache: Record<string, { glbUrl: string; lod1Url: string | null; lod2Url: string | null }> = {};
     for (const m of modelsData.data) {
-      urls[m.id] = m.glbUrl;
+      cache[m.id] = {
+        glbUrl: m.glbUrl,
+        lod1Url: m.lod1Url,
+        lod2Url: m.lod2Url,
+      };
     }
-    setModelUrls(urls);
-  }, [modelsData, setModelUrls]);
+    setModelCache(cache);
+  }, [modelsData, setModelCache]);
 
   // ── Place a model from the library onto the scene ──
   const handlePlaceObject = async (model: Model3DPayload) => {
@@ -82,10 +86,14 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
       position: [0, 0, 0],
     });
 
-    // Update modelUrl mapping
-    const urls = { ...useViewerStore.getState().modelUrls };
-    urls[newObj.id] = model.glbUrl;
-    setModelUrls(urls);
+    // Update model cache with new model's LOD URLs
+    const cache = { ...useViewerStore.getState().modelCache };
+    cache[model.id] = {
+      glbUrl: model.glbUrl,
+      lod1Url: model.lod1Url,
+      lod2Url: model.lod2Url,
+    };
+    setModelCache(cache);
 
     addObject({
       id: newObj.id,
