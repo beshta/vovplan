@@ -108,7 +108,7 @@ export const sceneApi = {
   listObjects: (projectId: string) =>
     apiFetch<{ data: SceneObjectPayload[] }>(`/api/projects/${projectId}/objects`),
 
-  createObject: (projectId: string, data: { name: string; position: [number, number, number] }) =>
+  createObject: (projectId: string, data: { name: string; modelId?: string; position: [number, number, number] }) =>
     apiFetch<SceneObjectPayload>(`/api/projects/${projectId}/objects`, {
       method: 'POST',
       body: JSON.stringify(data),
@@ -134,4 +134,43 @@ export const sceneApi = {
     apiFetch<{ id: string; restored: boolean }>(`/api/projects/${projectId}/objects/${id}/restore`, {
       method: 'POST',
     }),
+};
+
+// ── Models API ────────────────────────────────
+export interface Model3DPayload {
+  id: string;
+  name: string;
+  glbUrl: string;
+  lod0Url: string | null;
+  lod1Url: string | null;
+  lod2Url: string | null;
+  thumbnailUrl: string | null;
+  fileSize: number;
+  format: string;
+  uploadedBy: string;
+  createdAt: string;
+}
+
+export const modelsApi = {
+  list: (projectId: string) =>
+    apiFetch<{ data: Model3DPayload[] }>(`/api/projects/${projectId}/models`),
+
+  upload: async (projectId: string, file: File, name: string): Promise<Model3DPayload> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('name', name);
+    const res = await fetch(`${API_URL}/api/projects/${projectId}/models`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${getToken()}` },
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: 'Upload failed' }));
+      throw new Error(err.message ?? 'Upload failed');
+    }
+    return res.json();
+  },
+
+  remove: (projectId: string, id: string) =>
+    apiFetch<void>(`/api/projects/${projectId}/models/${id}`, { method: 'DELETE' }),
 };

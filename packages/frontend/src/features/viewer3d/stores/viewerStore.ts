@@ -41,6 +41,14 @@ interface ViewerState {
   setShowUtilities: (v: boolean) => void;
   showAnnotations: boolean;
   setShowAnnotations: (v: boolean) => void;
+
+  // ── Model URLs (modelId → glbUrl) ──────────
+  modelUrls: Record<string, string>;
+  setModelUrls: (urls: Record<string, string>) => void;
+
+  // ── Model loading state ───────────────────
+  loadingModels: Set<string>;
+  setLoadingModel: (modelId: string, loading: boolean) => void;
 }
 
 export const useViewerStore = create<ViewerState>((set) => ({
@@ -89,4 +97,18 @@ export const useViewerStore = create<ViewerState>((set) => ({
   setShowUtilities: (showUtilities) => set({ showUtilities }),
   showAnnotations: true,
   setShowAnnotations: (showAnnotations) => set({ showAnnotations }),
+
+  // Model URLs
+  modelUrls: {},
+  setModelUrls: (modelUrls) => set({ modelUrls }),
+
+  // Model loading state
+  loadingModels: new Set<string>(),
+  setLoadingModel: (modelId, loading) =>
+    set((s) => {
+      const next = new Set(s.loadingModels);
+      if (loading) next.add(modelId);
+      else next.delete(modelId);
+      return { loadingModels: next };
+    }),
 }));

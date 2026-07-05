@@ -2,9 +2,13 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { config } from './config/index.js';
 import corsPlugin from './plugins/cors.js';
 import authPlugin from './plugins/auth.js';
+import multipart from '@fastify/multipart';
+import fastifyStatic from '@fastify/static';
+import { join } from 'node:path';
 import authRoutes from './modules/auth/routes.js';
 import projectRoutes from './modules/projects/routes.js';
 import sceneRoutes from './modules/scene/routes.js';
+import modelRoutes from './modules/models/routes.js';
 
 async function buildServer(): Promise<FastifyInstance> {
   const fastify = Fastify({
@@ -15,6 +19,21 @@ async function buildServer(): Promise<FastifyInstance> {
   await fastify.register(corsPlugin);
   await fastify.register(authPlugin);
 
+  // ── File upload (multipart) ────────────────
+  await fastify.register(multipart, {
+    limits: {
+      fileSize: 100 * 1024 * 1024, // 100 MB per file
+    },
+  });
+
+  // ── Static file serving (uploaded models) ──
+  const uploadsDir = join(process.cwd(), 'uploads');
+  await fastify.register(fastifyStatic, {
+    root: uploadsDir,
+    prefix: '/uploads/',
+    decorateReply: false,
+  });
+
   // ── Health check ───────────────────────────
   fastify.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
@@ -22,6 +41,7 @@ async function buildServer(): Promise<FastifyInstance> {
   await fastify.register(authRoutes, { prefix: '/api/auth' });
   await fastify.register(projectRoutes, { prefix: '/api/projects' });
   await fastify.register(sceneRoutes, { prefix: '/api/projects' });
+  await fastify.register(modelRoutes, { prefix: '/api/projects' });
 
   // ── Error handler ──────────────────────────
   fastify.setErrorHandler((error: any, request, reply) => {
