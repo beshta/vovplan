@@ -39,3 +39,6 @@ infrastructure/data/
 
 # Turbo
 .turbo/
+packages/backend/uploads/
+infrastructure/test_model.glb
+infrastructure/test-e2e.py
