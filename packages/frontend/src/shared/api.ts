@@ -89,3 +89,49 @@ export const projectsApi = {
   removeMember: (id: string, userId: string) =>
     apiFetch<void>(`/api/projects/${id}/members/${userId}`, { method: 'DELETE' }),
 };
+
+// ── Scene Objects API ─────────────────────────
+export interface SceneObjectPayload {
+  id: string;
+  modelId: string;
+  name: string;
+  authorId: string;
+  authorName: string;
+  position: [number, number, number];
+  rotation: [number, number, number];
+  scale: [number, number, number];
+  visible: boolean;
+  hidden: boolean;
+}
+
+export const sceneApi = {
+  listObjects: (projectId: string) =>
+    apiFetch<{ data: SceneObjectPayload[] }>(`/api/projects/${projectId}/objects`),
+
+  createObject: (projectId: string, data: { name: string; position: [number, number, number] }) =>
+    apiFetch<SceneObjectPayload>(`/api/projects/${projectId}/objects`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateObject: (projectId: string, id: string, data: Partial<{
+    position: [number, number, number];
+    rotation: [number, number, number];
+    scale: [number, number, number];
+    visible: boolean;
+  }>) =>
+    apiFetch<SceneObjectPayload>(`/api/projects/${projectId}/objects/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  deleteObject: (projectId: string, id: string) =>
+    apiFetch<{ id: string; hidden: boolean }>(`/api/projects/${projectId}/objects/${id}`, {
+      method: 'DELETE',
+    }),
+
+  restoreObject: (projectId: string, id: string) =>
+    apiFetch<{ id: string; restored: boolean }>(`/api/projects/${projectId}/objects/${id}/restore`, {
+      method: 'POST',
+    }),
+};

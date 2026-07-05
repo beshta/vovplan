@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import * as bcrypt from 'bcryptjs';
+import bcrypt from 'bcryptjs';
 import { registerSchema, loginSchema } from '@vovplan/shared';
 import prisma from '../../db/prisma.js';
 

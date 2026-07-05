@@ -4,6 +4,7 @@ import corsPlugin from './plugins/cors.js';
 import authPlugin from './plugins/auth.js';
 import authRoutes from './modules/auth/routes.js';
 import projectRoutes from './modules/projects/routes.js';
+import sceneRoutes from './modules/scene/routes.js';
 
 async function buildServer(): Promise<FastifyInstance> {
   const fastify = Fastify({
@@ -20,6 +21,7 @@ async function buildServer(): Promise<FastifyInstance> {
   // ── API Routes ─────────────────────────────
   await fastify.register(authRoutes, { prefix: '/api/auth' });
   await fastify.register(projectRoutes, { prefix: '/api/projects' });
+  await fastify.register(sceneRoutes, { prefix: '/api/projects' });
 
   // ── Error handler ──────────────────────────
   fastify.setErrorHandler((error: any, request, reply) => {

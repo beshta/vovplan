@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import type { ProjectRole } from '@vovplan/shared';
 import { useViewerStore } from './stores/viewerStore';
+import { sceneApi } from '../../shared/api';
 import Scene from './components/Scene';
 import ViewerToolbar from './components/ViewerToolbar';
 import ObjectInfoPanel from './components/ObjectInfoPanel';
@@ -13,9 +15,11 @@ interface Viewer3DProps {
 
 /**
  * VOVPLAN 3D Viewer — main entry point.
+ * Loads scene objects from real API, no more demo data.
  */
-export default function Viewer3D({ role, userId }: Viewer3DProps) {
+export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const initFromRole = useViewerStore((s) => s.initFromRole);
+  const setObjects = useViewerStore((s) => s.setObjects);
   const cameraView = useViewerStore((s) => s.cameraView);
   const setCameraView = useViewerStore((s) => s.setCameraView);
 
@@ -23,37 +27,46 @@ export default function Viewer3D({ role, userId }: Viewer3DProps) {
     initFromRole(role);
   }, [role, initFromRole]);
 
-  // ── Demo data: a few placeholder objects ──
+  // ── Load scene objects from API ──
+  const { data: sceneData } = useQuery({
+    queryKey: ['scene-objects', projectId],
+    queryFn: () => sceneApi.listObjects(projectId),
+    enabled: !!projectId,
+  });
+
+  // ── Sync API data → viewer store ──
   useEffect(() => {
-    const { setObjects } = useViewerStore.getState();
-    setObjects([
-      {
-        id: 'demo-1', modelId: 'm1', name: 'Главная сцена',
-        authorId: userId, authorName: 'Вы',
-        position: [0, 0, -10], rotation: [0, 0, 0], scale: [1, 1, 1],
-        visible: true, hidden: false,
-      },
-      {
-        id: 'demo-2', modelId: 'm2', name: 'Бытовка',
-        authorId: 'other', authorName: 'Иван П.',
-        position: [15, 0, 5], rotation: [0, 0, 0], scale: [1, 1, 1],
-        visible: true, hidden: false,
-      },
-      {
-        id: 'demo-3', modelId: 'm3', name: 'Забор (скрыт)',
-        authorId: 'other', authorName: 'Иван П.',
-        position: [-15, 0, 10], rotation: [0, 0, 0], scale: [1, 1, 1],
-        visible: true, hidden: true, hiddenBy: 'other',
-      },
-    ]);
-  }, [userId]);
+    if (!sceneData?.data) return;
+    setObjects(
+      sceneData.data.map((o) => ({
+        id: o.id,
+        modelId: o.modelId,
+        name: o.name,
+        authorId: o.authorId,
+        authorName: o.authorName,
+        position: o.position,
+        rotation: o.rotation,
+        scale: o.scale,
+        visible: o.visible,
+        hidden: o.hidden,
+      })),
+    );
+  }, [sceneData, setObjects]);
 
   return (
     <div className="relative w-full h-full">
-      <Scene currentUserId={userId} />
+      <Scene currentUserId={userId} projectId={projectId} />
 
       <ViewerToolbar />
       <ObjectInfoPanel />
+
+      {/* Empty state hint */}
+      {sceneData?.data.length === 0 && (
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-slate-400 pointer-events-none z-10">
+          <div className="text-5xl mb-3">🏗️</div>
+          <p className="text-sm">Сцена пуста. Объекты появятся после загрузки.</p>
+        </div>
+      )}
 
       {cameraView === 'first-person' && (
         <>

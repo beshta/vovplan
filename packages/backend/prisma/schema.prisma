@@ -5,8 +5,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Dev: SQLite (no Docker needed). Production: postgresql + PostGIS
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 // ═══════════════════════════════════════════════
@@ -61,7 +62,6 @@ model User {
 
   @@map("users")
 }
-
 // ═══════════════════════════════════════════════
 // Project
 // ═══════════════════════════════════════════════
@@ -134,7 +134,7 @@ model Model3D {
 model SceneObject {
   id          String   @id @default(cuid())
   projectId   String
-  modelId     String
+  modelId     String?  // FK to Model3D — nullable until model upload is implemented (Phase 4)
   name        String
   position    Json
   rotation    Json
@@ -145,7 +145,7 @@ model SceneObject {
   updatedAt   DateTime @updatedAt
 
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  model       Model3D  @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  model       Model3D? @relation(fields: [modelId], references: [id], onDelete: Cascade)
   author      User     @relation(fields: [authorId], references: [id])
 
   @@map("scene_objects")

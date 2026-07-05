@@ -12,7 +12,7 @@ import { detectQuality } from '../utils/deviceProfiler';
  * The R3F Canvas — 3D scene root.
  * Contains lighting, camera controls, terrain, and all scene objects.
  */
-export default function Scene({ currentUserId }: { currentUserId: string }) {
+export default function Scene({ currentUserId, projectId }: { currentUserId: string; projectId: string }) {
   const quality = detectQuality();
   const objects = useViewerStore((s) => s.objects);
   const selectObject = useViewerStore((s) => s.selectObject);
@@ -41,7 +41,7 @@ export default function Scene({ currentUserId }: { currentUserId: string }) {
 
         {/* Render all scene objects */}
         {objects.map((obj) => (
-          <SceneObject key={obj.id} data={obj} currentUserId={currentUserId} />
+          <SceneObject key={obj.id} data={obj} currentUserId={currentUserId} projectId={projectId} />
         ))}
       </Suspense>
     </Canvas>
