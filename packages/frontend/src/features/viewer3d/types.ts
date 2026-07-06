@@ -40,6 +40,28 @@ export interface AnnotationData {
   createdAt: string;
 }
 
+/** Utility network type (вода, газ, электричество, канализация, связь, теплo) */
+export type UtilityType = 'WATER' | 'GAS' | 'ELECTRIC' | 'SEWAGE' | 'TELECOM' | 'HEAT';
+
+/** Utility location: underground or overhead */
+export type UtilityLocation = 'UNDERGROUND' | 'OVERHEAD';
+
+/** Engineering utility network — a polyline in 3D space */
+export interface UtilityNetworkData {
+  id: string;
+  name: string;
+  type: UtilityType;
+  location: UtilityLocation;
+  /** Polyline points in local scene coords: [[x, y, z], ...] */
+  geometry: [number, number, number][];
+  /** Burial depth in meters (for underground) */
+  depth: number | null;
+  /** Pipe diameter in mm */
+  diameter: number | null;
+  material: string | null;
+  color: string;
+}
+
 /** Quality profile based on device capabilities */
 export interface QualityProfile {
   maxAnisotropy: number;

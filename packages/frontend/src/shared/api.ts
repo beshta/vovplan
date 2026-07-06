@@ -174,3 +174,57 @@ export const modelsApi = {
   remove: (projectId: string, id: string) =>
     apiFetch<void>(`/api/projects/${projectId}/models/${id}`, { method: 'DELETE' }),
 };
+
+// ── Utilities API (инженерные сети) ───────────
+export type UtilityType = 'WATER' | 'GAS' | 'ELECTRIC' | 'SEWAGE' | 'TELECOM' | 'HEAT';
+export type UtilityLocation = 'UNDERGROUND' | 'OVERHEAD';
+
+export interface UtilityNetworkPayload {
+  id: string;
+  name: string;
+  type: UtilityType;
+  location: UtilityLocation;
+  geometry: [number, number, number][];
+  depth: number | null;
+  diameter: number | null;
+  material: string | null;
+  color: string;
+}
+
+export const utilitiesApi = {
+  list: (projectId: string) =>
+    apiFetch<{ data: UtilityNetworkPayload[] }>(`/api/projects/${projectId}/utilities`),
+
+  create: (projectId: string, data: {
+    name: string;
+    type: UtilityType;
+    location: UtilityLocation;
+    geometry: [number, number, number][];
+    depth?: number;
+    diameter?: number;
+    material?: string;
+    color?: string;
+  }) =>
+    apiFetch<UtilityNetworkPayload>(`/api/projects/${projectId}/utilities`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (projectId: string, id: string, data: Partial<{
+    name: string;
+    type: UtilityType;
+    location: UtilityLocation;
+    geometry: [number, number, number][];
+    depth: number;
+    diameter: number;
+    material: string;
+    color: string;
+  }>) =>
+    apiFetch<UtilityNetworkPayload>(`/api/projects/${projectId}/utilities/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  remove: (projectId: string, id: string) =>
+    apiFetch<void>(`/api/projects/${projectId}/utilities/${id}`, { method: 'DELETE' }),
+};

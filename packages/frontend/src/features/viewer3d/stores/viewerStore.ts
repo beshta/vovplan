@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ViewerMode, CameraView, TransformMode, SceneObjectData, AnnotationData } from '../types';
+import type { ViewerMode, CameraView, TransformMode, SceneObjectData, AnnotationData, UtilityNetworkData } from '../types';
 import { ProjectRole } from '@vovplan/shared';
 
 interface ViewerState {
@@ -49,6 +49,18 @@ interface ViewerState {
   // ── Model cache (modelId → {glbUrl, lod1Url, lod2Url}) ──
   modelCache: Record<string, { glbUrl: string; lod1Url: string | null; lod2Url: string | null }>;
   setModelCache: (cache: Record<string, { glbUrl: string; lod1Url: string | null; lod2Url: string | null }>) => void;
+
+  // ── Utility networks (инженерные сети) ─────
+  utilities: UtilityNetworkData[];
+  setUtilities: (u: UtilityNetworkData[]) => void;
+
+  // ── X-Ray mode ─────────────────────────────
+  xrayMode: boolean;
+  setXrayMode: (v: boolean) => void;
+
+  // ── Utility type visibility ────────────────
+  visibleUtilityTypes: Record<string, boolean>;
+  toggleUtilityType: (type: string) => void;
 
   // ── Model loading state ───────────────────
   loadingModels: Set<string>;
@@ -109,6 +121,31 @@ export const useViewerStore = create<ViewerState>((set) => ({
   // Model cache (with LOD)
   modelCache: {},
   setModelCache: (modelCache) => set({ modelCache }),
+
+  // Utility networks
+  utilities: [],
+  setUtilities: (utilities) => set({ utilities }),
+
+  // X-Ray mode
+  xrayMode: false,
+  setXrayMode: (xrayMode) => set({ xrayMode }),
+
+  // Utility type visibility (all visible by default)
+  visibleUtilityTypes: {
+    WATER: true,
+    GAS: true,
+    ELECTRIC: true,
+    SEWAGE: true,
+    TELECOM: true,
+    HEAT: true,
+  },
+  toggleUtilityType: (type) =>
+    set((s) => ({
+      visibleUtilityTypes: {
+        ...s.visibleUtilityTypes,
+        [type]: !s.visibleUtilityTypes[type],
+      },
+    })),
 
   // Model loading state
   loadingModels: new Set<string>(),

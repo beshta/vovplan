@@ -7,7 +7,7 @@ import * as THREE from 'three';
  * Phase 2.2 will replace this with a real DEM-based heightmap.
  * For now: a large flat plane with grid texture for spatial reference.
  */
-export default function Terrain({ size = 200 }: { size?: number }) {
+export default function Terrain({ size = 200, xray = false }: { size?: number; xray?: boolean }) {
   const gridTexture = useMemo(() => createGridTexture(size), [size]);
 
   return (
@@ -22,6 +22,9 @@ export default function Terrain({ size = 200 }: { size?: number }) {
         color="#5a7a5a"
         roughness={0.85}
         metalness={0}
+        transparent={xray}
+        opacity={xray ? 0.25 : 1.0}
+        depthWrite={!xray}
       />
     </mesh>
   );

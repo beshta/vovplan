@@ -5,6 +5,7 @@ import Lighting from './Lighting';
 import CameraRig from './CameraRig';
 import Terrain from './Terrain';
 import SceneObject from './SceneObject';
+import UtilityNetworks3D from './UtilityNetworks3D';
 import { useViewerStore } from '../stores/viewerStore';
 import { detectQuality } from '../utils/deviceProfiler';
 
@@ -16,6 +17,7 @@ export default function Scene({ currentUserId, projectId }: { currentUserId: str
   const quality = detectQuality();
   const objects = useViewerStore((s) => s.objects);
   const selectObject = useViewerStore((s) => s.selectObject);
+  const xrayMode = useViewerStore((s) => s.xrayMode);
 
   return (
     <Canvas
@@ -37,7 +39,10 @@ export default function Scene({ currentUserId, projectId }: { currentUserId: str
       <Suspense fallback={null}>
         <Lighting shadowMapSize={quality.shadowMapSize} />
         <CameraRig />
-        <Terrain size={200} />
+        <Terrain size={200} xray={xrayMode} />
+
+        {/* Engineering utility networks */}
+        <UtilityNetworks3D />
 
         {/* Render all scene objects */}
         {objects.map((obj) => (
