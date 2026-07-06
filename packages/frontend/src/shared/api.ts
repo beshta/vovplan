@@ -228,3 +228,24 @@ export const utilitiesApi = {
   remove: (projectId: string, id: string) =>
     apiFetch<void>(`/api/projects/${projectId}/utilities/${id}`, { method: 'DELETE' }),
 };
+
+// ── Terrain API (DEM heightmap) ───────────────
+export const terrainApi = {
+  upload: async (projectId: string, file: File): Promise<{ terrainUrl: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${API_URL}/api/projects/${projectId}/terrain`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${getToken()}` },
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: 'Upload failed' }));
+      throw new Error(err.message ?? 'Upload failed');
+    }
+    return res.json();
+  },
+
+  remove: (projectId: string) =>
+    apiFetch<void>(`/api/projects/${projectId}/terrain`, { method: 'DELETE' }),
+};

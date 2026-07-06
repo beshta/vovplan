@@ -62,6 +62,14 @@ interface ViewerState {
   visibleUtilityTypes: Record<string, boolean>;
   toggleUtilityType: (type: string) => void;
 
+  // ── Terrain ────────────────────────────────
+  terrainUrl: string | null;
+  setTerrainUrl: (url: string | null) => void;
+  proceduralTerrain: boolean;
+  setProceduralTerrain: (v: boolean) => void;
+  wireframe: boolean;
+  setWireframe: (v: boolean) => void;
+
   // ── Model loading state ───────────────────
   loadingModels: Set<string>;
   setLoadingModel: (modelId: string, loading: boolean) => void;
@@ -146,6 +154,14 @@ export const useViewerStore = create<ViewerState>((set) => ({
         [type]: !s.visibleUtilityTypes[type],
       },
     })),
+
+  // Terrain
+  terrainUrl: null,
+  setTerrainUrl: (terrainUrl) => set({ terrainUrl }),
+  proceduralTerrain: true,
+  setProceduralTerrain: (proceduralTerrain) => set({ proceduralTerrain }),
+  wireframe: false,
+  setWireframe: (wireframe) => set({ wireframe }),
 
   // Model loading state
   loadingModels: new Set<string>(),

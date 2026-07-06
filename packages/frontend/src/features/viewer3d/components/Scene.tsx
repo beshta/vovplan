@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { ACESFilmicToneMapping } from 'three';
 import Lighting from './Lighting';
 import CameraRig from './CameraRig';
-import Terrain from './Terrain';
+import TerrainManager from './TerrainManager';
 import SceneObject from './SceneObject';
 import UtilityNetworks3D from './UtilityNetworks3D';
 import { useViewerStore } from '../stores/viewerStore';
@@ -18,6 +18,8 @@ export default function Scene({ currentUserId, projectId }: { currentUserId: str
   const objects = useViewerStore((s) => s.objects);
   const selectObject = useViewerStore((s) => s.selectObject);
   const xrayMode = useViewerStore((s) => s.xrayMode);
+  const terrainUrl = useViewerStore((s) => s.terrainUrl);
+  const proceduralTerrain = useViewerStore((s) => s.proceduralTerrain);
 
   return (
     <Canvas
@@ -39,7 +41,12 @@ export default function Scene({ currentUserId, projectId }: { currentUserId: str
       <Suspense fallback={null}>
         <Lighting shadowMapSize={quality.shadowMapSize} />
         <CameraRig />
-        <Terrain size={200} xray={xrayMode} />
+        <TerrainManager
+          size={200}
+          heightmapUrl={terrainUrl}
+          procedural={proceduralTerrain}
+          xray={xrayMode}
+        />
 
         {/* Engineering utility networks */}
         <UtilityNetworks3D />

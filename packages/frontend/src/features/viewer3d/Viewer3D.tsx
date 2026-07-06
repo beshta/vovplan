@@ -2,13 +2,14 @@ import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { ProjectRole } from '@vovplan/shared';
 import { useViewerStore } from './stores/viewerStore';
-import { sceneApi, modelsApi, utilitiesApi } from '../../shared/api';
+import { sceneApi, modelsApi, utilitiesApi, projectsApi } from '../../shared/api';
 import type { Model3DPayload, UtilityNetworkPayload } from '../../shared/api';
 import Scene from './components/Scene';
 import ViewerToolbar from './components/ViewerToolbar';
 import ObjectInfoPanel from './components/ObjectInfoPanel';
 import ModelLibrary from './components/ModelLibrary';
 import UtilityLayersPanel from './components/UtilityLayersPanel';
+import TerrainPanel from './components/TerrainPanel';
 
 interface Viewer3DProps {
   projectId: string;
@@ -25,6 +26,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const setObjects = useViewerStore((s) => s.setObjects);
   const setModelCache = useViewerStore((s) => s.setModelCache);
   const setUtilities = useViewerStore((s) => s.setUtilities);
+  const setTerrainUrl = useViewerStore((s) => s.setTerrainUrl);
   const addObject = useViewerStore((s) => s.addObject);
   const cameraView = useViewerStore((s) => s.cameraView);
   const setCameraView = useViewerStore((s) => s.setCameraView);
@@ -51,6 +53,13 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const { data: utilitiesData } = useQuery({
     queryKey: ['utilities', projectId],
     queryFn: () => utilitiesApi.list(projectId),
+    enabled: !!projectId,
+  });
+
+  // ── Load project details (for terrainUrl) ──
+  const { data: projectData } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: () => projectsApi.get(projectId),
     enabled: !!projectId,
   });
 
@@ -105,6 +114,13 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
     );
   }, [utilitiesData, setUtilities]);
 
+  // ── Sync terrainUrl → viewer store ──
+  useEffect(() => {
+    if (projectData?.terrainUrl) {
+      setTerrainUrl(projectData.terrainUrl);
+    }
+  }, [projectData, setTerrainUrl]);
+
   // ── Place a model from the library onto the scene ──
   const handlePlaceObject = async (model: Model3DPayload) => {
     const newObj = await sceneApi.createObject(projectId, {
@@ -147,6 +163,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
         <ViewerToolbar />
         <ObjectInfoPanel />
         <UtilityLayersPanel />
+        {canEdit && <TerrainPanel projectId={projectId} />}
 
         {/* Empty state hint */}
         {sceneData?.data.length === 0 && (
