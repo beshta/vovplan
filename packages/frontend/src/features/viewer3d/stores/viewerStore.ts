@@ -29,10 +29,12 @@ interface ViewerState {
   addObject: (obj: SceneObjectData) => void;
   removeObject: (id: string) => void;
 
-  // ── Annotations ───────────────────────────
+  // ── Annotations ─────────────────────────────
   annotations: AnnotationData[];
   addAnnotation: (a: AnnotationData) => void;
   removeAnnotation: (id: string) => void;
+  updateAnnotation: (id: string, patch: Partial<AnnotationData>) => void;
+  setAnnotations: (a: AnnotationData[]) => void;
 
   // ── Layer visibility ──────────────────────
   showHidden: boolean;       // Master: show soft-deleted objects
@@ -113,6 +115,11 @@ export const useViewerStore = create<ViewerState>((set) => ({
   annotations: [],
   addAnnotation: (a) => set((s) => ({ annotations: [...s.annotations, a] })),
   removeAnnotation: (id) => set((s) => ({ annotations: s.annotations.filter((a) => a.id !== id) })),
+  updateAnnotation: (id, patch) =>
+    set((s) => ({
+      annotations: s.annotations.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+    })),
+  setAnnotations: (annotations) => set({ annotations }),
 
   // Layers
   showHidden: false,

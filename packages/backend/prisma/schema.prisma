@@ -187,6 +187,12 @@ model Comment {
   text        String
   resolved    Boolean   @default(false)
   parentId    String?
+
+  // ── 3D Annotation fields ───────────────────
+  type        String?   // 'arrow' | 'line' | 'freehand' | 'pin'
+  geometry    Json?     // [[x,y,z], ...] — polyline points
+  color       String?   // hex color
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

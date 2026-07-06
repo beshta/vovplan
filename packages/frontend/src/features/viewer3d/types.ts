@@ -29,14 +29,16 @@ export interface SceneObjectData {
   bbox?: { min: [number, number, number]; max: [number, number, number] };
 }
 
-/** A 3D annotation (arrow or line drawn by Super Spectator) */
+/** A 3D annotation (arrow, line, freehand, or pin drawn by Super Spectator) */
 export interface AnnotationData {
   id: string;
-  type: 'arrow' | 'line' | 'freehand';
+  type: 'arrow' | 'line' | 'freehand' | 'pin';
   points: [number, number, number][];
   color: string;
+  text: string;
   authorId: string;
   authorName: string;
+  resolved: boolean;
   createdAt: string;
 }
 

@@ -6,6 +6,7 @@ import CameraRig from './CameraRig';
 import TerrainManager from './TerrainManager';
 import SceneObject from './SceneObject';
 import UtilityNetworks3D from './UtilityNetworks3D';
+import Annotation3D from './Annotation3D';
 import { useViewerStore } from '../stores/viewerStore';
 import { detectQuality } from '../utils/deviceProfiler';
 
@@ -20,6 +21,8 @@ export default function Scene({ currentUserId, projectId }: { currentUserId: str
   const xrayMode = useViewerStore((s) => s.xrayMode);
   const terrainUrl = useViewerStore((s) => s.terrainUrl);
   const proceduralTerrain = useViewerStore((s) => s.proceduralTerrain);
+  const annotations = useViewerStore((s) => s.annotations);
+  const showAnnotations = useViewerStore((s) => s.showAnnotations);
 
   return (
     <Canvas
@@ -50,6 +53,11 @@ export default function Scene({ currentUserId, projectId }: { currentUserId: str
 
         {/* Engineering utility networks */}
         <UtilityNetworks3D />
+
+        {/* 3D Annotations (arrows, lines, pins) */}
+        {showAnnotations && annotations.map((ann) => (
+          <Annotation3D key={ann.id} data={ann} />
+        ))}
 
         {/* Render all scene objects */}
         {objects.map((obj) => (

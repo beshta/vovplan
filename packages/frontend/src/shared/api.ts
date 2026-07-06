@@ -249,3 +249,54 @@ export const terrainApi = {
   remove: (projectId: string) =>
     apiFetch<void>(`/api/projects/${projectId}/terrain`, { method: 'DELETE' }),
 };
+
+// ── Comments / Annotations API ────────────────
+export type AnnotationType = 'arrow' | 'line' | 'freehand' | 'pin';
+
+export interface CommentPayload {
+  id: string;
+  projectId: string;
+  objectId: string | null;
+  anchor: number[] | null;
+  authorId: string;
+  authorName: string;
+  text: string;
+  resolved: boolean;
+  parentId: string | null;
+  type: AnnotationType | null;
+  geometry: [number, number, number][] | null;
+  color: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const commentsApi = {
+  list: (projectId: string) =>
+    apiFetch<{ data: CommentPayload[] }>(`/api/projects/${projectId}/comments`),
+
+  create: (projectId: string, data: {
+    text: string;
+    objectId?: string;
+    anchor?: number[];
+    type?: AnnotationType;
+    geometry?: [number, number, number][];
+    color?: string;
+    parentId?: string;
+  }) =>
+    apiFetch<CommentPayload>(`/api/projects/${projectId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (projectId: string, id: string, data: Partial<{
+    text: string;
+    resolved: boolean;
+  }>) =>
+    apiFetch<CommentPayload>(`/api/projects/${projectId}/comments/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  remove: (projectId: string, id: string) =>
+    apiFetch<void>(`/api/projects/${projectId}/comments/${id}`, { method: 'DELETE' }),
+};

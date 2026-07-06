@@ -2,14 +2,15 @@ import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { ProjectRole } from '@vovplan/shared';
 import { useViewerStore } from './stores/viewerStore';
-import { sceneApi, modelsApi, utilitiesApi, projectsApi } from '../../shared/api';
-import type { Model3DPayload, UtilityNetworkPayload } from '../../shared/api';
+import { sceneApi, modelsApi, utilitiesApi, projectsApi, commentsApi } from '../../shared/api';
+import type { Model3DPayload, UtilityNetworkPayload, CommentPayload } from '../../shared/api';
 import Scene from './components/Scene';
 import ViewerToolbar from './components/ViewerToolbar';
 import ObjectInfoPanel from './components/ObjectInfoPanel';
 import ModelLibrary from './components/ModelLibrary';
 import UtilityLayersPanel from './components/UtilityLayersPanel';
 import TerrainPanel from './components/TerrainPanel';
+import AnnotationsList from './components/AnnotationsList';
 
 interface Viewer3DProps {
   projectId: string;
@@ -27,6 +28,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const setModelCache = useViewerStore((s) => s.setModelCache);
   const setUtilities = useViewerStore((s) => s.setUtilities);
   const setTerrainUrl = useViewerStore((s) => s.setTerrainUrl);
+  const setAnnotations = useViewerStore((s) => s.setAnnotations);
   const addObject = useViewerStore((s) => s.addObject);
   const cameraView = useViewerStore((s) => s.cameraView);
   const setCameraView = useViewerStore((s) => s.setCameraView);
@@ -60,6 +62,13 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const { data: projectData } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => projectsApi.get(projectId),
+    enabled: !!projectId,
+  });
+
+  // ── Load comments / annotations ──
+  const { data: commentsData } = useQuery({
+    queryKey: ['comments', projectId],
+    queryFn: () => commentsApi.list(projectId),
     enabled: !!projectId,
   });
 
@@ -121,6 +130,25 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
     }
   }, [projectData, setTerrainUrl]);
 
+  // ── Sync comments → annotations store ──
+  useEffect(() => {
+    if (!commentsData?.data) return;
+    const annotations = commentsData.data
+      .filter((c: CommentPayload) => c.type && c.geometry)
+      .map((c: CommentPayload) => ({
+        id: c.id,
+        type: c.type as 'arrow' | 'line' | 'freehand' | 'pin',
+        points: c.geometry as [number, number, number][],
+        color: c.color ?? '#f59e0b',
+        text: c.text,
+        authorId: c.authorId,
+        authorName: c.authorName,
+        resolved: c.resolved,
+        createdAt: c.createdAt,
+      }));
+    setAnnotations(annotations);
+  }, [commentsData, setAnnotations]);
+
   // ── Place a model from the library onto the scene ──
   const handlePlaceObject = async (model: Model3DPayload) => {
     const newObj = await sceneApi.createObject(projectId, {
@@ -163,6 +191,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
         <ViewerToolbar />
         <ObjectInfoPanel />
         <UtilityLayersPanel />
+        <AnnotationsList projectId={projectId} />
         {canEdit && <TerrainPanel projectId={projectId} />}
 
         {/* Empty state hint */}
