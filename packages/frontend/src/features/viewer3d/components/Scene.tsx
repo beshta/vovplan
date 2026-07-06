@@ -7,6 +7,9 @@ import TerrainManager from './TerrainManager';
 import SceneObject from './SceneObject';
 import UtilityNetworks3D from './UtilityNetworks3D';
 import Annotation3D from './Annotation3D';
+import AnnotationTool from './AnnotationTool';
+import SceneGrid from './SceneGrid';
+import UtilityCreator from './UtilityCreator';
 import { useViewerStore } from '../stores/viewerStore';
 import { detectQuality } from '../utils/deviceProfiler';
 
@@ -23,6 +26,9 @@ export default function Scene({ currentUserId, projectId }: { currentUserId: str
   const proceduralTerrain = useViewerStore((s) => s.proceduralTerrain);
   const annotations = useViewerStore((s) => s.annotations);
   const showAnnotations = useViewerStore((s) => s.showAnnotations);
+  const mode = useViewerStore((s) => s.mode);
+  const annDrawMode = (useViewerStore.getState() as any).annDrawMode ?? 'pin';
+  const utilityDrawMode = (useViewerStore.getState() as any).utilityDrawMode;
 
   return (
     <Canvas
@@ -51,13 +57,31 @@ export default function Scene({ currentUserId, projectId }: { currentUserId: str
           xray={xrayMode}
         />
 
+        {/* Coordinate grid + ruler */}
+        <SceneGrid size={200} />
+
         {/* Engineering utility networks */}
         <UtilityNetworks3D />
+
+        {/* Utility creator (when in utility-draw mode) */}
+        {utilityDrawMode && (
+          <UtilityCreator projectId={projectId} />
+        )}
 
         {/* 3D Annotations (arrows, lines, pins) */}
         {showAnnotations && annotations.map((ann) => (
           <Annotation3D key={ann.id} data={ann} />
         ))}
+
+        {/* Annotation drawing tool */}
+        {mode === 'annotate' && (
+          <AnnotationTool
+            projectId={projectId}
+            drawMode={annDrawMode}
+            color="#ef4444"
+            onFinished={() => {}}
+          />
+        )}
 
         {/* Render all scene objects */}
         {objects.map((obj) => (
