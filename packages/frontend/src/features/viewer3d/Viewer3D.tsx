@@ -91,6 +91,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
         description: o.description,
         docUrl: o.docUrl,
         createdAt: o.createdAt,
+        locked: o.locked,
       })),
     );
   }, [sceneData, setObjects]);

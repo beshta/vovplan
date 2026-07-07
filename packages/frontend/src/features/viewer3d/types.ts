@@ -6,7 +6,7 @@
 export type ViewerMode = 'view' | 'master-edit' | 'partition-edit' | 'annotate';
 
 /** Camera presets */
-export type CameraView = 'orbit' | 'first-person';
+export type CameraView = 'orbit' | 'first-person' | 'top';
 
 /** Which transform gizmo is active */
 export type TransformMode = 'translate' | 'rotate' | 'scale';
@@ -31,6 +31,8 @@ export interface SceneObjectData {
   docUrl?: string;
   /** ISO date string */
   createdAt?: string;
+  /** Locked = cannot be transformed without unlocking */
+  locked?: boolean;
   /** Bounding box in local coords */
   bbox?: { min: [number, number, number]; max: [number, number, number] };
 }

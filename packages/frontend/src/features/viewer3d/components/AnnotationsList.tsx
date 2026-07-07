@@ -54,7 +54,7 @@ export default function AnnotationsList({ projectId }: { projectId: string }) {
   const unresolvedCount = annotations.filter((a) => !a.resolved).length;
 
   return (
-    <div className="absolute right-4 bottom-4 z-20 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 w-64">
+    <div className="absolute right-4 bottom-16 z-20 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 w-64">
       {/* Header */}
       <button
         onClick={() => setCollapsed(!collapsed)}

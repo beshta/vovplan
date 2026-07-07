@@ -143,6 +143,7 @@ model SceneObject {
   authorId    String
   description String?  // Free-text description by the person who placed it
   docUrl      String?  // URL to external documentation/specs
+  locked      Boolean  @default(true)  // Locked by default — must unlock to edit
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

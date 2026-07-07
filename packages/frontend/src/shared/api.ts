@@ -105,6 +105,7 @@ export interface SceneObjectPayload {
   description?: string;
   docUrl?: string;
   createdAt?: string;
+  locked?: boolean;
 }
 
 export const sceneApi = {
@@ -124,6 +125,7 @@ export const sceneApi = {
     visible: boolean;
     description: string;
     docUrl: string;
+    locked: boolean;
   }>) =>
     apiFetch<SceneObjectPayload>(`/api/projects/${projectId}/objects/${id}`, {
       method: 'PATCH',

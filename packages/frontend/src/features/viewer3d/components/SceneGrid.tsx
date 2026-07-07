@@ -15,10 +15,10 @@ export default function SceneGrid({ size = 200 }: { size?: number }) {
     // GridHelper: divisions = size/1 = 200 cells of 1m each
     // But we want major lines every 10m, minor every 1m
     const divisions = size; // 1m cells
-    const gridHelper = new THREE.GridHelper(size, divisions, 0x4a6a4a, 0x3a5a3a);
+    const gridHelper = new THREE.GridHelper(size, divisions, 0x2a3a2a, 0x1a2a1a);
     gridHelper.position.y = 0.01; // slightly above terrain
     gridHelper.material.transparent = true;
-    gridHelper.material.opacity = 0.35;
+    gridHelper.material.opacity = 0.12;
 
     // Generate labels every 20 meters along X and Z axes
     const labels: { pos: [number, number, number]; text: string }[] = [];

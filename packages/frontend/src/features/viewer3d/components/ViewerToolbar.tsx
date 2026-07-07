@@ -83,8 +83,8 @@ export default function ViewerToolbar() {
         )}
       </div>
 
-      {/* ── Right toolbar — layers & camera ── */}
-      <div className="absolute right-4 top-20 flex flex-col gap-1 bg-slate-900/95 backdrop-blur rounded-xl p-1.5 shadow-2xl border border-slate-700 z-20">
+      {/* ── Right toolbar — layers & camera ── positioned bottom-right to avoid overlap */}
+      <div className="absolute right-4 bottom-4 flex flex-col gap-1 bg-slate-900/95 backdrop-blur rounded-xl p-1.5 shadow-2xl border border-slate-700 z-20">
         <ToolButton
           active={cameraView === 'first-person'}
           onClick={() => setCameraView(cameraView === 'first-person' ? 'orbit' : 'first-person')}

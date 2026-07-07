@@ -53,7 +53,7 @@ export default function TerrainPanel({ projectId }: { projectId: string }) {
   };
 
   return (
-    <div className="absolute left-4 bottom-4 z-20 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 w-60">
+    <div className="absolute left-16 bottom-4 z-20 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 w-56">
       {/* Header */}
       <button
         onClick={() => setCollapsed(!collapsed)}

@@ -45,7 +45,8 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
     mode === 'master-edit' ||
     (mode === 'partition-edit' && data.authorId === currentUserId);
 
-  const canTransform = canEdit && isSelected;
+  // Locked objects cannot be transformed
+  const canTransform = canEdit && isSelected && !data.locked;
 
   // Click — works in ALL modes
   const handleClick = (e: any) => {
