@@ -75,6 +75,28 @@ interface ViewerState {
   // ── Model loading state ───────────────────
   loadingModels: Set<string>;
   setLoadingModel: (modelId: string, loading: boolean) => void;
+
+  // ── Camera lock (during transform) ────────
+  cameraLocked: boolean;
+  setCameraLocked: (v: boolean) => void;
+
+  // ── Undo / Redo history ───────────────────
+  history: TransformHistoryEntry[];
+  historyIndex: number;
+  pushHistory: (entry: TransformHistoryEntry) => void;
+  undo: () => void;
+  redo: () => void;
+  resetTransform: (objectId: string) => void;
+}
+
+interface TransformHistoryEntry {
+  objectId: string;
+  oldPosition: [number, number, number];
+  oldRotation: [number, number, number];
+  oldScale: [number, number, number];
+  newPosition: [number, number, number];
+  newRotation: [number, number, number];
+  newScale: [number, number, number];
 }
 
 export const useViewerStore = create<ViewerState>((set) => ({
@@ -178,5 +200,69 @@ export const useViewerStore = create<ViewerState>((set) => ({
       if (loading) next.add(modelId);
       else next.delete(modelId);
       return { loadingModels: next };
+    }),
+
+  // Camera lock
+  cameraLocked: false,
+  setCameraLocked: (cameraLocked) => set({ cameraLocked }),
+
+  // Undo / Redo history
+  history: [],
+  historyIndex: -1,
+
+  pushHistory: (entry) =>
+    set((s) => {
+      const truncated = s.history.slice(0, s.historyIndex + 1);
+      const next = [...truncated, entry];
+      const capped = next.length > 50 ? next.slice(next.length - 50) : next;
+      return { history: capped, historyIndex: capped.length - 1 };
+    }),
+
+  undo: () =>
+    set((s) => {
+      if (s.historyIndex < 0) return s;
+      const entry = s.history[s.historyIndex];
+      const newObjects = s.objects.map((o) =>
+        o.id === entry.objectId
+          ? { ...o, position: entry.oldPosition, rotation: entry.oldRotation, scale: entry.oldScale }
+          : o
+      );
+      return { objects: newObjects, historyIndex: s.historyIndex - 1 };
+    }),
+
+  redo: () =>
+    set((s) => {
+      if (s.historyIndex >= s.history.length - 1) return s;
+      const entry = s.history[s.historyIndex + 1];
+      const newObjects = s.objects.map((o) =>
+        o.id === entry.objectId
+          ? { ...o, position: entry.newPosition, rotation: entry.newRotation, scale: entry.newScale }
+          : o
+      );
+      return { objects: newObjects, historyIndex: s.historyIndex + 1 };
+    }),
+
+  resetTransform: (objectId) =>
+    set((s) => {
+      const obj = s.objects.find((o) => o.id === objectId);
+      if (!obj) return s;
+      const entry: TransformHistoryEntry = {
+        objectId,
+        oldPosition: obj.position,
+        oldRotation: obj.rotation,
+        oldScale: obj.scale,
+        newPosition: obj.position,        // keep position
+        newRotation: [0, 0, 0],          // reset rotation
+        newScale: [1, 1, 1],             // reset scale
+      };
+      const truncated = s.history.slice(0, s.historyIndex + 1);
+      const next = [...truncated, entry];
+      const capped = next.length > 50 ? next.slice(next.length - 50) : next;
+      const newObjects = s.objects.map((o) =>
+        o.id === objectId
+          ? { ...o, rotation: [0, 0, 0] as [number, number, number], scale: [1, 1, 1] as [number, number, number] }
+          : o
+      );
+      return { objects: newObjects, history: capped, historyIndex: capped.length - 1 };
     }),
 }));

@@ -1,16 +1,15 @@
+import { useEffect } from 'react';
 import { useViewerStore } from '../stores/viewerStore';
 import { sceneApi } from '../../../shared/api';
 
 /**
- * Side panel showing info about the selected object.
+ * Side panel for the selected object.
  *
- * Flow:
- * 1. User clicks an object (or selects from list) → panel appears
- * 2. Panel shows: name, author, position, dimensions, visibility
- * 3. If user can edit → "✏️ Изменить" button activates transform mode
- * 4. While editing → "✓ Готово" button deactivates
- *
- * Also shows soft-delete/restore controls for Master.
+ * Shows info + action buttons:
+ * - ✏️ Изменить / ✓ Готово — toggle edit mode
+ * - ↺ Вернуть исходные — reset rotation+scale (keeps position)
+ * - ↩ Undo (Ctrl+Z) / ↪ Redo (Ctrl+Shift+Z)
+ * - 🗑 Скрыть / ↺ Восстановить (Master only, soft-delete)
  */
 export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
   const selectedId = useViewerStore((s) => s.selectedObjectId);
@@ -20,6 +19,45 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
   const setMode = useViewerStore((s) => s.setMode);
   const role = useViewerStore((s) => s.role);
   const updateObject = useViewerStore((s) => s.updateObject);
+  const undo = useViewerStore((s) => s.undo);
+  const redo = useViewerStore((s) => s.redo);
+  const resetTransform = useViewerStore((s) => s.resetTransform);
+  const history = useViewerStore((s) => s.history);
+  const historyIndex = useViewerStore((s) => s.historyIndex);
+
+  // Ctrl+Z / Ctrl+Shift+Z hotkeys
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        const st = useViewerStore.getState();
+        st.undo();
+        // Sync to API
+        const entry = st.history[st.historyIndex];
+        if (entry) {
+          const obj = st.objects.find((o) => o.id === entry.objectId);
+          if (obj) {
+            sceneApi.updateObject(projectId, obj.id, {
+              position: obj.position, rotation: obj.rotation, scale: obj.scale,
+            }).catch(() => {});
+          }
+        }
+      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+        e.preventDefault();
+        const st = useViewerStore.getState();
+        st.redo();
+        const entry = st.history[st.historyIndex + 1];
+        if (entry) {
+          sceneApi.updateObject(projectId, entry.objectId, {
+            position: entry.newPosition, rotation: entry.newRotation, scale: entry.newScale,
+          }).catch(() => {});
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [projectId, history, historyIndex]);
 
   const obj = objects.find((o) => o.id === selectedId);
   if (!obj) return null;
@@ -27,14 +65,25 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
   const isHidden = obj.hidden;
   const isEditing = mode === 'master-edit' || mode === 'partition-edit';
   const canEdit = role === 'MASTER' || (role === 'DESIGNER' && obj.authorId === useViewerStore.getState().role);
+  const canUndo = historyIndex >= 0;
+  const canRedo = historyIndex < history.length - 1;
 
   const handleEditToggle = () => {
     if (isEditing) {
-      // Stop editing → back to view
       setMode('view');
     } else {
-      // Start editing → switch to edit mode
       setMode(role === 'MASTER' ? 'master-edit' : 'partition-edit');
+    }
+  };
+
+  const handleReset = async () => {
+    resetTransform(obj.id);
+    try {
+      await sceneApi.updateObject(projectId, obj.id, {
+        position: obj.position, rotation: [0, 0, 0], scale: [1, 1, 1],
+      });
+    } catch (err) {
+      console.error('Failed to reset transform:', err);
     }
   };
 
@@ -70,22 +119,18 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
       {/* Info */}
       <div className="p-4 space-y-2.5 text-sm">
         <InfoRow label="Автор" value={obj.authorName} />
-
         <InfoRow
           label="Позиция"
           value={`${obj.position[0].toFixed(1)}, ${obj.position[1].toFixed(1)}, ${obj.position[2].toFixed(1)}`}
         />
-
         <InfoRow
           label="Поворот"
           value={`${(obj.rotation[0] * 180 / Math.PI).toFixed(0)}°, ${(obj.rotation[1] * 180 / Math.PI).toFixed(0)}°, ${(obj.rotation[2] * 180 / Math.PI).toFixed(0)}°`}
         />
-
         <InfoRow
           label="Масштаб"
-          value={`${obj.scale[0].toFixed(2)}, ${obj.scale[1].toFixed(2)}, ${obj.scale[2].toFixed(2)}`}
+          value={obj.scale[0].toFixed(2)}
         />
-
         <InfoRow label="Видимость" value={obj.visible ? 'Видим' : 'Скрыт'} />
 
         {isHidden && (
@@ -97,7 +142,7 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
 
       {/* Actions */}
       <div className="px-4 pb-4 space-y-2">
-        {/* Edit / Done button */}
+        {/* Edit / Done */}
         {canEdit && !isHidden && (
           <button
             onClick={handleEditToggle}
@@ -111,16 +156,38 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           </button>
         )}
 
-        {/* Transform mode hint */}
+        {/* Undo / Redo / Reset row */}
+        {canEdit && !isHidden && isEditing && (
+          <div className="flex gap-2">
+            <button
+              onClick={handleReset}
+              disabled={!canEdit}
+              className="flex-1 px-2 py-2 bg-slate-700 text-slate-200 rounded-lg text-xs font-medium hover:bg-slate-600 disabled:opacity-30"
+              title="Вернуть исходные параметры"
+            >↺ Исходные</button>
+            <button
+              onClick={undo}
+              disabled={!canUndo}
+              className="flex-1 px-2 py-2 bg-slate-700 text-slate-200 rounded-lg text-xs font-medium hover:bg-slate-600 disabled:opacity-30"
+              title="Шаг назад (Ctrl+Z)"
+            >↩ Назад</button>
+            <button
+              onClick={redo}
+              disabled={!canRedo}
+              className="flex-1 px-2 py-2 bg-slate-700 text-slate-200 rounded-lg text-xs font-medium hover:bg-slate-600 disabled:opacity-30"
+              title="Шаг вперёд (Ctrl+Shift+Z)"
+            >↪ Вперёд</button>
+          </div>
+        )}
+
+        {/* Transform hint */}
         {isEditing && canEdit && !isHidden && (
           <div className="text-xs text-slate-400 bg-slate-800/50 rounded-lg p-2">
-            <div className="flex items-center gap-2 mb-1">
-              <span>Инструменты слева:</span>
-            </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <span className="px-1.5 py-0.5 bg-slate-700 rounded">↔ Двигать</span>
               <span className="px-1.5 py-0.5 bg-slate-700 rounded">↻ Вращать</span>
               <span className="px-1.5 py-0.5 bg-slate-700 rounded">⤢ Масштаб</span>
+              <span className="px-1.5 py-0.5 bg-slate-700 rounded">Ctrl+Z</span>
             </div>
           </div>
         )}
