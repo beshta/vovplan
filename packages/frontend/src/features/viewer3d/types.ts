@@ -25,6 +25,12 @@ export interface SceneObjectData {
   /** Soft-delete: if true, only Master sees it (semi-transparent) */
   hidden: boolean;
   hiddenBy?: string;
+  /** Free-text description by the person who placed it */
+  description?: string;
+  /** URL to external documentation/specs */
+  docUrl?: string;
+  /** ISO date string */
+  createdAt?: string;
   /** Bounding box in local coords */
   bbox?: { min: [number, number, number]; max: [number, number, number] };
 }

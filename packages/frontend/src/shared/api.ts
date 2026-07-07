@@ -102,6 +102,9 @@ export interface SceneObjectPayload {
   scale: [number, number, number];
   visible: boolean;
   hidden: boolean;
+  description?: string;
+  docUrl?: string;
+  createdAt?: string;
 }
 
 export const sceneApi = {
@@ -119,6 +122,8 @@ export const sceneApi = {
     rotation: [number, number, number];
     scale: [number, number, number];
     visible: boolean;
+    description: string;
+    docUrl: string;
   }>) =>
     apiFetch<SceneObjectPayload>(`/api/projects/${projectId}/objects/${id}`, {
       method: 'PATCH',

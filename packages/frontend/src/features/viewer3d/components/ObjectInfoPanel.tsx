@@ -1,15 +1,17 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useViewerStore } from '../stores/viewerStore';
 import { sceneApi } from '../../../shared/api';
 
 /**
  * Side panel for the selected object.
  *
- * Shows info + action buttons:
- * - ✏️ Изменить / ✓ Готово — toggle edit mode
- * - ↺ Вернуть исходные — reset rotation+scale (keeps position)
- * - ↩ Undo (Ctrl+Z) / ↪ Redo (Ctrl+Shift+Z)
- * - 🗑 Скрыть / ↺ Восстановить (Master only, soft-delete)
+ * Shows:
+ * - Name, author, creation date
+ * - Description (editable text area)
+ * - Doc URL (editable link)
+ * - Position, rotation, scale
+ * - Edit/Undo/Redo/Reset buttons
+ * - Soft-delete/Restore (Master)
  */
 export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
   const selectedId = useViewerStore((s) => s.selectedObjectId);
@@ -25,6 +27,11 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
   const history = useViewerStore((s) => s.history);
   const historyIndex = useViewerStore((s) => s.historyIndex);
 
+  // Local edit state for description + docUrl
+  const [editMeta, setEditMeta] = useState(false);
+  const [descDraft, setDescDraft] = useState('');
+  const [urlDraft, setUrlDraft] = useState('');
+
   // Ctrl+Z / Ctrl+Shift+Z hotkeys
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -33,7 +40,6 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
         e.preventDefault();
         const st = useViewerStore.getState();
         st.undo();
-        // Sync to API
         const entry = st.history[st.historyIndex];
         if (entry) {
           const obj = st.objects.find((o) => o.id === entry.objectId);
@@ -68,12 +74,31 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
   const canUndo = historyIndex >= 0;
   const canRedo = historyIndex < history.length - 1;
 
+  // Sync drafts when object changes
+  useEffect(() => {
+    setDescDraft(obj.description ?? '');
+    setUrlDraft(obj.docUrl ?? '');
+  }, [obj.id, obj.description, obj.docUrl]);
+
   const handleEditToggle = () => {
     if (isEditing) {
       setMode('view');
     } else {
       setMode(role === 'MASTER' ? 'master-edit' : 'partition-edit');
     }
+  };
+
+  const handleSaveMeta = async () => {
+    updateObject(obj.id, { description: descDraft, docUrl: urlDraft });
+    try {
+      await sceneApi.updateObject(projectId, obj.id, {
+        description: descDraft,
+        docUrl: urlDraft || undefined,
+      });
+    } catch (err) {
+      console.error('Failed to save metadata:', err);
+    }
+    setEditMeta(false);
   };
 
   const handleReset = async () => {
@@ -105,10 +130,22 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
     }
   };
 
+  // Format date
+  const formatDate = (iso?: string) => {
+    if (!iso) return '—';
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }) +
+        ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return '—';
+    }
+  };
+
   return (
-    <div className="absolute right-4 top-4 w-72 bg-slate-900/95 backdrop-blur rounded-xl shadow-2xl border border-slate-700 overflow-hidden z-20">
+    <div className="absolute right-4 top-4 w-72 bg-slate-900/95 backdrop-blur rounded-xl shadow-2xl border border-slate-700 overflow-hidden z-20 max-h-[calc(100vh-2rem)] overflow-y-auto">
       {/* Header */}
-      <div className="px-4 py-3 bg-slate-800 flex items-center justify-between">
+      <div className="px-4 py-3 bg-slate-800 flex items-center justify-between sticky top-0">
         <h3 className="text-white font-semibold text-sm truncate">{obj.name}</h3>
         <button
           onClick={() => selectObject(null)}
@@ -116,9 +153,11 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
         >×</button>
       </div>
 
-      {/* Info */}
+      {/* Meta info */}
       <div className="p-4 space-y-2.5 text-sm">
         <InfoRow label="Автор" value={obj.authorName} />
+        <InfoRow label="Размещён" value={formatDate(obj.createdAt)} />
+
         <InfoRow
           label="Позиция"
           value={`${obj.position[0].toFixed(1)}, ${obj.position[1].toFixed(1)}, ${obj.position[2].toFixed(1)}`}
@@ -127,16 +166,81 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           label="Поворот"
           value={`${(obj.rotation[0] * 180 / Math.PI).toFixed(0)}°, ${(obj.rotation[1] * 180 / Math.PI).toFixed(0)}°, ${(obj.rotation[2] * 180 / Math.PI).toFixed(0)}°`}
         />
-        <InfoRow
-          label="Масштаб"
-          value={obj.scale[0].toFixed(2)}
-        />
+        <InfoRow label="Масштаб" value={obj.scale[0].toFixed(2)} />
         <InfoRow label="Видимость" value={obj.visible ? 'Видим' : 'Скрыт'} />
 
         {isHidden && (
           <div className="mt-2 p-2 bg-amber-500/20 border border-amber-500/40 rounded-lg text-amber-300 text-xs">
             ⚠ Объект скрыт (soft-delete). Виден только Мастеру.
           </div>
+        )}
+      </div>
+
+      {/* Description + Doc URL */}
+      <div className="px-4 pb-3 space-y-2">
+        {editMeta ? (
+          <>
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">Описание</label>
+              <textarea
+                value={descDraft}
+                onChange={(e) => setDescDraft(e.target.value)}
+                rows={3}
+                placeholder="Информация об объекте..."
+                className="w-full px-2 py-1.5 text-sm bg-slate-800 text-slate-100 rounded-lg border border-slate-600 focus:ring-2 focus:ring-vovplan-500 resize-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">URL документации</label>
+              <input
+                type="url"
+                value={urlDraft}
+                onChange={(e) => setUrlDraft(e.target.value)}
+                placeholder="https://..."
+                className="w-full px-2 py-1.5 text-sm bg-slate-800 text-slate-100 rounded-lg border border-slate-600 focus:ring-2 focus:ring-vovplan-500"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveMeta}
+                className="flex-1 px-3 py-1.5 bg-vovplan-600 text-white rounded-lg text-xs font-medium hover:bg-vovplan-700"
+              >✓ Сохранить</button>
+              <button
+                onClick={() => { setEditMeta(false); setDescDraft(obj.description ?? ''); setUrlDraft(obj.docUrl ?? ''); }}
+                className="flex-1 px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs font-medium hover:bg-slate-600"
+              >Отмена</button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Description */}
+            <div>
+              <div className="flex items-center justify-between">
+                <label className="text-xs text-slate-400">Описание</label>
+                {canEdit && !isHidden && (
+                  <button onClick={() => setEditMeta(true)} className="text-xs text-vovplan-400 hover:text-vovplan-300">✏️</button>
+                )}
+              </div>
+              <p className="text-sm text-slate-200 mt-0.5">
+                {obj.description || <span className="text-slate-500 italic">Нет описания</span>}
+              </p>
+            </div>
+
+            {/* Doc URL */}
+            <div>
+              <label className="text-xs text-slate-400">Документация</label>
+              {obj.docUrl ? (
+                <a
+                  href={obj.docUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-vovplan-400 hover:text-vovplan-300 underline truncate block mt-0.5"
+                >{obj.docUrl}</a>
+              ) : (
+                <p className="text-sm text-slate-500 italic mt-0.5">Нет ссылки</p>
+              )}
+            </div>
+          </>
         )}
       </div>
 
@@ -156,13 +260,12 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           </button>
         )}
 
-        {/* Undo / Redo / Reset row */}
+        {/* Undo / Redo / Reset */}
         {canEdit && !isHidden && isEditing && (
           <div className="flex gap-2">
             <button
               onClick={handleReset}
-              disabled={!canEdit}
-              className="flex-1 px-2 py-2 bg-slate-700 text-slate-200 rounded-lg text-xs font-medium hover:bg-slate-600 disabled:opacity-30"
+              className="flex-1 px-2 py-2 bg-slate-700 text-slate-200 rounded-lg text-xs font-medium hover:bg-slate-600"
               title="Вернуть исходные параметры"
             >↺ Исходные</button>
             <button
@@ -180,7 +283,7 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           </div>
         )}
 
-        {/* Transform hint */}
+        {/* Hint */}
         {isEditing && canEdit && !isHidden && (
           <div className="text-xs text-slate-400 bg-slate-800/50 rounded-lg p-2">
             <div className="flex gap-2 flex-wrap">
@@ -192,7 +295,7 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           </div>
         )}
 
-        {/* Soft-delete / Restore (Master only) */}
+        {/* Soft-delete / Restore */}
         {role === 'MASTER' && (
           isHidden ? (
             <button

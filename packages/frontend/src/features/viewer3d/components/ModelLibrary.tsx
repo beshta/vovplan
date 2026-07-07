@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { modelsApi, type Model3DPayload } from '../../../shared/api';
+import SceneObjectsList from './SceneObjectsList';
 
 interface Props {
   projectId: string;
@@ -9,6 +10,7 @@ interface Props {
 
 /**
  * Model Library panel — upload GLB files, browse existing models, place on scene.
+ * Also shows a list of all placed objects in the current scene (SceneObjectsList).
  */
 export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -115,21 +117,20 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
                 onClick={() => deleteMutation.mutate(model.id)}
                 className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-1 transition-opacity"
                 title="Удалить модель"
-              >
-                ✕
-              </button>
+              >✕</button>
             </div>
             {onPlaceObject && (
               <button
                 onClick={() => onPlaceObject(model)}
                 className="mt-2 w-full px-3 py-1.5 bg-vovplan-100 text-vovplan-700 rounded-md text-xs font-medium hover:bg-vovplan-200 transition-colors"
-              >
-                ➕ Разместить на сцене
-              </button>
+              >➕ Разместить на сцене</button>
             )}
           </div>
         ))}
       </div>
+
+      {/* Scene objects list — placed objects in the scene */}
+      <SceneObjectsList />
     </div>
   );
 }

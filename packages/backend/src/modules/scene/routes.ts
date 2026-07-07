@@ -9,6 +9,8 @@ const createObjectSchema = z.object({
   position: z.array(z.number()).length(3),
   rotation: z.array(z.number()).length(3).optional().default([0, 0, 0]),
   scale: z.array(z.number()).length(3).optional().default([1, 1, 1]),
+  description: z.string().max(2000).optional(),
+  docUrl: z.string().url().max(500).optional().or(z.literal('')),
 });
 
 const updateObjectSchema = z.object({
@@ -17,6 +19,8 @@ const updateObjectSchema = z.object({
   rotation: z.array(z.number()).length(3).optional(),
   scale: z.array(z.number()).length(3).optional(),
   visible: z.boolean().optional(),
+  description: z.string().max(2000).optional(),
+  docUrl: z.string().url().max(500).optional().or(z.literal('')),
 });
 
 export default async function sceneRoutes(fastify: FastifyInstance) {
@@ -51,6 +55,9 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
       scale: o.scale as [number, number, number],
       visible: o.visible,
       hidden: !o.visible,
+      description: o.description ?? '',
+      docUrl: o.docUrl ?? '',
+      createdAt: o.createdAt.toISOString(),
     }));
 
     return reply.send({ data });
@@ -75,7 +82,7 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
       });
     }
 
-    const { name, modelId, position, rotation, scale } = parsed.data;
+    const { name, modelId, position, rotation, scale, description, docUrl } = parsed.data;
     const obj = await prisma.sceneObject.create({
       data: {
         projectId,
@@ -85,6 +92,8 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
         rotation: rotation,
         scale: scale,
         authorId: request.user.userId,
+        description: description ?? null,
+        docUrl: docUrl || null,
       },
       include: { author: { select: { id: true, displayName: true } } },
     });
@@ -100,6 +109,9 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
       scale: obj.scale,
       visible: obj.visible,
       hidden: false,
+      description: obj.description ?? '',
+      docUrl: obj.docUrl ?? '',
+      createdAt: obj.createdAt.toISOString(),
     });
   });
 

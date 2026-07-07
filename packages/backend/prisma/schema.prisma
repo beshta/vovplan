@@ -141,6 +141,8 @@ model SceneObject {
   scale       Json
   visible     Boolean  @default(true)
   authorId    String
+  description String?  // Free-text description by the person who placed it
+  docUrl      String?  // URL to external documentation/specs
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

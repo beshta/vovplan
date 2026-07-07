@@ -8,6 +8,7 @@ import Scene from './components/Scene';
 import ViewerToolbar from './components/ViewerToolbar';
 import ObjectInfoPanel from './components/ObjectInfoPanel';
 import ModelLibrary from './components/ModelLibrary';
+import NavigationHelp from './components/NavigationHelp';
 import UtilityLayersPanel from './components/UtilityLayersPanel';
 import TerrainPanel from './components/TerrainPanel';
 import AnnotationsList from './components/AnnotationsList';
@@ -87,6 +88,9 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
         scale: o.scale,
         visible: o.visible,
         hidden: o.hidden,
+        description: o.description,
+        docUrl: o.docUrl,
+        createdAt: o.createdAt,
       })),
     );
   }, [sceneData, setObjects]);
@@ -192,6 +196,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
         <ObjectInfoPanel projectId={projectId} />
         <UtilityLayersPanel />
         <AnnotationsList projectId={projectId} />
+        <NavigationHelp />
         {canEdit && <TerrainPanel projectId={projectId} />}
 
         {/* Empty state hint */}
