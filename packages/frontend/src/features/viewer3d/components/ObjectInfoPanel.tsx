@@ -32,7 +32,16 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
   const [descDraft, setDescDraft] = useState('');
   const [urlDraft, setUrlDraft] = useState('');
 
-  // Ctrl+Z / Ctrl+Shift+Z hotkeys
+  const obj = objects.find((o) => o.id === selectedId);
+
+  // Sync drafts when object changes — MUST be before any early return
+  useEffect(() => {
+    if (!obj) return;
+    setDescDraft(obj.description ?? '');
+    setUrlDraft(obj.docUrl ?? '');
+  }, [obj?.id, obj?.description, obj?.docUrl]);
+
+  // Ctrl+Z / Ctrl+Shift+Z hotkeys — MUST be before any early return
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return;
@@ -42,10 +51,10 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
         st.undo();
         const entry = st.history[st.historyIndex];
         if (entry) {
-          const obj = st.objects.find((o) => o.id === entry.objectId);
-          if (obj) {
-            sceneApi.updateObject(projectId, obj.id, {
-              position: obj.position, rotation: obj.rotation, scale: obj.scale,
+          const o = st.objects.find((o) => o.id === entry.objectId);
+          if (o) {
+            sceneApi.updateObject(projectId, o.id, {
+              position: o.position, rotation: o.rotation, scale: o.scale,
             }).catch(() => {});
           }
         }
@@ -65,7 +74,7 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
     return () => window.removeEventListener('keydown', handler);
   }, [projectId, history, historyIndex]);
 
-  const obj = objects.find((o) => o.id === selectedId);
+  // Early return AFTER all hooks
   if (!obj) return null;
 
   const isHidden = obj.hidden;
@@ -73,12 +82,6 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
   const canEdit = role === 'MASTER' || (role === 'DESIGNER' && obj.authorId === useViewerStore.getState().role);
   const canUndo = historyIndex >= 0;
   const canRedo = historyIndex < history.length - 1;
-
-  // Sync drafts when object changes
-  useEffect(() => {
-    setDescDraft(obj.description ?? '');
-    setUrlDraft(obj.docUrl ?? '');
-  }, [obj.id, obj.description, obj.docUrl]);
 
   const handleEditToggle = () => {
     if (isEditing) {
@@ -130,7 +133,6 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
     }
   };
 
-  // Format date
   const formatDate = (iso?: string) => {
     if (!iso) return '—';
     try {
@@ -157,7 +159,6 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
       <div className="p-4 space-y-2.5 text-sm">
         <InfoRow label="Автор" value={obj.authorName} />
         <InfoRow label="Размещён" value={formatDate(obj.createdAt)} />
-
         <InfoRow
           label="Позиция"
           value={`${obj.position[0].toFixed(1)}, ${obj.position[1].toFixed(1)}, ${obj.position[2].toFixed(1)}`}
@@ -213,7 +214,6 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           </>
         ) : (
           <>
-            {/* Description */}
             <div>
               <div className="flex items-center justify-between">
                 <label className="text-xs text-slate-400">Описание</label>
@@ -225,8 +225,6 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
                 {obj.description || <span className="text-slate-500 italic">Нет описания</span>}
               </p>
             </div>
-
-            {/* Doc URL */}
             <div>
               <label className="text-xs text-slate-400">Документация</label>
               {obj.docUrl ? (
@@ -246,7 +244,6 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
 
       {/* Actions */}
       <div className="px-4 pb-4 space-y-2">
-        {/* Edit / Done */}
         {canEdit && !isHidden && (
           <button
             onClick={handleEditToggle}
@@ -260,7 +257,6 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           </button>
         )}
 
-        {/* Undo / Redo / Reset */}
         {canEdit && !isHidden && isEditing && (
           <div className="flex gap-2">
             <button
@@ -283,7 +279,6 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           </div>
         )}
 
-        {/* Hint */}
         {isEditing && canEdit && !isHidden && (
           <div className="text-xs text-slate-400 bg-slate-800/50 rounded-lg p-2">
             <div className="flex gap-2 flex-wrap">
@@ -295,7 +290,6 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           </div>
         )}
 
-        {/* Soft-delete / Restore */}
         {role === 'MASTER' && (
           isHidden ? (
             <button
