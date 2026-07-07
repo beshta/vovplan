@@ -189,7 +189,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
         <Scene currentUserId={userId} projectId={projectId} />
 
         <ViewerToolbar />
-        <ObjectInfoPanel />
+        <ObjectInfoPanel projectId={projectId} />
         <UtilityLayersPanel />
         <AnnotationsList projectId={projectId} />
         {canEdit && <TerrainPanel projectId={projectId} />}

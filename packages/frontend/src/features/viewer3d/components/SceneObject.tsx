@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useViewerStore } from '../stores/viewerStore';
@@ -15,8 +15,12 @@ interface Props {
 
 /**
  * A single placed object in the 3D scene.
- * Supports click-to-select and TransformControls (translate/rotate/scale)
- * for Master and Designer roles.
+ *
+ * Click any object → ObjectInfoPanel appears with "Изменить" button.
+ * Click "Изменить" → TransformControls activated (translate/rotate/scale).
+ *
+ * The click target is a large invisible mesh wrapping the whole object,
+ * so GLB models with complex geometry are always clickable.
  */
 export default function SceneObject({ data, currentUserId, projectId }: Props) {
   const groupRef = useRef<THREE.Group>(null);
@@ -28,8 +32,8 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
   const transformMode = useViewerStore((s) => s.transformMode);
   const showHidden = useViewerStore((s) => s.showHidden);
   const modelCache = useViewerStore((s) => s.modelCache);
+  const [hovered, setHovered] = useState(false);
 
-  // Hidden objects: only Master sees them (when showHidden=true)
   if (data.hidden && !showHidden) return null;
 
   const isSelected = selectedObjectId === data.id;
@@ -40,12 +44,13 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
 
   const canTransform = canEdit && isSelected;
 
+  // Click handler — works in ALL modes (view, edit, annotate)
   const handleClick = (e: any) => {
     e.stopPropagation();
     selectObject(data.id);
   };
 
-  // Save transform to store + API after dragging ends
+  // Save transform to store + API after dragging
   const handleTransformEnd = () => {
     if (!groupRef.current) return;
     const pos = groupRef.current.position;
@@ -73,7 +78,7 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
   }, [data.position, data.rotation, data.scale]);
 
   const model = data.modelId ? modelCache[data.modelId] : undefined;
-  const color = data.hidden ? '#f59e0b' : isSelected ? '#10b981' : '#3b82f6';
+  const color = data.hidden ? '#f59e0b' : isSelected ? '#10b981' : hovered ? '#60a5fa' : '#3b82f6';
 
   return (
     <>
@@ -82,6 +87,9 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
         position={data.position}
         rotation={data.rotation}
         scale={data.scale}
+        onClick={handleClick}
+        onPointerOver={(e: any) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = 'pointer'; }}
+        onPointerOut={() => { setHovered(false); document.body.style.cursor = 'auto'; }}
       >
         {/* Render LOD model or placeholder */}
         {model?.glbUrl ? (
@@ -95,22 +103,30 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
           <ModelPlaceholder position={[0, 0, 0]} name={data.name} color={color} />
         )}
 
-        {/* Selection indicator: wireframe box when selected */}
+        {/* Selection indicator: wireframe sphere when selected */}
         {isSelected && !data.hidden && (
           <mesh position={[0, 1, 0]}>
-            <boxGeometry args={[2.5, 2.5, 2.5]} />
-            <meshBasicMaterial color={color} wireframe transparent opacity={0.5} />
+            <sphereGeometry args={[2.5, 16, 16]} />
+            <meshBasicMaterial color={color} wireframe transparent opacity={0.4} />
           </mesh>
         )}
 
-        {/* Click target */}
-        <mesh position={[0, 1, 0]} onClick={handleClick}>
-          <boxGeometry args={[2, 2, 2]} />
-          <meshBasicMaterial transparent opacity={0} />
+        {/* Hover indicator: outline sphere */}
+        {hovered && !isSelected && !data.hidden && (
+          <mesh position={[0, 1, 0]}>
+            <sphereGeometry args={[2.3, 16, 16]} />
+            <meshBasicMaterial color={color} wireframe transparent opacity={0.25} />
+          </mesh>
+        )}
+
+        {/* Large invisible click target — wraps the entire object */}
+        <mesh position={[0, 1, 0]}>
+          <sphereGeometry args={[2.8, 8, 8]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
       </group>
 
-      {/* TransformControls — outside the group, referencing it */}
+      {/* TransformControls — only when editing + selected */}
       {canTransform && groupRef.current && (
         <TransformControls
           object={groupRef.current}
