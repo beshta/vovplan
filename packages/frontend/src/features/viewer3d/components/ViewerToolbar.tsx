@@ -3,8 +3,23 @@ import { useViewerStore } from '../stores/viewerStore';
 type DrawMode = 'pin' | 'arrow' | 'line' | 'freehand';
 
 /**
- * Floating toolbar for mode switching, camera, layers.
- * MASTER sees ALL functions (edit + annotate + utilities + networks).
+ * Single left-side vertical toolbar.
+ * All tools in one column — no separate right toolbar.
+ *
+ * Layout (top→bottom):
+ * 1. View (👁)
+ * 2. Edit (✏️)
+ * 3. Annotate (✒️)
+ * 4. Utility creator (🔧)
+ * 5. ── separator ──
+ * 6. Translate (↔)
+ * 7. Rotate (↻)
+ * 8. Scale (⤢)
+ * 9. ── separator ──
+ * 10. First-person (🚶)
+ * 11. X-Ray (🔬)
+ * 12. Annotations toggle (📝)
+ * 13. Show hidden (👻)
  */
 export default function ViewerToolbar() {
   const {
@@ -17,22 +32,19 @@ export default function ViewerToolbar() {
     xrayMode, setXrayMode,
   } = useViewerStore();
 
-  // Annotation sub-mode (draw type)
   const annDrawMode = useViewerStore((s) => (s as any).annDrawMode ?? 'pin');
   const setAnnDrawMode = (m: DrawMode) =>
     useViewerStore.setState({ annDrawMode: m } as any);
 
-  // MASTER can also annotate (not just SUPER_SPECTATOR)
   const canAnnotate = role === 'MASTER' || role === 'DESIGNER' || role === 'SUPER_SPECTATOR';
   const canEdit = role === 'MASTER' || role === 'DESIGNER';
 
   return (
     <>
-      {/* ── Left toolbar — mode + transform ── */}
-      <div className="absolute left-4 top-4 flex flex-col gap-1 bg-slate-900/95 backdrop-blur rounded-xl p-1.5 shadow-2xl border border-slate-700 z-20">
-        <ToolButton active={mode === 'view'} onClick={() => setMode('view')} title="Просмотр">
-          👁
-        </ToolButton>
+      {/* ── Single left toolbar ── */}
+      <div className="absolute left-4 top-4 flex flex-col gap-1 bg-slate-900/95 backdrop-blur rounded-xl p-1.5 shadow-2xl border border-slate-700 z-30">
+        {/* Mode tools */}
+        <ToolButton active={mode === 'view'} onClick={() => setMode('view')} title="Просмотр">👁</ToolButton>
 
         {canEdit && (
           <ToolButton
@@ -61,7 +73,7 @@ export default function ViewerToolbar() {
           >🔧</ToolButton>
         )}
 
-        {/* Transform tools — visible in edit mode */}
+        {/* Transform tools */}
         {(mode === 'master-edit' || mode === 'partition-edit') && (
           <>
             <div className="h-px bg-slate-700 my-1" />
@@ -71,7 +83,7 @@ export default function ViewerToolbar() {
           </>
         )}
 
-        {/* Annotation draw tools — visible in annotate mode */}
+        {/* Annotation draw tools */}
         {mode === 'annotate' && (
           <>
             <div className="h-px bg-slate-700 my-1" />
@@ -81,33 +93,27 @@ export default function ViewerToolbar() {
             <ToolButton active={annDrawMode === 'freehand'} onClick={() => setAnnDrawMode('freehand')} title="От руки">✏️</ToolButton>
           </>
         )}
-      </div>
 
-      {/* ── Right toolbar — layers & camera ── positioned bottom-right to avoid overlap */}
-      <div className="absolute right-4 bottom-4 flex flex-col gap-1 bg-slate-900/95 backdrop-blur rounded-xl p-1.5 shadow-2xl border border-slate-700 z-20">
+        {/* View / layer tools */}
+        <div className="h-px bg-slate-700 my-1" />
         <ToolButton
           active={cameraView === 'first-person'}
           onClick={() => setCameraView(cameraView === 'first-person' ? 'orbit' : 'first-person')}
           title="Вид от первого лица / Обзор"
         >{cameraView === 'first-person' ? '🗺️' : '🚶'}</ToolButton>
 
-        <div className="h-px bg-slate-700 my-1" />
-
-        {/* X-Ray toggle */}
         <ToolButton
           active={xrayMode}
           onClick={() => setXrayMode(!xrayMode)}
           title="X-Ray (просвет подземных сетей)"
-        >🔧</ToolButton>
+        >🔬</ToolButton>
 
-        {/* Annotations visibility */}
         <ToolButton
           active={showAnnotations}
           onClick={() => setShowAnnotations(!showAnnotations)}
           title="Показать аннотации"
         >📝</ToolButton>
 
-        {/* Show hidden (Master only) */}
         {role === 'MASTER' && (
           <ToolButton
             active={showHidden}

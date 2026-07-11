@@ -33,7 +33,7 @@ export default function UtilityLayersPanel() {
   const types = Object.keys(UTILITY_META) as UtilityType[];
 
   return (
-    <div className="absolute left-4 top-16 z-20 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 p-3 w-56">
+    <div className="absolute left-16 top-4 z-20 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 p-3 w-52">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold text-slate-800">🔧 Инженерные сети</h3>
