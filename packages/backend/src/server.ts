@@ -12,6 +12,7 @@ import modelRoutes from './modules/models/routes.js';
 import utilityRoutes from './modules/utilities/routes.js';
 import terrainRoutes from './modules/terrain/routes.js';
 import commentRoutes from './modules/comments/routes.js';
+import { setupRealtime } from './realtime/index.js';
 
 async function buildServer(): Promise<FastifyInstance> {
   const fastify = Fastify({
@@ -48,6 +49,9 @@ async function buildServer(): Promise<FastifyInstance> {
   await fastify.register(utilityRoutes, { prefix: '/api/projects' });
   await fastify.register(terrainRoutes, { prefix: '/api/projects' });
   await fastify.register(commentRoutes, { prefix: '/api/projects' });
+
+  // ── Real-time collaboration (Socket.io) ────
+  setupRealtime(fastify);
 
   // ── Error handler ──────────────────────────
   fastify.setErrorHandler((error: any, request, reply) => {

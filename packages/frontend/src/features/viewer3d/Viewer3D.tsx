@@ -12,6 +12,9 @@ import NavigationHelp from './components/NavigationHelp';
 import UtilityLayersPanel from './components/UtilityLayersPanel';
 import TerrainPanel from './components/TerrainPanel';
 import AnnotationsList from './components/AnnotationsList';
+import PresenceBar from '../collaboration/PresenceBar';
+import { useRealtime } from '../collaboration/useRealtime';
+import { useAuthStore } from '../../shared/authStore';
 
 interface Viewer3DProps {
   projectId: string;
@@ -34,9 +37,14 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const cameraView = useViewerStore((s) => s.cameraView);
   const setCameraView = useViewerStore((s) => s.setCameraView);
 
+  const userName = useAuthStore((s) => s.user?.displayName ?? s.user?.email ?? 'Гость');
+
   useEffect(() => {
     initFromRole(role);
   }, [role, initFromRole]);
+
+  // ── Real-time collaboration ──
+  useRealtime(projectId, userName);
 
   // ── Load scene objects ──
   const { data: sceneData } = useQuery({
@@ -194,6 +202,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
         <Scene currentUserId={userId} projectId={projectId} />
 
         <ViewerToolbar />
+        <PresenceBar currentUserId={userId} />
         <ObjectInfoPanel projectId={projectId} />
         <UtilityLayersPanel />
         <AnnotationsList projectId={projectId} />

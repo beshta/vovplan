@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../../db/prisma.js';
 import { getUserRole } from '../../utils/permissions.js';
+import { emitCommentChanged } from '../../realtime/index.js';
 
 /**
  * Comments / Annotations API
@@ -107,7 +108,7 @@ export default async function commentRoutes(fastify: FastifyInstance) {
 
     request.log.info({ projectId, commentId: comment.id, type: comment.type }, 'Comment/annotation created');
 
-    return reply.code(201).send({
+    const payload = {
       id: comment.id,
       projectId: comment.projectId,
       objectId: comment.objectId,
@@ -122,7 +123,9 @@ export default async function commentRoutes(fastify: FastifyInstance) {
       color: comment.color,
       createdAt: comment.createdAt.toISOString(),
       updatedAt: comment.updatedAt.toISOString(),
-    });
+    };
+    emitCommentChanged(fastify, projectId, payload);
+    return reply.code(201).send(payload);
   });
 
   // ── PATCH /comments/:commentId — update (resolve, edit) ──
@@ -161,7 +164,7 @@ export default async function commentRoutes(fastify: FastifyInstance) {
       },
     });
 
-    return reply.send({
+    const payload = {
       id: updated.id,
       projectId: updated.projectId,
       objectId: updated.objectId,
@@ -176,7 +179,9 @@ export default async function commentRoutes(fastify: FastifyInstance) {
       color: updated.color,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
-    });
+    };
+    emitCommentChanged(fastify, projectId, payload);
+    return reply.send(payload);
   });
 
   // ── DELETE /comments/:commentId ──
@@ -199,6 +204,7 @@ export default async function commentRoutes(fastify: FastifyInstance) {
 
     await prisma.comment.delete({ where: { id: commentId } });
 
+    emitCommentChanged(fastify, projectId, { id: commentId, deleted: true });
     return reply.code(204).send();
   });
 }

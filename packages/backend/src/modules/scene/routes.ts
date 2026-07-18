@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../../db/prisma.js';
 import { getUserRole, requirePermission } from '../../utils/permissions.js';
+import { emitObjectChanged } from '../../realtime/index.js';
 
 const createObjectSchema = z.object({
   name: z.string().min(1).max(200),
@@ -100,7 +101,7 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
       include: { author: { select: { id: true, displayName: true } } },
     });
 
-    return reply.code(201).send({
+    const payload = {
       id: obj.id,
       modelId: obj.modelId ?? '',
       name: obj.name,
@@ -115,7 +116,9 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
       docUrl: obj.docUrl ?? '',
       createdAt: obj.createdAt.toISOString(),
       locked: obj.locked,
-    });
+    };
+    emitObjectChanged(fastify, projectId, payload);
+    return reply.code(201).send(payload);
   });
 
   // ── PATCH /api/projects/:projectId/scene/objects/:id ──
@@ -149,13 +152,15 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
       data: parsed.data,
     });
 
-    return reply.send({
+    const payload = {
       ...updated,
       position: updated.position as [number, number, number],
       rotation: updated.rotation as [number, number, number],
       scale: updated.scale as [number, number, number],
       hidden: !updated.visible,
-    });
+    };
+    emitObjectChanged(fastify, projectId, payload);
+    return reply.send(payload);
   });
 
   // ── DELETE /api/projects/:projectId/scene/objects/:id ──
@@ -183,6 +188,7 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
     if (isMaster && !existing.visible) {
       // Master hard-deletes already-hidden objects
       await prisma.sceneObject.delete({ where: { id } });
+      emitObjectChanged(fastify, projectId, { id, deleted: true });
       return reply.code(204).send();
     }
 
@@ -192,6 +198,7 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
       data: { visible: false },
     });
 
+    emitObjectChanged(fastify, projectId, { id: updated.id, hidden: true, visible: false });
     return reply.code(200).send({ id: updated.id, hidden: true });
   });
 
@@ -210,6 +217,7 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
       data: { visible: true },
     });
 
+    emitObjectChanged(fastify, projectId, { id: updated.id, restored: true, visible: true });
     return reply.send({ id: updated.id, restored: true });
   });
 }
