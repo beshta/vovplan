@@ -10,6 +10,7 @@ import Annotation3D from './Annotation3D';
 import AnnotationTool from './AnnotationTool';
 import SceneGrid from './SceneGrid';
 import UtilityCreator from './UtilityCreator';
+import PeerLayer from '../../collaboration/PeerLayer';
 import { useViewerStore } from '../stores/viewerStore';
 import { detectQuality } from '../utils/deviceProfiler';
 
@@ -87,6 +88,9 @@ export default function Scene({ currentUserId, projectId }: { currentUserId: str
         {objects.map((obj) => (
           <SceneObject key={obj.id} data={obj} currentUserId={currentUserId} projectId={projectId} />
         ))}
+
+        {/* Real-time collaboration: peer cursors + local cursor emit */}
+        <PeerLayer projectId={projectId} currentUserId={currentUserId} />
       </Suspense>
     </Canvas>
   );

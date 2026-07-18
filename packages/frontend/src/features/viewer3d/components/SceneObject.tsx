@@ -6,6 +6,7 @@ import type { SceneObjectData } from '../types';
 import ModelPlaceholder from './ModelPlaceholder';
 import LodModel from './LodModel';
 import { sceneApi } from '../../../shared/api';
+import { emitLiveTransform } from '../../collaboration/socket';
 
 interface Props {
   data: SceneObjectData;
@@ -37,6 +38,10 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
   const pushHistory = useViewerStore((s) => s.pushHistory);
   const [hovered, setHovered] = useState(false);
 
+  // Transform snapshot at drag start (for history) + live-emit throttle
+  const dragStart = useRef<{ position: [number, number, number]; rotation: [number, number, number]; scale: [number, number, number] } | null>(null);
+  const lastEmit = useRef(0);
+
   if (data.hidden && !showHidden) return null;
 
   const isSelected = selectedObjectId === data.id;
@@ -54,44 +59,84 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
     selectObject(data.id);
   };
 
-  // Save transform to store + API + history after dragging
-  // For scale mode: enforce uniform (proportional) scaling
-  const handleTransformEnd = () => {
-    if (!groupRef.current) return;
-    const pos = groupRef.current.position;
-    const rot = groupRef.current.rotation;
-    let scl = groupRef.current.scale;
-
-    // Uniform scale: use average of x,y,z to keep proportions
+  // Read current transform from the three.js group, enforcing uniform scale.
+  const readTransform = (): {
+    position: [number, number, number];
+    rotation: [number, number, number];
+    scale: [number, number, number];
+  } => {
+    const pos = groupRef.current!.position;
+    const rot = groupRef.current!.rotation;
+    const scl = groupRef.current!.scale;
     let newScl: [number, number, number];
     if (transformMode === 'scale') {
       const avg = (scl.x + scl.y + scl.z) / 3;
       newScl = [avg, avg, avg];
-      groupRef.current.scale.set(avg, avg, avg);
+      groupRef.current!.scale.set(avg, avg, avg);
     } else {
       newScl = [scl.x, scl.y, scl.z];
     }
+    return {
+      position: [pos.x, pos.y, pos.z],
+      rotation: [rot.x, rot.y, rot.z],
+      scale: newScl,
+    };
+  };
 
-    const newPos: [number, number, number] = [pos.x, pos.y, pos.z];
-    const newRot: [number, number, number] = [rot.x, rot.y, rot.z];
+  // During drag: update local store + relay a live (ephemeral) transform to peers (throttled).
+  const handleObjectChange = () => {
+    if (!groupRef.current) return;
+    const t = readTransform();
+    updateObject(data.id, t);
 
-    // Push old+new state to history
+    const now = performance.now();
+    if (now - lastEmit.current >= 50) {
+      lastEmit.current = now;
+      emitLiveTransform(projectId, data.id, t.position, t.rotation, t.scale);
+    }
+  };
+
+  // On drag start: snapshot for undo history.
+  const handleDragStart = () => {
+    useViewerStore.getState().setCameraLocked(true);
+    dragStart.current = {
+      position: data.position,
+      rotation: data.rotation,
+      scale: data.scale,
+    };
+  };
+
+  // On drag end: commit once to history + persist to API (server broadcasts to peers).
+  const handleDragEnd = () => {
+    useViewerStore.getState().setCameraLocked(false);
+    if (!groupRef.current || !dragStart.current) return;
+    const t = readTransform();
+    const start = dragStart.current;
+    dragStart.current = null;
+
+    // No-op guard: skip if nothing actually moved
+    const same =
+      start.position.every((v, i) => v === t.position[i]) &&
+      start.rotation.every((v, i) => v === t.rotation[i]) &&
+      start.scale.every((v, i) => v === t.scale[i]);
+    if (same) return;
+
     pushHistory({
       objectId: data.id,
-      oldPosition: data.position,
-      oldRotation: data.rotation,
-      oldScale: data.scale,
-      newPosition: newPos,
-      newRotation: newRot,
-      newScale: newScl,
+      oldPosition: start.position,
+      oldRotation: start.rotation,
+      oldScale: start.scale,
+      newPosition: t.position,
+      newRotation: t.rotation,
+      newScale: t.scale,
     });
 
-    updateObject(data.id, { position: newPos, rotation: newRot, scale: newScl });
+    updateObject(data.id, t);
 
     sceneApi.updateObject(projectId, data.id, {
-      position: newPos,
-      rotation: newRot,
-      scale: newScl,
+      position: t.position,
+      rotation: t.rotation,
+      scale: t.scale,
     }).catch((err) => console.error('Failed to save transform:', err));
   };
 
@@ -156,9 +201,9 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
         <TransformControls
           object={groupRef.current}
           mode={transformMode}
-          onObjectChange={handleTransformEnd}
-          onMouseDown={() => useViewerStore.getState().setCameraLocked(true)}
-          onMouseUp={() => useViewerStore.getState().setCameraLocked(false)}
+          onObjectChange={handleObjectChange}
+          onMouseDown={handleDragStart}
+          onMouseUp={handleDragEnd}
         />
       )}
     </>
