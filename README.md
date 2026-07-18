@@ -12,6 +12,7 @@
 - 👥 **Ролевая модель**: Master → Designer → Super Spectator → Spectator → External Spectator
 - 📱 **Кроссплатформенность**: PC, Mac, Android, iOS
 - ⚡ **Ленивая загрузка** — мгновенный показ сцены с прогрессивной детализацией
+- 🤝 **Real-time коллаборация** — присутствие, живые курсоры и синхронизация изменений (Socket.io)
 
 ## Технологии
 
@@ -20,7 +21,11 @@
 - **БД:** PostgreSQL 16 + PostGIS, Redis 7
 - **Хранилище:** MinIO (S3) для 3D-ассетов
 
-## Быстрый старт
+## Быстрый старт (dev)
+
+> В dev-режиме Docker **не нужен**: БД — SQLite (`packages/backend/prisma/dev.db`),
+> файлы моделей хранятся локально в `./uploads`. PostgreSQL/Redis/MinIO из
+> `infrastructure/docker-compose.yml` понадобятся только для продакшна.
 
 ```bash
 # 1. Клонировать репозиторий
@@ -33,17 +38,14 @@ npm install
 # 3. Скопировать .env
 cp .env.example .env
 
-# 4. Запустить инфраструктуру (PostgreSQL, Redis, MinIO)
-cd infrastructure && docker compose up -d && cd ..
-
-# 5. Применить схему БД
+# 4. Применить схему БД (SQLite, создастся автоматически)
 npm run db:push
 
-# 6. Запустить dev-серверы
+# 5. Запустить dev-серверы (backend :4000 + frontend :5173)
 npm run dev
 ```
 
-- Frontend: http://localhost:5173
+- Frontend: http://localhost:5173 (фронт ходит на бэкенд через vite-прокси `/api` и `/socket.io`)
 - Backend: http://localhost:4000
 
 ## Структура
