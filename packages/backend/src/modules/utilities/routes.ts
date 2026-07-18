@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../../db/prisma.js';
 import { getUserRole, requirePermission } from '../../utils/permissions.js';
+import { emitUtilityChanged } from '../../realtime/index.js';
 
 // Geometry: array of [x, y, z] points — a polyline in local scene coordinates
 const geometrySchema = z.array(z.array(z.number()).length(3)).min(2);
@@ -93,7 +94,7 @@ export default async function utilityRoutes(fastify: FastifyInstance) {
       },
     });
 
-    return reply.code(201).send({
+    const payload = {
       id: util.id,
       name: util.name,
       type: util.type,
@@ -103,7 +104,9 @@ export default async function utilityRoutes(fastify: FastifyInstance) {
       diameter: util.diameter ?? null,
       material: util.material ?? null,
       color: util.color,
-    });
+    };
+    emitUtilityChanged(fastify, projectId, payload);
+    return reply.code(201).send(payload);
   });
 
   // ── PATCH /api/projects/:projectId/utilities/:id ──
@@ -131,7 +134,7 @@ export default async function utilityRoutes(fastify: FastifyInstance) {
       data: parsed.data,
     });
 
-    return reply.send({
+    const payload = {
       id: updated.id,
       name: updated.name,
       type: updated.type,
@@ -141,7 +144,9 @@ export default async function utilityRoutes(fastify: FastifyInstance) {
       diameter: updated.diameter ?? null,
       material: updated.material ?? null,
       color: updated.color,
-    });
+    };
+    emitUtilityChanged(fastify, projectId, payload);
+    return reply.send(payload);
   });
 
   // ── DELETE /api/projects/:projectId/utilities/:id ──
@@ -160,6 +165,7 @@ export default async function utilityRoutes(fastify: FastifyInstance) {
     }
 
     await prisma.utilityNetwork.delete({ where: { id } });
+    emitUtilityChanged(fastify, projectId, { id, deleted: true });
     return reply.code(204).send();
   });
 }

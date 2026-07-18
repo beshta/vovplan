@@ -177,3 +177,30 @@ export function emitCommentChanged(
 ) {
   fastify.io?.to(roomOf(projectId)).emit('comment:changed', comment);
 }
+
+/** Broadcast a persisted utility-network change (create/update/delete) to the project room. */
+export function emitUtilityChanged(
+  fastify: FastifyInstance,
+  projectId: string,
+  utility: unknown,
+) {
+  fastify.io?.to(roomOf(projectId)).emit('utility:changed', utility);
+}
+
+/** Broadcast a terrain change. Payload carries the new terrainUrl (null = removed). */
+export function emitTerrainChanged(
+  fastify: FastifyInstance,
+  projectId: string,
+  payload: { terrainUrl: string | null },
+) {
+  fastify.io?.to(roomOf(projectId)).emit('terrain:changed', payload);
+}
+
+/** Broadcast a model-library change (upload/delete) to the project room. */
+export function emitModelChanged(
+  fastify: FastifyInstance,
+  projectId: string,
+  model: unknown,
+) {
+  fastify.io?.to(roomOf(projectId)).emit('model:changed', model);
+}

@@ -5,6 +5,7 @@ import { pipeline } from 'node:stream/promises';
 import { randomUUID } from 'node:crypto';
 import prisma from '../../db/prisma.js';
 import { requirePermission } from '../../utils/permissions.js';
+import { emitTerrainChanged } from '../../realtime/index.js';
 
 /**
  * Terrain upload routes — heightmap PNG for DEM-based terrain.
@@ -81,6 +82,8 @@ export default async function terrainRoutes(fastify: FastifyInstance) {
 
     request.log.info({ projectId, terrainUrl }, 'Terrain heightmap uploaded');
 
+    emitTerrainChanged(fastify, projectId, { terrainUrl });
+
     return reply.code(200).send({
       id: project.id,
       name: project.name,
@@ -113,6 +116,8 @@ export default async function terrainRoutes(fastify: FastifyInstance) {
         where: { id: projectId },
         data: { terrainUrl: null },
       });
+
+      emitTerrainChanged(fastify, projectId, { terrainUrl: null });
     }
 
     return reply.code(204).send();

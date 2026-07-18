@@ -11,6 +11,9 @@ import { useViewerStore } from '../viewer3d/stores/viewerStore';
  * - object:transform → live ghost movement during someone else's drag
  * - object:changed   → refetch persisted scene objects (role-aware on the server)
  * - comment:changed  → refetch persisted comments/annotations
+ * - utility:changed  → refetch utility networks
+ * - terrain:changed  → apply new terrainUrl (or null on removal) + refetch project
+ * - model:changed    → refetch the project model library
  */
 export function useRealtime(projectId: string, userName: string) {
   const queryClient = useQueryClient();
@@ -67,6 +70,21 @@ export function useRealtime(projectId: string, userName: string) {
       queryClient.invalidateQueries({ queryKey: ['comments', projectId] });
     });
 
+    socket.on('utility:changed', () => {
+      queryClient.invalidateQueries({ queryKey: ['utilities', projectId] });
+    });
+
+    socket.on('terrain:changed', (p: { terrainUrl: string | null }) => {
+      // Apply directly — the Viewer3D effect only reacts to a truthy terrainUrl,
+      // so removal must be pushed into the store here.
+      useViewerStore.getState().setTerrainUrl(p.terrainUrl);
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+    });
+
+    socket.on('model:changed', () => {
+      queryClient.invalidateQueries({ queryKey: ['models', projectId] });
+    });
+
     return () => {
       socket.emit('leave');
       socket.off('connect', join);
@@ -76,6 +94,9 @@ export function useRealtime(projectId: string, userName: string) {
       socket.off('object:transform');
       socket.off('object:changed');
       socket.off('comment:changed');
+      socket.off('utility:changed');
+      socket.off('terrain:changed');
+      socket.off('model:changed');
       reset();
       disconnectSocket();
     };

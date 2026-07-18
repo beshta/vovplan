@@ -6,6 +6,7 @@ import { pipeline } from 'node:stream/promises';
 import { unlink } from 'node:fs/promises';
 import prisma from '../../db/prisma.js';
 import { getUserRole, requirePermission } from '../../utils/permissions.js';
+import { emitModelChanged } from '../../realtime/index.js';
 
 const UPLOADS_ROOT = join(process.cwd(), 'uploads');
 
@@ -128,7 +129,7 @@ export default async function modelRoutes(fastify: FastifyInstance) {
       },
     });
 
-    return reply.code(201).send({
+    const payload = {
       id: model.id,
       name: model.name,
       glbUrl: model.glbUrl,
@@ -140,7 +141,9 @@ export default async function modelRoutes(fastify: FastifyInstance) {
       format: model.format,
       uploadedBy: model.uploadedBy.displayName,
       createdAt: model.createdAt.toISOString(),
-    });
+    };
+    emitModelChanged(fastify, projectId, payload);
+    return reply.code(201).send(payload);
   });
 
   // ── DELETE /api/projects/:projectId/models/:id ──
@@ -167,6 +170,7 @@ export default async function modelRoutes(fastify: FastifyInstance) {
     }
 
     await prisma.model3D.delete({ where: { id } });
+    emitModelChanged(fastify, projectId, { id, deleted: true });
     return reply.code(204).send();
   });
 }
