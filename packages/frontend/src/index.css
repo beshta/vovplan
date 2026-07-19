@@ -51,8 +51,14 @@
   }
 
   /* ── Кнопки ── */
+  /* Primary: вертикальный градиент + световая кромка сверху + мягкое свечение */
   .btn-primary {
-    @apply px-4 py-2 bg-vovplan-600 text-white rounded-xl font-medium hover:bg-vovplan-500 active:scale-[0.98] transition disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
+    @apply px-4 py-2 text-white rounded-xl font-semibold
+      bg-gradient-to-b from-vovplan-500 to-vovplan-700
+      shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_8px_24px_-8px_rgba(99,102,241,0.55)]
+      hover:from-vovplan-400 hover:to-vovplan-600
+      active:scale-[0.98] transition
+      disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
   }
   .btn-secondary {
     @apply px-4 py-2 bg-white/5 text-slate-200 border border-white/10 rounded-xl font-medium hover:bg-white/10 active:scale-[0.98] transition;
@@ -77,7 +83,9 @@
     @apply w-10 h-10 flex items-center justify-center rounded-xl text-base transition-all text-slate-400 hover:bg-white/10 hover:text-white;
   }
   .tool-btn-active {
-    @apply bg-vovplan-600 text-white shadow-lg shadow-vovplan-600/30 hover:bg-vovplan-500;
+    @apply text-white bg-gradient-to-b from-vovplan-500 to-vovplan-700
+      shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_6px_18px_-6px_rgba(99,102,241,0.6)]
+      hover:from-vovplan-400 hover:to-vovplan-600;
   }
 
   /* ── Строка списка в панелях ── */

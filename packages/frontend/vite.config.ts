@@ -16,7 +16,7 @@ export default defineConfig({
         short_name: 'VOVPLAN',
         description: 'Совместный 3D-просмотр территориальных проектов',
         lang: 'ru',
-        theme_color: '#1e3a8a',
+        theme_color: '#0b1020',
         background_color: '#0f172a',
         display: 'standalone',
         orientation: 'any',
