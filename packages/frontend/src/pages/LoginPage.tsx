@@ -23,7 +23,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-[#0b1020] bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(37,99,235,0.25),transparent)] px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white tracking-tight">VOVPLAN</h1>
+          <h1 className="font-display text-4xl font-bold text-white tracking-wide">VOVPLAN</h1>
           <p className="text-slate-400 mt-2">3D-платформа совместных проектов</p>
         </div>
 

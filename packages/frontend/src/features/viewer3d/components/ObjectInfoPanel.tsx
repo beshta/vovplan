@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Lock, LockOpen, Pencil, Check, EyeOff } from 'lucide-react';
 import { useViewerStore } from '../stores/viewerStore';
 import { sceneApi } from '../../../shared/api';
 
@@ -188,7 +189,7 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
       {/* Header */}
       <div className="px-4 py-3 bg-slate-800 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-2 min-w-0">
-          {isLocked && <span className="text-amber-400 text-sm flex-shrink-0">🔒</span>}
+          {isLocked && <span className="text-amber-400 flex-shrink-0"><Lock size={14} /></span>}
           <h3 className="text-white font-semibold text-sm truncate">{obj.name}</h3>
         </div>
         <button
@@ -297,7 +298,7 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
               <div className="flex items-center justify-between">
                 <label className="text-xs text-slate-400">Описание</label>
                 {canEdit && !isHidden && (
-                  <button onClick={() => setEditMeta(true)} className="text-xs text-vovplan-400 hover:text-vovplan-300">✏️</button>
+                  <button onClick={() => setEditMeta(true)} className="text-vovplan-400 hover:text-vovplan-300" title="Редактировать"><Pencil size={13} /></button>
                 )}
               </div>
               <p className="text-sm text-slate-200 mt-0.5">
@@ -330,7 +331,7 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
                 : 'bg-green-700 text-green-100 hover:bg-green-600'
             }`}
           >
-            {isLocked ? '🔒 Заблокировано' : '🔓 Разблокировано'}
+            <span className="flex items-center justify-center gap-1.5">{isLocked ? <><Lock size={14} /> Заблокировано</> : <><LockOpen size={14} /> Разблокировано</>}</span>
           </button>
         )}
 
@@ -344,7 +345,7 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
                 : 'bg-vovplan-600 text-white hover:bg-vovplan-700'
             }`}
           >
-            {isEditing ? '✓ Готово' : '✏️ Изменить'}
+            <span className="flex items-center justify-center gap-1.5">{isEditing ? <><Check size={14} /> Готово</> : <><Pencil size={14} /> Изменить</>}</span>
           </button>
         )}
 
@@ -375,7 +376,7 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           ) : (
             <button onClick={handleHide}
               className="w-full px-4 py-2 bg-red-900/50 text-red-300 rounded-lg text-sm font-medium hover:bg-red-900/70"
-            >🗑 Скрыть</button>
+            ><span className="flex items-center justify-center gap-1.5"><EyeOff size={14} /> Скрыть</span></button>
           )
         )}
       </div>

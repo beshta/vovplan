@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Map as MapIcon, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectsApi } from '../shared/api';
@@ -31,7 +32,7 @@ export default function DashboardPage() {
       <header className="border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold tracking-tight text-white">VOVPLAN</h1>
+            <h1 className="font-display text-lg font-bold tracking-wide text-white">VOVPLAN</h1>
             <span className="text-xs text-slate-500 hidden sm:block">3D-платформа проектов</span>
           </div>
           <div className="flex items-center gap-3">
@@ -56,7 +57,7 @@ export default function DashboardPage() {
           <div className="text-center py-12 text-slate-500">Загрузка...</div>
         ) : projects.length === 0 ? (
           <div className="text-center py-16">
-            <div className="text-6xl mb-4">🗺️</div>
+            <div className="flex justify-center mb-4 text-slate-600"><MapIcon size={56} strokeWidth={1.2} /></div>
             <h3 className="text-lg font-medium text-slate-200 mb-2">Пока нет проектов</h3>
             <p className="text-slate-500 mb-4">Создайте первый проект, чтобы начать работу</p>
             <button onClick={() => setShowCreate(true)} className="btn-primary">
@@ -105,7 +106,7 @@ function ProjectCard({ project }: { project: Project }) {
         {project.description || 'Без описания'}
       </p>
       <div className="flex items-center text-xs text-slate-500 gap-3">
-        <span>📍 {project.centerLat.toFixed(4)}, {project.centerLng.toFixed(4)}</span>
+        <span className="flex items-center gap-1"><MapPin size={12} /> {project.centerLat.toFixed(4)}, {project.centerLng.toFixed(4)}</span>
         <span>•</span>
         <span>{new Date(project.createdAt).toLocaleDateString('ru-RU')}</span>
       </div>

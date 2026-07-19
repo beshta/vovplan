@@ -1,14 +1,15 @@
 import { useState } from 'react';
+import { Wrench, ScanEye } from 'lucide-react';
 import { useViewerStore } from '../stores/viewerStore';
 import type { UtilityType } from '../types';
 
-const UTILITY_META: Record<UtilityType, { label: string; color: string; icon: string }> = {
-  WATER: { label: 'Водопровод', color: '#2563eb', icon: '💧' },
-  GAS: { label: 'Газ', color: '#f59e0b', icon: '🔥' },
-  ELECTRIC: { label: 'Электричество', color: '#dc2626', icon: '⚡' },
-  SEWAGE: { label: 'Канализация', color: '#7c3aed', icon: '🔄' },
-  TELECOM: { label: 'Связь', color: '#10b981', icon: '📡' },
-  HEAT: { label: 'Тепло', color: '#ea580c', icon: '🌡️' },
+const UTILITY_META: Record<UtilityType, { label: string; color: string }> = {
+  WATER: { label: 'Водопровод', color: '#2563eb' },
+  GAS: { label: 'Газ', color: '#f59e0b' },
+  ELECTRIC: { label: 'Электричество', color: '#dc2626' },
+  SEWAGE: { label: 'Канализация', color: '#7c3aed' },
+  TELECOM: { label: 'Связь', color: '#10b981' },
+  HEAT: { label: 'Тепло', color: '#ea580c' },
 };
 
 /**
@@ -43,7 +44,7 @@ export default function UtilityLayersPanel() {
         className="glass-chip pointer-events-auto"
         title="Инженерные сети"
       >
-        🔧 <span className="text-slate-500 text-xs">{utilities.length}</span>
+        <Wrench size={16} /> <span className="text-slate-500 text-xs">{utilities.length}</span>
       </button>
     );
   }
@@ -52,7 +53,7 @@ export default function UtilityLayersPanel() {
     <div className="glass pointer-events-auto p-3 w-52 shrink-0">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
-        <h3 className="hud-title">🔧 Инженерные сети</h3>
+        <h3 className="hud-title flex items-center gap-1.5"><Wrench size={14} /> Инженерные сети</h3>
         <button onClick={() => setCollapsed(true)} className="text-slate-500 text-xs hover:text-white transition-colors" title="Свернуть">▴</button>
       </div>
 
@@ -65,7 +66,7 @@ export default function UtilityLayersPanel() {
             : 'bg-white/5 text-slate-300 hover:bg-white/10'
         }`}
       >
-        <span>{xrayMode ? '👁' : '👁‍🗨'}</span>
+        <ScanEye size={16} />
         <span>X-Ray (просвет)</span>
       </button>
 

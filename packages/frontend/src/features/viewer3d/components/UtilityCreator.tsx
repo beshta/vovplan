@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Wrench } from 'lucide-react';
 import * as THREE from 'three';
 import { Html } from '@react-three/drei';
 import { useViewerStore } from '../stores/viewerStore';
@@ -121,7 +122,7 @@ export default function UtilityCreator({ projectId }: UtilityCreatorProps) {
           а не к мировым координатам (раньше болталась по центру сцены) */}
       <Html fullscreen prepend zIndexRange={[30, 0]} style={{ pointerEvents: 'none' }}>
         <div className="absolute right-3 top-20 pointer-events-auto glass p-3.5 w-72 max-w-[calc(100vw-5rem)] select-none">
-          <h3 className="hud-title mb-2.5">🔧 Создание сети</h3>
+          <h3 className="hud-title mb-2.5 flex items-center gap-1.5"><Wrench size={14} /> Создание сети</h3>
 
           {/* Type selector */}
           <div className="grid grid-cols-3 gap-1 mb-2">

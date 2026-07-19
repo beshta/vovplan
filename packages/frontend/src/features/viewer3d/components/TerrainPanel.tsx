@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Mountain, Upload, Trash2, Dices, Grid3x3 } from 'lucide-react';
 import { useViewerStore } from '../stores/viewerStore';
 import { terrainApi } from '../../../shared/api';
 import { useQueryClient } from '@tanstack/react-query';
@@ -59,7 +60,7 @@ export default function TerrainPanel({ projectId }: { projectId: string }) {
         onClick={() => setCollapsed(!collapsed)}
         className="w-full flex items-center justify-between px-3.5 py-2.5"
       >
-        <span className="hud-title">🏔️ Ландшафт</span>
+        <span className="hud-title flex items-center gap-1.5"><Mountain size={14} /> Ландшафт</span>
         <span className="text-slate-500 text-xs">{collapsed ? '▾' : '▴'}</span>
       </button>
 
@@ -87,7 +88,7 @@ export default function TerrainPanel({ projectId }: { projectId: string }) {
               disabled={uploading}
               className="btn-primary w-full text-xs py-2"
             >
-              {uploading ? '⏳ Загрузка...' : '⬆ Загрузить heightmap (PNG)'}
+              {uploading ? 'Загрузка...' : <span className="flex items-center justify-center gap-1.5"><Upload size={14} /> Загрузить heightmap</span>}
             </button>
           </div>
 
@@ -97,7 +98,7 @@ export default function TerrainPanel({ projectId }: { projectId: string }) {
               onClick={handleRemoveTerrain}
               className="btn-danger w-full text-xs"
             >
-              🗑 Удалить heightmap
+              <span className="flex items-center justify-center gap-1.5"><Trash2 size={14} /> Удалить heightmap</span>
             </button>
           )}
 
@@ -113,7 +114,7 @@ export default function TerrainPanel({ projectId }: { projectId: string }) {
                 : 'bg-white/5 text-slate-400 hover:bg-white/10'
             }`}
           >
-            🎲 Процедурный рельеф
+            <span className="flex items-center justify-center gap-1.5"><Dices size={14} /> Процедурный рельеф</span>
           </button>
 
           {/* Wireframe toggle */}
@@ -125,7 +126,7 @@ export default function TerrainPanel({ projectId }: { projectId: string }) {
                 : 'bg-white/5 text-slate-400 hover:bg-white/10'
             }`}
           >
-            🔲 Каркас (wireframe)
+            <span className="flex items-center justify-center gap-1.5"><Grid3x3 size={14} /> Каркас</span>
           </button>
 
           {/* Error */}

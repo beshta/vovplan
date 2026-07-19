@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Boxes, Box, EyeOff } from 'lucide-react';
 import { useViewerStore } from '../stores/viewerStore';
 
 /**
@@ -21,7 +22,7 @@ export default function SceneObjectsList() {
         className="glass-chip pointer-events-auto"
         title="Объекты сцены"
       >
-        📋 <span className="text-slate-500 text-xs">{objects.length}</span>
+        <Boxes size={16} /> <span className="text-slate-500 text-xs">{objects.length}</span>
       </button>
     );
   }
@@ -30,7 +31,7 @@ export default function SceneObjectsList() {
     <div className="glass pointer-events-auto w-52 shrink-0 overflow-hidden flex flex-col max-h-72">
       {/* Header */}
       <div className="px-3.5 py-2.5 border-b border-white/10 flex items-center justify-between shrink-0">
-        <h3 className="hud-title">📋 Объекты · {objects.length}</h3>
+        <h3 className="hud-title flex items-center gap-1.5"><Boxes size={14} /> Объекты · {objects.length}</h3>
         <button onClick={() => setCollapsed(true)} className="text-slate-500 text-xs hover:text-white transition-colors" title="Свернуть">▾</button>
       </div>
 
@@ -50,9 +51,9 @@ export default function SceneObjectsList() {
                     : 'text-slate-300'
               }`}
             >
-              {/* Icon */}
-              <span className="text-sm flex-shrink-0">
-                {obj.hidden ? '👻' : '📦'}
+              {/* Icon: скрытый объект — перечёркнутый глаз, обычный — куб */}
+              <span className="flex-shrink-0 text-slate-500">
+                {obj.hidden ? <EyeOff size={16} className="text-amber-400/80" /> : <Box size={16} />}
               </span>
 
               {/* Name + author */}

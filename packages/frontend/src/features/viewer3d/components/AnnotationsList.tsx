@@ -1,13 +1,14 @@
 import { useState } from 'react';
+import { MessageSquareText, MapPin, MoveUpRight, Minus, Brush, MessageCircle } from 'lucide-react';
 import { useViewerStore } from '../stores/viewerStore';
 import { commentsApi } from '../../../shared/api';
 import { useQueryClient } from '@tanstack/react-query';
 
-const TYPE_ICONS: Record<string, string> = {
-  pin: '📍',
-  arrow: '➤',
-  line: '📏',
-  freehand: '✏️',
+const TYPE_ICONS: Record<string, React.ReactNode> = {
+  pin: <MapPin size={14} />,
+  arrow: <MoveUpRight size={14} />,
+  line: <Minus size={14} />,
+  freehand: <Brush size={14} />,
 };
 
 /**
@@ -60,7 +61,7 @@ export default function AnnotationsList({ projectId }: { projectId: string }) {
         onClick={() => setCollapsed(!collapsed)}
         className="w-full flex items-center justify-between px-3.5 py-2.5"
       >
-        <span className="hud-title">📝 Аннотации</span>
+        <span className="hud-title flex items-center gap-1.5"><MessageSquareText size={14} /> Аннотации</span>
         <div className="flex items-center gap-2">
           {unresolvedCount > 0 && (
             <span className="px-1.5 py-0.5 bg-red-500/20 text-red-300 text-[10px] rounded-full font-medium">
@@ -81,7 +82,7 @@ export default function AnnotationsList({ projectId }: { projectId: string }) {
               }`}
             >
               {/* Type icon */}
-              <span className="flex-shrink-0">{TYPE_ICONS[ann.type] ?? '💬'}</span>
+              <span className="flex-shrink-0 text-slate-400 mt-0.5">{TYPE_ICONS[ann.type] ?? <MessageCircle size={14} />}</span>
 
               {/* Content */}
               <div className="flex-1 min-w-0">

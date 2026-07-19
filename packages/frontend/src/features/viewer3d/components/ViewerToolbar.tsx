@@ -1,24 +1,15 @@
+import {
+  Eye, Pencil, PenTool, Wrench, Move, RotateCw, Maximize2,
+  MapPin, MoveUpRight, Minus, Brush, PersonStanding, Map as MapIcon,
+  ScanEye, MessageSquareText, EyeOff,
+} from 'lucide-react';
 import { useViewerStore } from '../stores/viewerStore';
 import { isTouchDevice } from '../utils/deviceProfiler';
 
 /**
  * Single left-side vertical toolbar.
  * All tools in one column — no separate right toolbar.
- *
- * Layout (top→bottom):
- * 1. View (👁)
- * 2. Edit (✏️)
- * 3. Annotate (✒️)
- * 4. Utility creator (🔧)
- * 5. ── separator ──
- * 6. Translate (↔)
- * 7. Rotate (↻)
- * 8. Scale (⤢)
- * 9. ── separator ──
- * 10. First-person (🚶)
- * 11. X-Ray (🔬)
- * 12. Annotations toggle (📝)
- * 13. Show hidden (👻)
+ * Иконки — lucide, единый стиль (stroke 2, размер 20).
  */
 export default function ViewerToolbar() {
   const {
@@ -45,14 +36,16 @@ export default function ViewerToolbar() {
       {/* ── Single left toolbar (позицию задаёт HUD-сетка) ── */}
       <div className="glass flex flex-col gap-1 p-1.5">
         {/* Mode tools */}
-        <ToolButton active={mode === 'view'} onClick={() => setMode('view')} title="Просмотр">👁</ToolButton>
+        <ToolButton active={mode === 'view'} onClick={() => setMode('view')} title="Просмотр">
+          <Eye size={20} />
+        </ToolButton>
 
         {canEdit && (
           <ToolButton
             active={mode === 'master-edit' || mode === 'partition-edit'}
             onClick={() => setMode(role === 'MASTER' ? 'master-edit' : 'partition-edit')}
             title="Редактирование"
-          >✏️</ToolButton>
+          ><Pencil size={20} /></ToolButton>
         )}
 
         {canAnnotate && (
@@ -60,7 +53,7 @@ export default function ViewerToolbar() {
             active={mode === 'annotate'}
             onClick={() => setMode('annotate')}
             title="Аннотации"
-          >✒️</ToolButton>
+          ><PenTool size={20} /></ToolButton>
         )}
 
         {canEdit && (
@@ -73,16 +66,22 @@ export default function ViewerToolbar() {
               setUtilityDrawMode(!utilityDrawMode);
             }}
             title="Создание инженерных сетей"
-          >🔧</ToolButton>
+          ><Wrench size={20} /></ToolButton>
         )}
 
         {/* Transform tools */}
         {(mode === 'master-edit' || mode === 'partition-edit') && (
           <>
             <div className="hud-divider" />
-            <ToolButton active={transformMode === 'translate'} onClick={() => setTransformMode('translate')} title="Перемещение">↔</ToolButton>
-            <ToolButton active={transformMode === 'rotate'} onClick={() => setTransformMode('rotate')} title="Поворот">↻</ToolButton>
-            <ToolButton active={transformMode === 'scale'} onClick={() => setTransformMode('scale')} title="Масштаб">⤢</ToolButton>
+            <ToolButton active={transformMode === 'translate'} onClick={() => setTransformMode('translate')} title="Перемещение">
+              <Move size={20} />
+            </ToolButton>
+            <ToolButton active={transformMode === 'rotate'} onClick={() => setTransformMode('rotate')} title="Поворот">
+              <RotateCw size={20} />
+            </ToolButton>
+            <ToolButton active={transformMode === 'scale'} onClick={() => setTransformMode('scale')} title="Масштаб">
+              <Maximize2 size={20} />
+            </ToolButton>
           </>
         )}
 
@@ -90,10 +89,18 @@ export default function ViewerToolbar() {
         {mode === 'annotate' && (
           <>
             <div className="hud-divider" />
-            <ToolButton active={annDrawMode === 'pin'} onClick={() => setAnnDrawMode('pin')} title="Метка (pin)">📍</ToolButton>
-            <ToolButton active={annDrawMode === 'arrow'} onClick={() => setAnnDrawMode('arrow')} title="Стрелка">➤</ToolButton>
-            <ToolButton active={annDrawMode === 'line'} onClick={() => setAnnDrawMode('line')} title="Линия">📏</ToolButton>
-            <ToolButton active={annDrawMode === 'freehand'} onClick={() => setAnnDrawMode('freehand')} title="От руки">✏️</ToolButton>
+            <ToolButton active={annDrawMode === 'pin'} onClick={() => setAnnDrawMode('pin')} title="Метка (pin)">
+              <MapPin size={20} />
+            </ToolButton>
+            <ToolButton active={annDrawMode === 'arrow'} onClick={() => setAnnDrawMode('arrow')} title="Стрелка">
+              <MoveUpRight size={20} />
+            </ToolButton>
+            <ToolButton active={annDrawMode === 'line'} onClick={() => setAnnDrawMode('line')} title="Линия">
+              <Minus size={20} />
+            </ToolButton>
+            <ToolButton active={annDrawMode === 'freehand'} onClick={() => setAnnDrawMode('freehand')} title="От руки">
+              <Brush size={20} />
+            </ToolButton>
           </>
         )}
 
@@ -105,27 +112,27 @@ export default function ViewerToolbar() {
             active={cameraView === 'first-person'}
             onClick={() => setCameraView(cameraView === 'first-person' ? 'orbit' : 'first-person')}
             title="Вид от первого лица / Обзор"
-          >{cameraView === 'first-person' ? '🗺️' : '🚶'}</ToolButton>
+          >{cameraView === 'first-person' ? <MapIcon size={20} /> : <PersonStanding size={20} />}</ToolButton>
         )}
 
         <ToolButton
           active={xrayMode}
           onClick={() => setXrayMode(!xrayMode)}
           title="X-Ray (просвет подземных сетей)"
-        >🔬</ToolButton>
+        ><ScanEye size={20} /></ToolButton>
 
         <ToolButton
           active={showAnnotations}
           onClick={() => setShowAnnotations(!showAnnotations)}
           title="Показать аннотации"
-        >📝</ToolButton>
+        ><MessageSquareText size={20} /></ToolButton>
 
         {role === 'MASTER' && (
           <ToolButton
             active={showHidden}
             onClick={() => setShowHidden(!showHidden)}
             title="Показать скрытые объекты"
-          >👻</ToolButton>
+          ><EyeOff size={20} /></ToolButton>
         )}
       </div>
     </>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Package, Construction, Footprints, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import type { ProjectRole } from '@vovplan/shared';
 import { useViewerStore } from './stores/viewerStore';
@@ -232,9 +233,10 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
             <div className="pointer-events-auto">
               {cameraView === 'first-person' && (
                 <div className="glass-chip text-xs whitespace-nowrap">
+                  <Footprints size={14} />
                   {fpPoint
-                    ? '🚶 Мышь — осмотр · WASD — ходьба · ESC — курсор'
-                    : '👣 Кликните точку на земле, куда «спуститься»'}
+                    ? 'Мышь — осмотр · WASD — ходьба · ESC — курсор'
+                    : 'Кликните точку на земле, куда «спуститься»'}
                 </div>
               )}
             </div>
@@ -242,7 +244,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
             {/* Empty state */}
             {sceneData?.data.length === 0 && (
               <div className="text-center text-slate-400 select-none">
-                <div className="text-5xl mb-3">🏗️</div>
+                <div className="flex justify-center mb-3 text-slate-600"><Construction size={48} strokeWidth={1.5} /></div>
                 <p className="text-sm">Сцена пуста. Загрузите GLB-модель справа и разместите её.</p>
               </div>
             )}
@@ -269,7 +271,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
                 className="pointer-events-auto w-11 h-11 rounded-full bg-vovplan-600 text-white text-xl shadow-xl flex items-center justify-center"
                 title="Библиотека моделей"
               >
-                📦
+                <Package size={20} />
               </button>
             )}
             <div className="pointer-events-auto flex-1 min-h-0 overflow-y-auto flex flex-col items-end gap-2">
@@ -291,7 +293,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
                 className="absolute -left-3 top-3 z-50 w-7 h-7 rounded-full bg-slate-800 text-white text-sm shadow-lg border border-white/10"
                 title="Закрыть"
               >
-                ✕
+                <X size={14} className="mx-auto" />
               </button>
               <ModelLibrary projectId={projectId} onPlaceObject={(m) => { setLibraryOpen(false); return handlePlaceObject(m); }} />
             </div>

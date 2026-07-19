@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import {
+  Compass, LayoutGrid, Mouse, ZoomIn, Keyboard, Pencil, Undo2,
+} from 'lucide-react';
 import { useViewerStore } from '../stores/viewerStore';
 
 const STORAGE_KEY = 'vovplan_tutorial_seen';
@@ -45,7 +48,9 @@ export default function NavigationHelp() {
           title={cameraView === 'top' ? 'Перейти в перспективу' : 'Вид сверху'}
           className="glass-chip text-xs"
         >
-          {cameraView === 'top' ? '🔲 Перспектива' : '📐 Вид сверху'}
+          {cameraView === 'top'
+            ? <><Compass size={15} /> Перспектива</>
+            : <><LayoutGrid size={15} /> Вид сверху</>}
         </button>
 
         {/* Permanent hint */}
@@ -63,17 +68,17 @@ export default function NavigationHelp() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass max-w-md w-full mx-4 overflow-hidden">
             <div className="px-6 py-4 border-b border-white/10">
-              <h2 className="text-white font-semibold text-lg tracking-tight">Добро пожаловать в VOVPLAN</h2>
+              <h2 className="text-white font-semibold text-lg tracking-tight font-display">Добро пожаловать в VOVPLAN</h2>
               <p className="text-slate-400 text-sm mt-1">Управление в 3D-сцене</p>
             </div>
             <div className="p-6 space-y-4">
-              <TutorialRow icon="🖱️" title="Левая кнопка мыши (ЛКМ)" desc="Вращение камеры вокруг сцены. Клик по объекту — выбор." />
-              <TutorialRow icon="🖱️" title="Правая кнопка мыши (ПКМ)" desc="Перемещение (панорама) камеры." />
-              <TutorialRow icon="🔍" title="Колесо мыши" desc="Приближение / отдаление камеры." />
-              <TutorialRow icon="⌨️" title="Shift + ЛКМ" desc="Альтернативный способ панорамирования." />
-              <TutorialRow icon="✏️" title="Редактирование" desc="Выберите объект → «Изменить» → двигайте/вращайте/масштабируйте." />
-              <TutorialRow icon="↩️" title="Ctrl+Z / Ctrl+Shift+Z" desc="Отмена / повтор последнего действия." />
-              <TutorialRow icon="📐" title="Вид сверху" desc="Кнопка внизу слева переключает перспективу и вид сверху." />
+              <TutorialRow icon={<Mouse size={22} />} title="Левая кнопка мыши (ЛКМ)" desc="Вращение камеры вокруг сцены. Клик по объекту — выбор." />
+              <TutorialRow icon={<Mouse size={22} className="scale-x-[-1]" />} title="Правая кнопка мыши (ПКМ)" desc="Перемещение (панорама) камеры." />
+              <TutorialRow icon={<ZoomIn size={22} />} title="Колесо мыши" desc="Приближение / отдаление камеры." />
+              <TutorialRow icon={<Keyboard size={22} />} title="Shift + ЛКМ" desc="Альтернативный способ панорамирования." />
+              <TutorialRow icon={<Pencil size={22} />} title="Редактирование" desc="Выберите объект → «Изменить» → двигайте/вращайте/масштабируйте." />
+              <TutorialRow icon={<Undo2 size={22} />} title="Ctrl+Z / Ctrl+Shift+Z" desc="Отмена / повтор последнего действия." />
+              <TutorialRow icon={<LayoutGrid size={22} />} title="Вид сверху" desc="Кнопка внизу слева переключает перспективу и вид сверху." />
             </div>
             <div className="px-6 py-4 border-t border-white/10">
               <button onClick={handleDismiss} className="btn-primary w-full text-sm">
@@ -87,10 +92,10 @@ export default function NavigationHelp() {
   );
 }
 
-function TutorialRow({ icon, title, desc }: { icon: string; title: string; desc: string }) {
+function TutorialRow({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
   return (
     <div className="flex gap-3">
-      <div className="text-2xl flex-shrink-0">{icon}</div>
+      <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-vovplan-300">{icon}</div>
       <div>
         <p className="text-slate-100 text-sm font-medium">{title}</p>
         <p className="text-slate-400 text-xs mt-0.5">{desc}</p>

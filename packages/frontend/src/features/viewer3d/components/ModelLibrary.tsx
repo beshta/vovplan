@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Package, Upload, Plus, X } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { modelsApi, type Model3DPayload } from '../../../shared/api';
 
@@ -55,7 +56,7 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
     <div className="w-72 bg-slate-950/95 backdrop-blur-xl border-l border-white/10 flex flex-col overflow-hidden text-slate-200">
       {/* Header */}
       <div className="px-4 py-3.5 border-b border-white/10">
-        <h3 className="hud-title">📦 Библиотека моделей</h3>
+        <h3 className="hud-title flex items-center gap-1.5"><Package size={14} /> Библиотека моделей</h3>
       </div>
 
       {/* Upload zone */}
@@ -79,7 +80,7 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
           disabled={uploadMutation.isPending}
           className="btn-primary w-full text-sm"
         >
-          {uploadMutation.isPending ? '⏳ Загрузка...' : '⬆ Загрузить GLB'}
+          {uploadMutation.isPending ? 'Загрузка...' : <span className="flex items-center justify-center gap-1.5"><Upload size={15} /> Загрузить GLB</span>}
         </button>
         {uploadError && (
           <p className="mt-2 text-xs text-red-300">{uploadError}</p>
@@ -93,7 +94,7 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
         )}
         {models.length === 0 && !isLoading && (
           <div className="text-center py-8 text-slate-500">
-            <div className="text-3xl mb-2">📦</div>
+            <div className="flex justify-center mb-2 text-slate-600"><Package size={32} /></div>
             <p className="text-sm">Пока нет моделей</p>
             <p className="text-xs mt-1">Загрузите GLB-файл выше</p>
           </div>
@@ -115,13 +116,13 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
                 onClick={() => deleteMutation.mutate(model.id)}
                 className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 text-xs px-1 transition-opacity"
                 title="Удалить модель"
-              >✕</button>
+              ><X size={13} /></button>
             </div>
             {onPlaceObject && (
               <button
                 onClick={() => onPlaceObject(model)}
                 className="mt-2 w-full px-3 py-1.5 bg-vovplan-600/20 text-vovplan-200 rounded-lg text-xs font-medium hover:bg-vovplan-600/35 transition-colors"
-              >➕ Разместить на сцене</button>
+              ><span className="flex items-center justify-center gap-1"><Plus size={13} /> Разместить на сцене</span></button>
             )}
           </div>
         ))}

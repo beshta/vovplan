@@ -3,6 +3,10 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Manrope Variable', 'system-ui', 'sans-serif'],
+        display: ['Unbounded', 'Manrope Variable', 'sans-serif'],
+      },
       colors: {
         vovplan: {
           50: '#eef6ff',

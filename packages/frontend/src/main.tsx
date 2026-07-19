@@ -3,7 +3,9 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './app/App';
-import '@fontsource-variable/inter';
+import '@fontsource-variable/manrope';
+import '@fontsource/unbounded/500.css';
+import '@fontsource/unbounded/700.css';
 import './index.css';
 
 const queryClient = new QueryClient({

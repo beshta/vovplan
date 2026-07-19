@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Bookmark, Plus, X, Check } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { presetsApi } from '../../../shared/api';
 import type { CameraPresetPayload } from '../../../shared/api';
@@ -52,7 +53,7 @@ export default function PresetsBar({ projectId, canEdit }: PresetsBarProps) {
 
   return (
     <div className="glass rounded-full flex items-center gap-1.5 px-2 py-1.5 max-w-[70vw] overflow-x-auto">
-      <span className="text-[10px] uppercase tracking-wider text-slate-500 px-1 shrink-0">Виды</span>
+      <span className="text-[10px] uppercase tracking-wider text-slate-500 px-1 shrink-0 flex items-center gap-1"><Bookmark size={12} /> Виды</span>
 
       {presets.map((p: CameraPresetPayload) => (
         <span key={p.id} className="group relative shrink-0">
@@ -81,7 +82,7 @@ export default function PresetsBar({ projectId, canEdit }: PresetsBarProps) {
           className="px-3 py-1 rounded-full text-xs bg-slate-800 text-slate-400 hover:text-white border border-dashed border-slate-600 shrink-0"
           title="Сохранить текущий вид как пресет"
         >
-          + Вид
+          <span className="flex items-center gap-1"><Plus size={13} /> Вид</span>
         </button>
       )}
 
@@ -101,11 +102,11 @@ export default function PresetsBar({ projectId, canEdit }: PresetsBarProps) {
             placeholder="Название вида"
             className="w-32 px-2 py-1 rounded-full text-xs bg-slate-800 text-white border border-slate-600 focus:border-vovplan-500 outline-none"
           />
-          <button type="submit" className="px-2 py-1 rounded-full text-xs bg-vovplan-600 text-white">
-            ✓
+          <button type="submit" title="Сохранить" className="px-2 py-1 rounded-full text-xs bg-vovplan-600 text-white">
+            <Check size={13} />
           </button>
-          <button type="button" onClick={() => setSaving(false)} className="px-2 py-1 rounded-full text-xs bg-slate-700 text-slate-300">
-            ✕
+          <button type="button" title="Отмена" onClick={() => setSaving(false)} className="px-2 py-1 rounded-full text-xs bg-slate-700 text-slate-300">
+            <X size={13} />
           </button>
         </form>
       )}
