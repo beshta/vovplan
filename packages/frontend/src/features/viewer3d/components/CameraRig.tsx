@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { useThree } from '@react-three/fiber';
+import { useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, PointerLockControls } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useViewerStore } from '../stores/viewerStore';
@@ -24,6 +24,38 @@ export default function CameraRig() {
   const selectedObjectId = useViewerStore((s) => s.selectedObjectId);
   const objects = useViewerStore((s) => s.objects);
   const cameraLocked = useViewerStore((s) => s.cameraLocked);
+  const cameraFlyTarget = useViewerStore((s) => s.cameraFlyTarget);
+  const clearFlyTarget = useViewerStore((s) => s.clearFlyTarget);
+  const setCameraGetter = useViewerStore((s) => s.setCameraGetter);
+
+  // Регистрируем геттер текущей позы камеры (для сохранения пресетов)
+  useEffect(() => {
+    setCameraGetter(() => {
+      const t = controlsRef.current?.target ?? new THREE.Vector3();
+      return {
+        position: [camera.position.x, camera.position.y, camera.position.z] as [number, number, number],
+        target: [t.x, t.y, t.z] as [number, number, number],
+      };
+    });
+    return () => setCameraGetter(null);
+  }, [camera, setCameraGetter]);
+
+  // Плавный перелёт к пресету (~0.8с, экспоненциальное приближение)
+  useFrame((_, delta) => {
+    if (!cameraFlyTarget || !controlsRef.current) return;
+    const pos = new THREE.Vector3(...cameraFlyTarget.position);
+    const tgt = new THREE.Vector3(...cameraFlyTarget.target);
+    const k = 1 - Math.exp(-6 * delta);
+    camera.position.lerp(pos, k);
+    controlsRef.current.target.lerp(tgt, k);
+    controlsRef.current.update();
+    if (camera.position.distanceTo(pos) < 0.05 && controlsRef.current.target.distanceTo(tgt) < 0.05) {
+      camera.position.copy(pos);
+      controlsRef.current.target.copy(tgt);
+      controlsRef.current.update();
+      clearFlyTarget();
+    }
+  });
 
   // Move orbit target to selected object — ONLY on selection change, not during transform
   useEffect(() => {

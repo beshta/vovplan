@@ -18,7 +18,7 @@ import { detectQuality } from '../utils/deviceProfiler';
  * The R3F Canvas — 3D scene root.
  * Contains lighting, camera controls, terrain, and all scene objects.
  */
-export default function Scene({ currentUserId, projectId }: { currentUserId: string; projectId: string }) {
+export default function Scene({ currentUserId, projectId, shared = false }: { currentUserId: string; projectId: string; shared?: boolean }) {
   const quality = detectQuality();
   const objects = useViewerStore((s) => s.objects);
   const selectObject = useViewerStore((s) => s.selectObject);
@@ -89,8 +89,9 @@ export default function Scene({ currentUserId, projectId }: { currentUserId: str
           <SceneObject key={obj.id} data={obj} currentUserId={currentUserId} projectId={projectId} />
         ))}
 
-        {/* Real-time collaboration: peer cursors + local cursor emit */}
-        <PeerLayer projectId={projectId} currentUserId={currentUserId} />
+        {/* Real-time collaboration: peer cursors + local cursor emit.
+            В публичном shared-режиме сокета нет — слой отключён. */}
+        {!shared && <PeerLayer projectId={projectId} currentUserId={currentUserId} />}
       </Suspense>
     </Canvas>
   );

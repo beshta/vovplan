@@ -6,8 +6,9 @@ import { useAuthStore } from '../shared/authStore';
 import { ROLE_LABELS } from '@vovplan/shared';
 import { Viewer3D } from '../features/viewer3d';
 import MembersPanel from '../components/MembersPanel';
+import SharePanel from '../components/SharePanel';
 
-type Tab = 'viewer' | 'members' | 'settings';
+type Tab = 'viewer' | 'members' | 'share' | 'settings';
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -79,6 +80,16 @@ export default function ProjectPage() {
           </button>
           {isMaster && (
             <button
+              onClick={() => setTab('share')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                tab === 'share' ? 'bg-vovplan-600 text-white' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Доступ
+            </button>
+          )}
+          {isMaster && (
+            <button
               onClick={() => setTab('settings')}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 tab === 'settings' ? 'bg-vovplan-600 text-white' : 'text-slate-400 hover:text-white'
@@ -96,6 +107,7 @@ export default function ProjectPage() {
           <Viewer3D projectId={project.id} role={project.myRole!} userId={user!.id} />
         )}
         {tab === 'members' && <MembersPanel projectId={project.id} isMaster={isMaster} />}
+        {tab === 'share' && isMaster && <SharePanel projectId={project.id} />}
         {tab === 'settings' && isMaster && (
           <ProjectSettings projectId={project.id} project={project} />
         )}

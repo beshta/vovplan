@@ -80,6 +80,15 @@ interface ViewerState {
   cameraLocked: boolean;
   setCameraLocked: (v: boolean) => void;
 
+  // ── Camera presets (fly-to + захват позы) ──
+  /** Цель плавного перелёта камеры; CameraRig анимирует и сбрасывает в null */
+  cameraFlyTarget: { position: [number, number, number]; target: [number, number, number] } | null;
+  flyTo: (pose: { position: [number, number, number]; target: [number, number, number] }) => void;
+  clearFlyTarget: () => void;
+  /** Геттер текущей позы камеры — регистрируется CameraRig'ом изнутри Canvas */
+  cameraGetter: (() => { position: [number, number, number]; target: [number, number, number] }) | null;
+  setCameraGetter: (fn: (() => { position: [number, number, number]; target: [number, number, number] }) | null) => void;
+
   // ── Undo / Redo history ───────────────────
   history: TransformHistoryEntry[];
   historyIndex: number;
@@ -205,6 +214,13 @@ export const useViewerStore = create<ViewerState>((set) => ({
   // Camera lock
   cameraLocked: false,
   setCameraLocked: (cameraLocked) => set({ cameraLocked }),
+
+  // Camera presets
+  cameraFlyTarget: null,
+  flyTo: (pose) => set({ cameraFlyTarget: pose, cameraView: 'orbit' }),
+  clearFlyTarget: () => set({ cameraFlyTarget: null }),
+  cameraGetter: null,
+  setCameraGetter: (cameraGetter) => set({ cameraGetter }),
 
   // Undo / Redo history
   history: [],

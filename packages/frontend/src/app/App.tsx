@@ -5,6 +5,7 @@ import LoginPage from '../pages/LoginPage';
 import RegisterPage from '../pages/RegisterPage';
 import DashboardPage from '../pages/DashboardPage';
 import ProjectPage from '../pages/ProjectPage';
+import SharedViewerPage from '../pages/SharedViewerPage';
 import LoadingScreen from '../components/LoadingScreen';
 
 export default function App() {
@@ -21,6 +22,9 @@ export default function App() {
 
   return (
     <Routes>
+      {/* Public share link — no registration required */}
+      <Route path="/share/:token" element={<SharedViewerPage />} />
+
       {/* Auth routes — redirect to dashboard if already logged in */}
       <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <LoginPage />} />
       <Route path="/register" element={isAuthenticated ? <Navigate to="/" /> : <RegisterPage />} />

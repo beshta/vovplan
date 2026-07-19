@@ -257,6 +257,76 @@ export const terrainApi = {
     apiFetch<void>(`/api/projects/${projectId}/terrain`, { method: 'DELETE' }),
 };
 
+// ── Camera Presets API ────────────────────────
+export interface CameraPresetPayload {
+  id: string;
+  name: string;
+  position: [number, number, number];
+  target: [number, number, number];
+  sortOrder: number;
+  createdAt: string;
+}
+
+export const presetsApi = {
+  list: (projectId: string) =>
+    apiFetch<{ data: CameraPresetPayload[] }>(`/api/projects/${projectId}/presets`),
+
+  create: (projectId: string, data: { name: string; position: [number, number, number]; target: [number, number, number] }) =>
+    apiFetch<CameraPresetPayload>(`/api/projects/${projectId}/presets`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  remove: (projectId: string, id: string) =>
+    apiFetch<void>(`/api/projects/${projectId}/presets/${id}`, { method: 'DELETE' }),
+};
+
+// ── Share Links API ───────────────────────────
+export interface ShareLinkPayload {
+  id: string;
+  token: string;
+  name: string;
+  presetId: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+export const sharesApi = {
+  list: (projectId: string) =>
+    apiFetch<{ data: ShareLinkPayload[] }>(`/api/projects/${projectId}/shares`),
+
+  create: (projectId: string, data: { name: string; presetId?: string; expiresDays?: number }) =>
+    apiFetch<ShareLinkPayload>(`/api/projects/${projectId}/shares`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  remove: (projectId: string, id: string) =>
+    apiFetch<void>(`/api/projects/${projectId}/shares/${id}`, { method: 'DELETE' }),
+};
+
+// ── Public shared view (без авторизации) ──────
+export interface SharedViewPayload {
+  project: { name: string; description: string; terrainUrl: string | null };
+  objects: {
+    id: string;
+    modelId: string;
+    name: string;
+    authorName: string;
+    position: [number, number, number];
+    rotation: [number, number, number];
+    scale: [number, number, number];
+    description: string;
+  }[];
+  models: { id: string; glbUrl: string; lod1Url: string | null; lod2Url: string | null }[];
+  presets: { id: string; name: string; position: [number, number, number]; target: [number, number, number] }[];
+  startPresetId: string | null;
+}
+
+export const sharedApi = {
+  get: (token: string) => apiFetch<SharedViewPayload>(`/api/shared/${token}`),
+};
+
 // ── Comments / Annotations API ────────────────
 export type AnnotationType = 'arrow' | 'line' | 'freehand' | 'pin';
 

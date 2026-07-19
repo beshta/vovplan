@@ -12,6 +12,8 @@ import modelRoutes from './modules/models/routes.js';
 import utilityRoutes from './modules/utilities/routes.js';
 import terrainRoutes from './modules/terrain/routes.js';
 import commentRoutes from './modules/comments/routes.js';
+import shareRoutes from './modules/share/routes.js';
+import publicShareRoutes from './modules/share/public.js';
 import { setupRealtime } from './realtime/index.js';
 
 /**
@@ -53,6 +55,8 @@ export async function buildServer(opts: { logger?: boolean } = {}): Promise<Fast
   await fastify.register(utilityRoutes, { prefix: '/api/projects' });
   await fastify.register(terrainRoutes, { prefix: '/api/projects' });
   await fastify.register(commentRoutes, { prefix: '/api/projects' });
+  await fastify.register(shareRoutes, { prefix: '/api/projects' });
+  await fastify.register(publicShareRoutes, { prefix: '/api/shared' });
 
   // ── Real-time collaboration (Socket.io) ────
   setupRealtime(fastify);

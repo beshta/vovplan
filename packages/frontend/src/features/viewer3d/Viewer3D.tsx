@@ -12,6 +12,7 @@ import NavigationHelp from './components/NavigationHelp';
 import UtilityLayersPanel from './components/UtilityLayersPanel';
 import TerrainPanel from './components/TerrainPanel';
 import AnnotationsList from './components/AnnotationsList';
+import PresetsBar from './components/PresetsBar';
 import PresenceBar from '../collaboration/PresenceBar';
 import { useRealtime } from '../collaboration/useRealtime';
 import { useAuthStore } from '../../shared/authStore';
@@ -206,6 +207,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
         <ObjectInfoPanel projectId={projectId} />
         <UtilityLayersPanel />
         <AnnotationsList projectId={projectId} />
+        <PresetsBar projectId={projectId} canEdit={role === 'MASTER' || role === 'DESIGNER'} />
         <NavigationHelp />
         {canEdit && <TerrainPanel projectId={projectId} />}
 

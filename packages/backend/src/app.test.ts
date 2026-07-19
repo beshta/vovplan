@@ -39,6 +39,8 @@ beforeAll(async () => {
 afterAll(async () => {
   // Чистим всё, что создали (порядок: зависимые → корневые)
   if (projectId) {
+    await prisma.shareLink.deleteMany({ where: { projectId } });
+    await prisma.cameraPreset.deleteMany({ where: { projectId } });
     await prisma.comment.deleteMany({ where: { projectId } });
     await prisma.sceneObject.deleteMany({ where: { projectId } });
     await prisma.utilityNetwork.deleteMany({ where: { projectId } });
@@ -327,5 +329,116 @@ describe('utility networks', () => {
       headers: auth(designerToken),
     });
     expect(res.statusCode).toBe(204);
+  });
+});
+
+describe('Фаза 7: пресеты камеры + share-ссылки', () => {
+  let presetId = '';
+  let shareToken = '';
+  let shareId = '';
+
+  it('designer создаёт пресет → 201', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/projects/${projectId}/presets`,
+      headers: auth(designerToken),
+      payload: { name: 'Вид с юга', position: [40, 45, 40], target: [0, 0, 0] },
+    });
+    expect(res.statusCode).toBe(201);
+    presetId = res.json().id;
+  });
+
+  it('master создаёт share-ссылку с пресетом → 201, url-safe токен', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/projects/${projectId}/shares`,
+      headers: auth(masterToken),
+      payload: { name: 'Для подрядчика', presetId },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    shareToken = body.token;
+    shareId = body.id;
+    expect(shareToken).toMatch(/^[A-Za-z0-9_-]{20,}$/);
+    expect(body.presetId).toBe(presetId);
+  });
+
+  it('designer НЕ может создавать share-ссылки → 403', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/projects/${projectId}/shares`,
+      headers: auth(designerToken),
+      payload: { name: 'Хакерская' },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('публичный GET /api/shared/:token — без авторизации, без сетей и скрытого', async () => {
+    // создаём утилити-сеть и скрытый объект, чтобы проверить фильтрацию
+    await app.inject({
+      method: 'POST',
+      url: `/api/projects/${projectId}/utilities`,
+      headers: auth(masterToken),
+      payload: { name: 'Секретный газ', type: 'GAS', location: 'UNDERGROUND', geometry: [[0, -2, 0], [5, -2, 5]] },
+    });
+    const hiddenObj = await app.inject({
+      method: 'POST',
+      url: `/api/projects/${projectId}/objects`,
+      headers: auth(masterToken),
+      payload: { name: 'Скрытый склад', position: [9, 0, 9] },
+    });
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/projects/${projectId}/objects/${hiddenObj.json().id}`,
+      headers: auth(masterToken),
+    }); // soft-delete → visible=false
+
+    const res = await app.inject({ method: 'GET', url: `/api/shared/${shareToken}` });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+
+    expect(body.project.name).toContain('Проект');
+    expect(body.startPresetId).toBe(presetId);
+    expect(body.presets.map((p: any) => p.id)).toContain(presetId);
+    // только видимые объекты
+    const names = body.objects.map((o: any) => o.name);
+    expect(names).toContain('Сцена А');
+    expect(names).not.toContain('Скрытый склад');
+    // инженерных данных и авторских id в ответе нет вообще
+    const raw = res.body;
+    expect(raw).not.toContain('Секретный газ');
+    expect(raw).not.toContain('utilities');
+    expect(raw).not.toContain('authorId');
+  });
+
+  it('невалидный токен → 404', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/shared/no-such-token' });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('просроченная ссылка → 410', async () => {
+    const expired = await prisma.shareLink.create({
+      data: {
+        projectId,
+        token: `expired-${marker}`,
+        name: 'Просроченная',
+        expiresAt: new Date(Date.now() - 1000),
+        createdById: 'test',
+      },
+    });
+    const res = await app.inject({ method: 'GET', url: `/api/shared/${expired.token}` });
+    expect(res.statusCode).toBe(410);
+  });
+
+  it('отзыв ссылки мастером → 204, токен перестаёт работать', async () => {
+    const del = await app.inject({
+      method: 'DELETE',
+      url: `/api/projects/${projectId}/shares/${shareId}`,
+      headers: auth(masterToken),
+    });
+    expect(del.statusCode).toBe(204);
+
+    const res = await app.inject({ method: 'GET', url: `/api/shared/${shareToken}` });
+    expect(res.statusCode).toBe(404);
   });
 });

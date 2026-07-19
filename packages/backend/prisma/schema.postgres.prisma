@@ -13,7 +13,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ── SHARED SCHEMA BELOW — keep in sync with schema.postgres.prisma (checked in CI) ──
+// ── SHARED SCHEMA BELOW — идентично в schema.prisma и schema.postgres.prisma (проверяется в CI) ──
 
 // ═══════════════════════════════════════════════
 // Enums
@@ -88,6 +88,8 @@ model Project {
   objects     SceneObject[]
   utilities   UtilityNetwork[]
   comments    Comment[]
+  presets     CameraPreset[]
+  shareLinks  ShareLink[]
 
   @@map("projects")
 }
@@ -180,6 +182,43 @@ model UtilityNetwork {
   project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@map("utility_networks")
+}
+
+// ═══════════════════════════════════════════════
+// Camera Presets (предустановленные виды камеры)
+// ═══════════════════════════════════════════════
+
+model CameraPreset {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  position  Json     // [x, y, z] — позиция камеры
+  target    Json     // [x, y, z] — точка, на которую смотрит камера
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("camera_presets")
+}
+
+// ═══════════════════════════════════════════════
+// Share Links (публичный доступ без регистрации)
+// ═══════════════════════════════════════════════
+
+model ShareLink {
+  id          String    @id @default(cuid())
+  projectId   String
+  token       String    @unique // url-safe случайный токен
+  name        String // метка, например «Для подрядчика»
+  presetId    String? // стартовый вид камеры (CameraPreset.id)
+  expiresAt   DateTime? // null = бессрочная
+  createdById String
+  createdAt   DateTime  @default(now())
+
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("share_links")
 }
 
 // ═══════════════════════════════════════════════
