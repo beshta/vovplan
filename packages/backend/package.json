@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "nodemon --watch src --ext ts --legacy-watch --delay 300ms --exec tsx src/server.ts",
     "build": "tsc && tsc-alias",
     "start": "node dist/server.js",
     "lint": "tsc --noEmit",
@@ -30,6 +30,7 @@
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.10.5",
+    "nodemon": "^3.1.14",
     "prisma": "^6.1.0",
     "tsc-alias": "^1.8.10",
     "tsx": "^4.19.2",
