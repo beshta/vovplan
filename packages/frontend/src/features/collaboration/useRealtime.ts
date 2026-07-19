@@ -74,10 +74,10 @@ export function useRealtime(projectId: string, userName: string) {
       queryClient.invalidateQueries({ queryKey: ['utilities', projectId] });
     });
 
-    socket.on('terrain:changed', (p: { terrainUrl: string | null }) => {
-      // Apply directly — the Viewer3D effect only reacts to a truthy terrainUrl,
-      // so removal must be pushed into the store here.
+    socket.on('terrain:changed', (p: { terrainUrl: string | null; terrainMeta?: unknown }) => {
+      // Применяем напрямую (включая удаление) + подтягиваем свежий проект
       useViewerStore.getState().setTerrainUrl(p.terrainUrl);
+      useViewerStore.getState().setTerrainMeta((p.terrainMeta as any) ?? null);
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
     });
 

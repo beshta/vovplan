@@ -87,6 +87,9 @@ interface ViewerState {
   // ── Terrain ────────────────────────────────
   terrainUrl: string | null;
   setTerrainUrl: (url: string | null) => void;
+  /** Метаданные импортированного реального рельефа (текстура, размеры, высоты, периметр) */
+  terrainMeta: import('../../../shared/api').TerrainMeta | null;
+  setTerrainMeta: (m: import('../../../shared/api').TerrainMeta | null) => void;
   proceduralTerrain: boolean;
   setProceduralTerrain: (v: boolean) => void;
   wireframe: boolean;
@@ -230,6 +233,8 @@ export const useViewerStore = create<ViewerState>((set) => ({
   // Terrain
   terrainUrl: null,
   setTerrainUrl: (terrainUrl) => set({ terrainUrl }),
+  terrainMeta: null,
+  setTerrainMeta: (terrainMeta) => set({ terrainMeta }),
   proceduralTerrain: true,
   setProceduralTerrain: (proceduralTerrain) => set({ proceduralTerrain }),
   wireframe: false,

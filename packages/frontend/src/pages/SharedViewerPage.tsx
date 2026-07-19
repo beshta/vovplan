@@ -20,6 +20,7 @@ export default function SharedViewerPage() {
   const setObjects = useViewerStore((s) => s.setObjects);
   const setModelCache = useViewerStore((s) => s.setModelCache);
   const setTerrainUrl = useViewerStore((s) => s.setTerrainUrl);
+  const setTerrainMeta = useViewerStore((s) => s.setTerrainMeta);
   const setUtilities = useViewerStore((s) => s.setUtilities);
   const setAnnotations = useViewerStore((s) => s.setAnnotations);
   const flyTo = useViewerStore((s) => s.flyTo);
@@ -66,6 +67,7 @@ export default function SharedViewerPage() {
     setModelCache(cache);
 
     setTerrainUrl(data.project.terrainUrl);
+    setTerrainMeta((data.project as any).terrainMeta ?? null);
 
     // Стартовый вид из ссылки
     const start = data.startPresetId

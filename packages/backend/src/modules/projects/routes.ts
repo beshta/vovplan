@@ -14,6 +14,7 @@ function toProjectDTO(row: any, myRole?: string) {
     centerLat: row.centerLat,
     centerLng: row.centerLng,
     terrainUrl: row.terrainUrl,
+    terrainMeta: row.terrainMeta ?? null,
     status: row.status,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

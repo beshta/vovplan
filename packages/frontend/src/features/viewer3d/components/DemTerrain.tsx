@@ -1,53 +1,42 @@
-import { useMemo, useRef, useEffect } from 'react';
+import { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
+import { useLoader } from '@react-three/fiber';
 import { fbm, ridged } from '../utils/noise';
+import type { TerrainMeta } from '../../../shared/api';
 
 /**
  * DEM-based terrain with vertex displacement.
  *
- * Three modes:
- * 1. Heightmap PNG (from backend terrainUrl) — real elevation data
- * 2. Procedural noise — fBm + ridged for natural-looking hills
- * 3. Flat — fallback (same as old Terrain.tsx)
- *
- * Features:
- * - Vertex colors based on elevation (water → grass → rock → snow)
- * - Wireframe option for debugging
- * - Adjustable height scale & noise parameters
- * - X-Ray: terrain becomes semi-transparent (for underground utilities)
+ * Modes:
+ * 1. Real terrain (heightmap + terrainMeta) — импорт с карты: реальные
+ *    высоты, пропорции области и спутниковая текстура.
+ * 2. Heightmap PNG (ручная загрузка) — яркость = высота, vertex colors.
+ * 3. Procedural noise — fBm + ridged, vertex colors.
  */
 
 export interface DemTerrainProps {
   size?: number;
   segments?: number;
-  /** Heightmap texture URL (PNG). If null → procedural noise */
   heightmapUrl?: string | null;
-  /** Max elevation in scene units (default 15) */
+  meta?: TerrainMeta | null;
   heightScale?: number;
-  /** Procedural seed (only used when no heightmap) */
   seed?: number;
-  /** Noise frequency — lower = larger features (default 0.015) */
   frequency?: number;
-  /** Wireframe mode */
   wireframe?: boolean;
-  /** X-Ray transparency (utilities view) */
   xray?: boolean;
-  /** Lighting callback when terrain height at origin changes */
-  onTerrainReady?: (maxHeight: number) => void;
 }
 
-// ── Color stops for vertex coloring ──
+// ── Color stops for vertex coloring (procedural / manual heightmap) ──
 const COLOR_STOPS: { h: number; color: THREE.Color }[] = [
-  { h: -0.2, color: new THREE.Color('#3a5a40') },  // swamp / dark grass
-  { h: 0.05, color: new THREE.Color('#5a7a5a') },  // grass green
-  { h: 0.35, color: new THREE.Color('#7a8a5a') },  // dry grass / dirt
-  { h: 0.6,  color: new THREE.Color('#8a7a6a') },  // rock
-  { h: 0.85, color: new THREE.Color('#aaaaaa') },  // light rock
-  { h: 1.0,  color: new THREE.Color('#ffffff') },   // snow
+  { h: -0.2, color: new THREE.Color('#3a5a40') },
+  { h: 0.05, color: new THREE.Color('#5a7a5a') },
+  { h: 0.35, color: new THREE.Color('#7a8a5a') },
+  { h: 0.6,  color: new THREE.Color('#8a7a6a') },
+  { h: 0.85, color: new THREE.Color('#aaaaaa') },
+  { h: 1.0,  color: new THREE.Color('#ffffff') },
 ];
 
 function getTerrainColor(h: number, target: THREE.Color): void {
-  // h is normalized 0..1
   for (let i = 0; i < COLOR_STOPS.length - 1; i++) {
     const a = COLOR_STOPS[i];
     const b = COLOR_STOPS[i + 1];
@@ -60,87 +49,121 @@ function getTerrainColor(h: number, target: THREE.Color): void {
   target.copy(COLOR_STOPS[COLOR_STOPS.length - 1].color);
 }
 
-export default function DemTerrain({
+/** Пиксели изображения → ImageData (для сэмплинга высот) */
+function imageToData(img: HTMLImageElement): ImageData {
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(img, 0, 0);
+  return ctx.getImageData(0, 0, img.width, img.height);
+}
+
+export default function DemTerrain(props: DemTerrainProps) {
+  if (props.heightmapUrl && props.meta) {
+    return <RealTerrain {...props} heightmapUrl={props.heightmapUrl} meta={props.meta} />;
+  }
+  if (props.heightmapUrl) {
+    return <HeightmapTerrain {...props} heightmapUrl={props.heightmapUrl} />;
+  }
+  return <ProceduralTerrain {...props} />;
+}
+
+// ═══ Режим 1: реальный рельеф с текстурой ═══════
+
+function RealTerrain({
   size = 200,
-  segments = 128,
-  heightmapUrl = null,
-  heightScale = 15,
-  seed = 42,
-  frequency = 0.015,
+  segments = 192,
+  heightmapUrl,
+  meta,
   wireframe = false,
   xray = false,
-  onTerrainReady,
-}: DemTerrainProps) {
-  const meshRef = useRef<THREE.Mesh>(null);
+}: DemTerrainProps & { heightmapUrl: string; meta: TerrainMeta }) {
+  const heightTex = useLoader(THREE.TextureLoader, heightmapUrl);
+  const surfaceTex = useLoader(THREE.TextureLoader, meta.textureUrl);
 
-  // ── Load heightmap PNG if provided ──
-  const heightmapTexture = useMemo(() => {
-    if (!heightmapUrl) return null;
-    const loader = new THREE.TextureLoader();
-    return loader.load(heightmapUrl);
-  }, [heightmapUrl]);
+  useEffect(() => {
+    surfaceTex.colorSpace = THREE.SRGBColorSpace;
+    surfaceTex.anisotropy = 4;
+  }, [surfaceTex]);
 
-  // ── Get heightmap pixel data ──
-  const heightmapData = useMemo(() => {
-    if (!heightmapTexture) return null;
+  const { geometry } = useMemo(() => {
+    // Нормировка: большая сторона области → size сценических единиц.
+    // Высоты масштабируются тем же коэффициентом — рельеф геометрически честный.
+    const maxSideM = Math.max(meta.widthM, meta.heightM);
+    const k = size / maxSideM;
+    const sizeX = meta.widthM * k;
+    const sizeZ = meta.heightM * k;
+    const heightRange = Math.max(meta.maxElev - meta.minElev, 1) * k;
 
-    const img = heightmapTexture.image;
-    if (!img) return null;
+    const hm = imageToData(heightTex.image as HTMLImageElement);
 
-    const canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(img, 0, 0);
-    return ctx.getImageData(0, 0, img.width, img.height);
-  }, [heightmapTexture]);
+    const geo = new THREE.PlaneGeometry(sizeX, sizeZ, segments, segments);
+    geo.rotateX(-Math.PI / 2);
 
-  // ── Build geometry with vertex displacement ──
-  const { geometry, maxHeight } = useMemo(() => {
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const z = pos.getZ(i);
+      const u = (x / sizeX + 0.5) * (hm.width - 1);
+      const v = (z / sizeZ + 0.5) * (hm.height - 1);
+      const idx = (Math.floor(v) * hm.width + Math.floor(u)) * 4;
+      const elevation01 = hm.data[idx] / 255;
+      pos.setY(i, elevation01 * heightRange);
+    }
+    geo.computeVertexNormals();
+
+    return { geometry: geo };
+  }, [heightTex, meta, size, segments]);
+
+  return (
+    <mesh geometry={geometry} receiveShadow castShadow={!xray}>
+      <meshStandardMaterial
+        key={xray ? 'real-xray' : 'real-solid'}
+        map={surfaceTex}
+        roughness={0.95}
+        metalness={0}
+        wireframe={wireframe}
+        transparent={xray}
+        opacity={xray ? 0.25 : 1.0}
+        depthWrite={!xray}
+      />
+    </mesh>
+  );
+}
+
+// ═══ Режим 2: ручной heightmap (яркость = высота) ═══
+
+function HeightmapTerrain({
+  size = 200,
+  segments = 128,
+  heightmapUrl,
+  heightScale = 15,
+  wireframe = false,
+  xray = false,
+}: DemTerrainProps & { heightmapUrl: string }) {
+  const heightTex = useLoader(THREE.TextureLoader, heightmapUrl);
+
+  const { geometry } = useMemo(() => {
+    const hm = imageToData(heightTex.image as HTMLImageElement);
+
     const geo = new THREE.PlaneGeometry(size, size, segments, segments);
     geo.rotateX(-Math.PI / 2);
 
     const pos = geo.attributes.position;
     const colors = new Float32Array(pos.count * 3);
-    let maxH = 0;
+    const color = new THREE.Color();
 
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const z = pos.getZ(i);
+      const u = (x / size + 0.5) * (hm.width - 1);
+      const v = (z / size + 0.5) * (hm.height - 1);
+      const idx = (Math.floor(v) * hm.width + Math.floor(u)) * 4;
+      const elevation = (hm.data[idx] / 255) * 2 - 1; // [-1, 1]
+      pos.setY(i, elevation * heightScale);
 
-      let elevation: number;
-
-      if (heightmapData) {
-        // Sample heightmap PNG
-        const hw = heightmapData.width;
-        const hh = heightmapData.height;
-        // Map x,z to texture coords [-1,1] → [0,1]
-        const u = (x / size + 0.5) * (hw - 1);
-        const v = (z / size + 0.5) * (hh - 1);
-        const idx = (Math.floor(v) * hw + Math.floor(u)) * 4;
-        // Red channel as grayscale elevation [0,1]
-        elevation = (heightmapData.data[idx] / 255) * 2 - 1; // [-1, 1]
-      } else {
-        // Procedural noise: fBm base + ridged mountains
-        const nx = (x + seed * 100) * frequency;
-        const nz = (z + seed * 100) * frequency;
-
-        const base = fbm(nx, nz, 5, 2.0, 0.5);
-        const mountains = ridged(nx * 0.5, nz * 0.5, 4, 2.0, 0.5);
-        // Blend: 70% rolling hills + 30% ridged mountains
-        elevation = base * 0.7 + mountains * 0.3;
-      }
-
-      // Apply height scale
-      const h = elevation * heightScale;
-      pos.setY(i, h);
-
-      if (Math.abs(h) > maxH) maxH = Math.abs(h);
-
-      // Vertex color based on normalized elevation
-      const normalizedH = elevation * 0.5 + 0.5; // [0, 1]
-      const color = new THREE.Color();
-      getTerrainColor(normalizedH, color);
+      getTerrainColor(elevation * 0.5 + 0.5, color);
       colors[i * 3] = color.r;
       colors[i * 3 + 1] = color.g;
       colors[i * 3 + 2] = color.b;
@@ -148,27 +171,72 @@ export default function DemTerrain({
 
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.computeVertexNormals();
-
-    return { geometry: geo, maxHeight: maxH };
-  }, [size, segments, heightmapData, heightScale, seed, frequency]);
-
-  // Notify parent when terrain is ready
-  useEffect(() => {
-    onTerrainReady?.(maxHeight);
-  }, [maxHeight, onTerrainReady]);
+    return { geometry: geo };
+  }, [heightTex, size, segments, heightScale]);
 
   return (
-    <mesh ref={meshRef} geometry={geometry} receiveShadow castShadow={!xray}>
-      {/* key форсирует пересоздание материала при переключении X-ray:
-          переключение transparent на живом материале three.js применяет
-          недетерминированно (нужна перекомпиляция шейдера) — из-за этого
-          прозрачность «то есть, то нет» */}
+    <mesh geometry={geometry} receiveShadow castShadow={!xray}>
       <meshStandardMaterial
-        key={xray ? 'terrain-xray' : 'terrain-solid'}
+        key={xray ? 'hm-xray' : 'hm-solid'}
         vertexColors
         roughness={0.9}
         metalness={0}
-        flatShading={false}
+        wireframe={wireframe}
+        transparent={xray}
+        opacity={xray ? 0.25 : 1.0}
+        depthWrite={!xray}
+      />
+    </mesh>
+  );
+}
+
+// ═══ Режим 3: процедурный шум ═══════════════════
+
+function ProceduralTerrain({
+  size = 200,
+  segments = 128,
+  heightScale = 15,
+  seed = 42,
+  frequency = 0.015,
+  wireframe = false,
+  xray = false,
+}: DemTerrainProps) {
+  const { geometry } = useMemo(() => {
+    const geo = new THREE.PlaneGeometry(size, size, segments, segments);
+    geo.rotateX(-Math.PI / 2);
+
+    const pos = geo.attributes.position;
+    const colors = new Float32Array(pos.count * 3);
+    const color = new THREE.Color();
+
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const z = pos.getZ(i);
+      const nx = (x + seed * 100) * frequency;
+      const nz = (z + seed * 100) * frequency;
+      const base = fbm(nx, nz, 5, 2.0, 0.5);
+      const mountains = ridged(nx * 0.5, nz * 0.5, 4, 2.0, 0.5);
+      const elevation = base * 0.7 + mountains * 0.3;
+      pos.setY(i, elevation * heightScale);
+
+      getTerrainColor(elevation * 0.5 + 0.5, color);
+      colors[i * 3] = color.r;
+      colors[i * 3 + 1] = color.g;
+      colors[i * 3 + 2] = color.b;
+    }
+
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geo.computeVertexNormals();
+    return { geometry: geo };
+  }, [size, segments, heightScale, seed, frequency]);
+
+  return (
+    <mesh geometry={geometry} receiveShadow castShadow={!xray}>
+      <meshStandardMaterial
+        key={xray ? 'proc-xray' : 'proc-solid'}
+        vertexColors
+        roughness={0.9}
+        metalness={0}
         wireframe={wireframe}
         transparent={xray}
         opacity={xray ? 0.25 : 1.0}

@@ -36,6 +36,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const setModelCache = useViewerStore((s) => s.setModelCache);
   const setUtilities = useViewerStore((s) => s.setUtilities);
   const setTerrainUrl = useViewerStore((s) => s.setTerrainUrl);
+  const setTerrainMeta = useViewerStore((s) => s.setTerrainMeta);
   const setAnnotations = useViewerStore((s) => s.setAnnotations);
   const addObject = useViewerStore((s) => s.addObject);
   const cameraView = useViewerStore((s) => s.cameraView);
@@ -141,12 +142,12 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
     );
   }, [utilitiesData, setUtilities]);
 
-  // ── Sync terrainUrl → viewer store ──
+  // ── Sync terrainUrl + meta → viewer store ──
   useEffect(() => {
-    if (projectData?.terrainUrl) {
-      setTerrainUrl(projectData.terrainUrl);
-    }
-  }, [projectData, setTerrainUrl]);
+    if (!projectData) return;
+    setTerrainUrl(projectData.terrainUrl ?? null);
+    setTerrainMeta((projectData as any).terrainMeta ?? null);
+  }, [projectData, setTerrainUrl, setTerrainMeta]);
 
   // ── Sync comments → annotations store ──
   useEffect(() => {
@@ -219,7 +220,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
             <div className="flex flex-col gap-2 min-h-0 w-56">
               <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 items-start pr-0.5">
                 <UtilityLayersPanel />
-                {canEdit && <TerrainPanel projectId={projectId} />}
+                {canEdit && <TerrainPanel projectId={projectId} centerLat={projectData?.centerLat} centerLng={projectData?.centerLng} />}
                 <SceneObjectsList />
               </div>
               <div className="pointer-events-auto self-start">

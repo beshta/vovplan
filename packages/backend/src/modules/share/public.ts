@@ -24,7 +24,7 @@ export default async function publicShareRoutes(fastify: FastifyInstance) {
     const [project, objects, models, presets] = await Promise.all([
       prisma.project.findUnique({
         where: { id: link.projectId },
-        select: { name: true, description: true, terrainUrl: true },
+        select: { name: true, description: true, terrainUrl: true, terrainMeta: true },
       }),
       prisma.sceneObject.findMany({
         where: { projectId: link.projectId, visible: true },
@@ -50,6 +50,7 @@ export default async function publicShareRoutes(fastify: FastifyInstance) {
         name: project.name,
         description: project.description ?? '',
         terrainUrl: project.terrainUrl ?? null,
+        terrainMeta: project.terrainMeta ?? null,
       },
       objects: objects.map((o) => ({
         id: o.id,

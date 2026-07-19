@@ -191,7 +191,7 @@ export function emitUtilityChanged(
 export function emitTerrainChanged(
   fastify: FastifyInstance,
   projectId: string,
-  payload: { terrainUrl: string | null },
+  payload: { terrainUrl: string | null; terrainMeta?: unknown },
 ) {
   fastify.io?.to(roomOf(projectId)).emit('terrain:changed', payload);
 }

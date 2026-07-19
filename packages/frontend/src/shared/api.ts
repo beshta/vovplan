@@ -237,7 +237,26 @@ export const utilitiesApi = {
 };
 
 // ── Terrain API (DEM heightmap) ───────────────
+/** Метаданные импортированного реального рельефа */
+export interface TerrainMeta {
+  textureUrl: string;
+  widthM: number;
+  heightM: number;
+  minElev: number;
+  maxElev: number;
+  /** Периметр в локальных метрах от центра области (x — восток, z — юг) */
+  polygon: [number, number][];
+  origin: { lat: number; lng: number };
+}
+
 export const terrainApi = {
+  /** Импорт реального рельефа по полигону с карты (lat/lng) */
+  importReal: (projectId: string, polygon: { lat: number; lng: number }[]) =>
+    apiFetch<{ terrainUrl: string; terrainMeta: TerrainMeta }>(
+      `/api/projects/${projectId}/terrain/import`,
+      { method: 'POST', body: JSON.stringify({ polygon }) },
+    ),
+
   upload: async (projectId: string, file: File): Promise<{ terrainUrl: string }> => {
     const formData = new FormData();
     formData.append('file', file);

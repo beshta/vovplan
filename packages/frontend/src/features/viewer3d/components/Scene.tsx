@@ -25,6 +25,7 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
   const selectObject = useViewerStore((s) => s.selectObject);
   const xrayMode = useViewerStore((s) => s.xrayMode);
   const terrainUrl = useViewerStore((s) => s.terrainUrl);
+  const terrainMeta = useViewerStore((s) => s.terrainMeta);
   const proceduralTerrain = useViewerStore((s) => s.proceduralTerrain);
   const annotations = useViewerStore((s) => s.annotations);
   const showAnnotations = useViewerStore((s) => s.showAnnotations);
@@ -52,7 +53,9 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
     >
       {/* Sky background color */}
       <color attach="background" args={['#a8c8e8']} />
-      <fog attach="fog" args={['#a8c8e8', 120, 500]} />
+      {/* Дымка только у горизонта: ближе 300 юнитов сцена полностью чистая
+          (при 120 туман съедал дальний край 200-юнитного ландшафта) */}
+      <fog attach="fog" args={['#a8c8e8', 300, 900]} />
 
       <Suspense fallback={null}>
         <Lighting shadowMapSize={quality.shadowMapSize} />
@@ -92,6 +95,7 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
           <TerrainManager
             size={200}
             heightmapUrl={terrainUrl}
+            meta={terrainMeta}
             procedural={proceduralTerrain}
             xray={xrayMode}
           />

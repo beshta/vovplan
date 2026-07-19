@@ -1,0 +1,276 @@
+import sharp from 'sharp';
+
+/**
+ * Импорт реального рельефа по полигону, нарисованному на карте.
+ *
+ * Источники (открытые, без API-ключей):
+ * - DEM: AWS Terrain Tiles (terrarium) — глобальный рельеф ~30м/пиксель,
+ *   высота кодируется в RGB: h = R*256 + G + B/256 - 32768 (метры).
+ * - Текстура: Esri World Imagery (спутниковые тайлы).
+ *
+ * Алгоритм: bbox полигона → slippy-тайлы нужного зума → склейка →
+ * вырезка точного bbox → grayscale heightmap PNG + спутниковая текстура
+ * с затемнением за пределами полигона («вырезанный» участок).
+ */
+
+const TERRARIUM_URL = (z: number, x: number, y: number) =>
+  `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
+const ESRI_URL = (z: number, x: number, y: number) =>
+  `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+
+const TILE = 256;
+/** Максимум тайлов на запрос (защита от гигантских областей) */
+const MAX_TILES = 48;
+
+export interface LatLng { lat: number; lng: number }
+
+export interface ImportResult {
+  heightmap: Buffer;       // grayscale PNG
+  texture: Buffer;         // RGB PNG (затемнение вне полигона)
+  widthM: number;          // размер bbox по долготе, метры
+  heightM: number;         // размер bbox по широте, метры
+  minElev: number;         // минимальная высота, м
+  maxElev: number;         // максимальная высота, м
+  /** Полигон в локальных координатах сцены до нормализации (метры от центра bbox; x — восток, z — юг) */
+  polygonLocal: [number, number][];
+  origin: LatLng;          // центр bbox
+}
+
+// ── Slippy-tile математика ──────────────────────
+
+export function lngToTileX(lng: number, z: number): number {
+  return ((lng + 180) / 360) * 2 ** z;
+}
+
+export function latToTileY(lat: number, z: number): number {
+  const rad = (lat * Math.PI) / 180;
+  return ((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * 2 ** z;
+}
+
+/** Подбор зума: bbox должен дать ≥ minPx пикселей по большей стороне, но ≤ MAX_TILES тайлов */
+export function pickZoom(bbox: { west: number; east: number; north: number; south: number }, minPx = 384): number {
+  for (let z = 15; z >= 1; z--) {
+    const x0 = Math.floor(lngToTileX(bbox.west, z));
+    const x1 = Math.floor(lngToTileX(bbox.east, z));
+    const y0 = Math.floor(latToTileY(bbox.north, z));
+    const y1 = Math.floor(latToTileY(bbox.south, z));
+    const tiles = (x1 - x0 + 1) * (y1 - y0 + 1);
+    if (tiles > MAX_TILES) continue;
+    const pxW = (lngToTileX(bbox.east, z) - lngToTileX(bbox.west, z)) * TILE;
+    const pxH = (latToTileY(bbox.south, z) - latToTileY(bbox.north, z)) * TILE;
+    if (Math.max(pxW, pxH) >= minPx || z === 1) return z;
+  }
+  return 1;
+}
+
+// ── Point-in-polygon (ray casting) ──────────────
+
+export function pointInPolygon(px: number, py: number, poly: [number, number][]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i];
+    const [xj, yj] = poly[j];
+    if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+// ── Скачивание и склейка тайлов ─────────────────
+
+/** Скачивает тайл (PNG или JPEG) и декодирует в RGBA 256×256. До 3 попыток. */
+async function fetchTileRgba(url: string): Promise<Buffer> {
+  let res: Response | null = null;
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+      if (res.ok) break;
+      lastErr = new Error(`HTTP ${res.status}`);
+      res = null;
+    } catch (err) {
+      lastErr = err;
+      res = null;
+    }
+    await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+  }
+  if (!res) throw new Error(`Тайл недоступен: ${url} (${(lastErr as Error)?.message})`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  const { data, info } = await sharp(buf)
+    .ensureAlpha()
+    .resize(TILE, TILE, { fit: 'fill' })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  if (info.width !== TILE || info.height !== TILE) {
+    throw new Error(`Неожиданный размер тайла: ${info.width}x${info.height}`);
+  }
+  return data;
+}
+
+interface Mosaic {
+  data: Buffer;   // RGBA
+  width: number;
+  height: number;
+  /** пиксель (0,0) мозаики в глобальных тайловых координатах */
+  originX: number;
+  originY: number;
+  zoom: number;
+}
+
+async function buildMosaic(
+  urlOf: (z: number, x: number, y: number) => string,
+  bbox: { west: number; east: number; north: number; south: number },
+  z: number,
+): Promise<Mosaic> {
+  const x0 = Math.floor(lngToTileX(bbox.west, z));
+  const x1 = Math.floor(lngToTileX(bbox.east, z));
+  const y0 = Math.floor(latToTileY(bbox.north, z));
+  const y1 = Math.floor(latToTileY(bbox.south, z));
+
+  const cols = x1 - x0 + 1;
+  const rows = y1 - y0 + 1;
+  const width = cols * TILE;
+  const height = rows * TILE;
+  const data = Buffer.alloc(width * height * 4);
+
+  const jobs: Promise<void>[] = [];
+  for (let ty = y0; ty <= y1; ty++) {
+    for (let tx = x0; tx <= x1; tx++) {
+      jobs.push(
+        fetchTileRgba(urlOf(z, tx, ty)).then((rgba) => {
+          const offX = (tx - x0) * TILE;
+          const offY = (ty - y0) * TILE;
+          for (let row = 0; row < TILE; row++) {
+            const src = row * TILE * 4;
+            const dst = ((offY + row) * width + offX) * 4;
+            rgba.copy(data, dst, src, src + TILE * 4);
+          }
+        }),
+      );
+    }
+  }
+  await Promise.all(jobs);
+
+  return { data, width, height, originX: x0, originY: y0, zoom: z };
+}
+
+/** Вырезка точного bbox из мозаики (пиксельные координаты через тайловую проекцию) */
+function cropMosaic(m: Mosaic, bbox: { west: number; east: number; north: number; south: number }) {
+  const pxW = (lngToTileX(bbox.west, m.zoom) - m.originX) * TILE;
+  const pxE = (lngToTileX(bbox.east, m.zoom) - m.originX) * TILE;
+  const pxN = (latToTileY(bbox.north, m.zoom) - m.originY) * TILE;
+  const pxS = (latToTileY(bbox.south, m.zoom) - m.originY) * TILE;
+
+  const x = Math.max(0, Math.round(pxW));
+  const y = Math.max(0, Math.round(pxN));
+  const w = Math.min(m.width - x, Math.round(pxE - pxW));
+  const h = Math.min(m.height - y, Math.round(pxS - pxN));
+
+  const out = Buffer.alloc(w * h * 4);
+  for (let row = 0; row < h; row++) {
+    const src = ((y + row) * m.width + x) * 4;
+    out.set(m.data.subarray(src, src + w * 4), row * w * 4);
+  }
+  return { data: out, width: w, height: h };
+}
+
+// ── Основной импорт ─────────────────────────────
+
+export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult> {
+  const lats = polygon.map((p) => p.lat);
+  const lngs = polygon.map((p) => p.lng);
+  const bbox = {
+    north: Math.max(...lats),
+    south: Math.min(...lats),
+    east: Math.max(...lngs),
+    west: Math.min(...lngs),
+  };
+
+  // Паддинг 3% — чтобы периметр не упирался в край
+  const padLat = (bbox.north - bbox.south) * 0.03 || 0.0005;
+  const padLng = (bbox.east - bbox.west) * 0.03 || 0.0005;
+  bbox.north += padLat; bbox.south -= padLat;
+  bbox.east += padLng; bbox.west -= padLng;
+
+  const origin: LatLng = {
+    lat: (bbox.north + bbox.south) / 2,
+    lng: (bbox.east + bbox.west) / 2,
+  };
+
+  // Размеры в метрах (equirectangular приближение — достаточно для <50 км)
+  const mPerDegLat = 111_320;
+  const mPerDegLng = 111_320 * Math.cos((origin.lat * Math.PI) / 180);
+  const widthM = (bbox.east - bbox.west) * mPerDegLng;
+  const heightM = (bbox.north - bbox.south) * mPerDegLat;
+
+  // ── DEM ──
+  const zDem = pickZoom(bbox, 384);
+  const demMosaic = await buildMosaic(TERRARIUM_URL, bbox, zDem);
+  const dem = cropMosaic(demMosaic, bbox);
+
+  // Декод высот terrarium
+  const elev = new Float32Array(dem.width * dem.height);
+  for (let i = 0; i < elev.length; i++) {
+    const r = dem.data[i * 4];
+    const g = dem.data[i * 4 + 1];
+    const b = dem.data[i * 4 + 2];
+    elev[i] = r * 256 + g + b / 256 - 32768;
+  }
+
+  // В terrarium встречаются выбросы (артефакты у воды, no-data пиксели) —
+  // берём диапазон по перцентилям 0.5%..99.5% и клиппим значения к нему
+  const sorted = Float32Array.from(elev).sort();
+  const minElev = sorted[Math.floor(sorted.length * 0.005)];
+  const maxElev = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.995))];
+  const range = Math.max(maxElev - minElev, 1);
+  for (let i = 0; i < elev.length; i++) {
+    if (elev[i] < minElev) elev[i] = minElev;
+    else if (elev[i] > maxElev) elev[i] = maxElev;
+  }
+
+  // Grayscale heightmap PNG (яркость = нормализованная высота)
+  const hmRaw = Buffer.alloc(dem.width * dem.height * 4);
+  for (let i = 0; i < elev.length; i++) {
+    const v = Math.round(((elev[i] - minElev) / range) * 255);
+    hmRaw[i * 4] = v;
+    hmRaw[i * 4 + 1] = v;
+    hmRaw[i * 4 + 2] = v;
+    hmRaw[i * 4 + 3] = 255;
+  }
+  const heightmap = await sharp(hmRaw, { raw: { width: dem.width, height: dem.height, channels: 4 } })
+    .png()
+    .toBuffer();
+
+  // ── Спутниковая текстура (зум повыше для чёткости) ──
+  const zTex = Math.min(pickZoom(bbox, 768), zDem + 2);
+  const texMosaic = await buildMosaic(ESRI_URL, bbox, Math.max(zTex, zDem));
+  const tex = cropMosaic(texMosaic, bbox);
+
+  // Маска полигона: затемняем всё, что вне периметра («вырез» участка)
+  const polyPx: [number, number][] = polygon.map((p) => [
+    ((p.lng - bbox.west) / (bbox.east - bbox.west)) * tex.width,
+    ((bbox.north - p.lat) / (bbox.north - bbox.south)) * tex.height,
+  ]);
+  for (let y = 0; y < tex.height; y++) {
+    for (let x = 0; x < tex.width; x++) {
+      if (!pointInPolygon(x + 0.5, y + 0.5, polyPx)) {
+        const i = (y * tex.width + x) * 4;
+        tex.data[i] = Math.round(tex.data[i] * 0.35);
+        tex.data[i + 1] = Math.round(tex.data[i + 1] * 0.35);
+        tex.data[i + 2] = Math.round(tex.data[i + 2] * 0.35);
+      }
+    }
+  }
+  const texture = await sharp(tex.data, { raw: { width: tex.width, height: tex.height, channels: 4 } })
+    .jpeg({ quality: 85 })
+    .toBuffer();
+
+  // Полигон в локальных метрах от центра (x — восток, z — юг: соответствует сцене three.js)
+  const polygonLocal: [number, number][] = polygon.map((p) => [
+    (p.lng - origin.lng) * mPerDegLng,
+    (origin.lat - p.lat) * mPerDegLat,
+  ]);
+
+  return { heightmap, texture, widthM, heightM, minElev, maxElev, polygonLocal, origin };
+}

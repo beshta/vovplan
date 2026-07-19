@@ -17,6 +17,7 @@
     "@react-three/fiber": "^8.17.10",
     "@tanstack/react-query": "^5.62.7",
     "@vovplan/shared": "*",
+    "leaflet": "^1.9.4",
     "lucide-react": "^1.25.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -26,6 +27,7 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.21",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@types/three": "^0.171.0",

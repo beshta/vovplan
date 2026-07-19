@@ -74,6 +74,11 @@ export default defineConfig({
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
+      // Загруженные файлы (heightmap/текстуры/GLB) раздаёт бэкенд
+      '/uploads': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
       // Socket.io (real-time) — proxied with WebSocket upgrade so the client
       // stays same-origin regardless of whether VITE_API_URL is set.
       '/socket.io': {

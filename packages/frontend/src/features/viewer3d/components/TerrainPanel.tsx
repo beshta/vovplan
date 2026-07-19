@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { Mountain, Upload, Trash2, Dices, Grid3x3 } from 'lucide-react';
+import { Mountain, Upload, Trash2, Dices, Grid3x3, Globe } from 'lucide-react';
+import MapImportModal from './MapImportModal';
 import { useViewerStore } from '../stores/viewerStore';
 import { terrainApi } from '../../../shared/api';
 import { useQueryClient } from '@tanstack/react-query';
@@ -10,12 +11,13 @@ import { useQueryClient } from '@tanstack/react-query';
  * Collapsible panel, floats in the top-right area below the toolbar.
  * Only visible for editors (MASTER, DESIGNER).
  */
-export default function TerrainPanel({ projectId }: { projectId: string }) {
+export default function TerrainPanel({ projectId, centerLat, centerLng }: { projectId: string; centerLat?: number; centerLng?: number }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(true);
+  const [mapOpen, setMapOpen] = useState(false);
 
   const terrainUrl = useViewerStore((s) => s.terrainUrl);
   const setTerrainUrl = useViewerStore((s) => s.setTerrainUrl);
@@ -23,6 +25,7 @@ export default function TerrainPanel({ projectId }: { projectId: string }) {
   const setProceduralTerrain = useViewerStore((s) => s.setProceduralTerrain);
   const wireframe = useViewerStore((s) => s.wireframe);
   const setWireframe = useViewerStore((s) => s.setWireframe);
+  const setTerrainMeta = useViewerStore((s) => s.setTerrainMeta);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -74,6 +77,14 @@ export default function TerrainPanel({ projectId }: { projectId: string }) {
             </span>
           </div>
 
+          {/* Импорт реального ландшафта с карты */}
+          <button
+            onClick={() => setMapOpen(true)}
+            className="btn-primary w-full text-xs py-2"
+          >
+            <span className="flex items-center justify-center gap-1.5"><Globe size={14} /> Импорт с карты (реальный)</span>
+          </button>
+
           {/* Upload heightmap */}
           <div>
             <input
@@ -86,9 +97,9 @@ export default function TerrainPanel({ projectId }: { projectId: string }) {
             <button
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
-              className="btn-primary w-full text-xs py-2"
+              className="btn-secondary w-full text-xs py-2"
             >
-              {uploading ? 'Загрузка...' : <span className="flex items-center justify-center gap-1.5"><Upload size={14} /> Загрузить heightmap</span>}
+              {uploading ? 'Загрузка...' : <span className="flex items-center justify-center gap-1.5"><Upload size={14} /> Свой heightmap (PNG)</span>}
             </button>
           </div>
 
@@ -141,6 +152,21 @@ export default function TerrainPanel({ projectId }: { projectId: string }) {
             Heightmap PNG: чёрно-белое изображение, где яркость = высота. Рекомендуется 256×256 или 512×512.
           </p>
         </div>
+      )}
+
+      {mapOpen && (
+        <MapImportModal
+          projectId={projectId}
+          centerLat={centerLat}
+          centerLng={centerLng}
+          onClose={() => setMapOpen(false)}
+          onImported={(url, meta) => {
+            setTerrainUrl(url);
+            setTerrainMeta(meta);
+            setProceduralTerrain(false);
+            queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+          }}
+        />
       )}
     </div>
   );
