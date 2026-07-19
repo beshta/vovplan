@@ -21,25 +21,25 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-vovplan-900 to-slate-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#0b1020] bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(37,99,235,0.25),transparent)] px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white tracking-tight">VOVPLAN</h1>
           <p className="text-slate-400 mt-2">3D-платформа совместных проектов</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h2 className="text-2xl font-semibold text-slate-800 mb-6">Регистрация</h2>
+        <div className="glass p-8">
+          <h2 className="text-2xl font-semibold text-white tracking-tight mb-6">Регистрация</h2>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+            <div className="mb-4 p-3 bg-red-500/15 border border-red-500/20 text-red-300 rounded-xl text-sm">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Имя</label>
+              <label className="input-label">Имя</label>
               <input
                 type="text"
                 required
@@ -52,7 +52,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+              <label className="input-label">Email</label>
               <input
                 type="email"
                 required
@@ -65,7 +65,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Пароль</label>
+              <label className="input-label">Пароль</label>
               <input
                 type="password"
                 required
@@ -83,7 +83,7 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-600">
+          <p className="mt-6 text-center text-sm text-slate-400">
             Уже есть аккаунт?{' '}
             <Link to="/login" className="text-vovplan-600 font-medium hover:underline">
               Войти

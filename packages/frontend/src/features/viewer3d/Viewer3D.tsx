@@ -204,69 +204,98 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   return (
     <div className="flex w-full h-full">
       {/* 3D Scene area */}
-      <div className="relative flex-1">
+      <div className="relative flex-1 min-w-0">
         <Scene currentUserId={userId} projectId={projectId} />
 
-        <ViewerToolbar />
-        <PresenceBar currentUserId={userId} />
-        <ObjectInfoPanel projectId={projectId} />
-        <UtilityLayersPanel />
-        <AnnotationsList projectId={projectId} />
-        <PresetsBar projectId={projectId} canEdit={role === 'MASTER' || role === 'DESIGNER'} />
-        <SceneObjectsList />
-        <NavigationHelp />
-        {canEdit && <TerrainPanel projectId={projectId} />}
-
-        {/* Empty state hint */}
-        {sceneData?.data.length === 0 && (
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-slate-400 pointer-events-none z-10">
-            <div className="text-5xl mb-3">🏗️</div>
-            <p className="text-sm">Сцена пуста. Загрузите GLB-модель справа и разместите её.</p>
+        {/* ═══ HUD: жёсткая сетка зон — панели в flex-колонках,
+            перекрытия физически невозможны ═══ */}
+        <div className="absolute inset-0 z-20 pointer-events-none p-3 flex gap-3">
+          {/* ── Левая зона: тулбар + стек панелей ── */}
+          <div className="flex gap-2 h-full min-h-0">
+            <div className="pointer-events-auto self-start">
+              <ViewerToolbar />
+            </div>
+            <div className="flex flex-col gap-2 min-h-0 w-56">
+              <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 items-start pr-0.5">
+                <UtilityLayersPanel />
+                {canEdit && <TerrainPanel projectId={projectId} />}
+                <SceneObjectsList />
+              </div>
+              <div className="pointer-events-auto self-start">
+                <NavigationHelp />
+              </div>
+            </div>
           </div>
-        )}
 
-        {/* Мобильный доступ к библиотеке моделей: FAB + оверлей */}
-        {canEdit && isMobile && (
-          <>
-            <button
-              onClick={() => setLibraryOpen(true)}
-              className="absolute right-4 top-16 z-30 w-11 h-11 rounded-full bg-vovplan-600 text-white text-xl shadow-xl flex items-center justify-center"
-              title="Библиотека моделей"
-            >
-              📦
-            </button>
-            {libraryOpen && (
-              <div className="absolute inset-0 z-40 flex">
-                <div className="flex-1 bg-black/40" onClick={() => setLibraryOpen(false)} />
-                <div className="relative h-full">
-                  <button
-                    onClick={() => setLibraryOpen(false)}
-                    className="absolute -left-3 top-3 z-50 w-7 h-7 rounded-full bg-slate-800 text-white text-sm shadow-lg"
-                    title="Закрыть"
-                  >
-                    ✕
-                  </button>
-                  <ModelLibrary projectId={projectId} onPlaceObject={(m) => { setLibraryOpen(false); return handlePlaceObject(m); }} />
+          {/* ── Центр: подсказки сверху, пресеты снизу ── */}
+          <div className="flex-1 min-w-0 flex flex-col items-center justify-between py-1">
+            <div className="pointer-events-auto">
+              {cameraView === 'first-person' && (
+                <div className="glass-chip text-xs whitespace-nowrap">
+                  {fpPoint
+                    ? '🚶 Мышь — осмотр · WASD — ходьба · ESC — курсор'
+                    : '👣 Кликните точку на земле, куда «спуститься»'}
                 </div>
+              )}
+            </div>
+
+            {/* Empty state */}
+            {sceneData?.data.length === 0 && (
+              <div className="text-center text-slate-400 select-none">
+                <div className="text-5xl mb-3">🏗️</div>
+                <p className="text-sm">Сцена пуста. Загрузите GLB-модель справа и разместите её.</p>
               </div>
             )}
-          </>
-        )}
 
-        {cameraView === 'first-person' && (
-          <>
-            <button
-              onClick={() => setCameraView('orbit')}
-              className="absolute left-1/2 bottom-8 -translate-x-1/2 px-4 py-2 bg-vovplan-600 text-white rounded-lg text-sm font-medium hover:bg-vovplan-700 shadow-xl z-30"
-            >
-              ↩ Назад к обзору
-            </button>
-            <div className="absolute left-1/2 top-8 -translate-x-1/2 px-3 py-1.5 bg-slate-900/90 text-slate-300 text-xs rounded-full z-30 whitespace-nowrap">
-              {fpPoint
-                ? 'Вид от первого лица · мышь — осмотр · WASD — ходьба · ESC — курсор'
-                : '👣 Кликните точку на земле, куда «спуститься»'}
+            <div className="pointer-events-auto flex flex-col items-center gap-2">
+              {cameraView === 'first-person' ? (
+                <button onClick={() => setCameraView('orbit')} className="btn-primary text-sm shadow-xl">
+                  ↩ Назад к обзору
+                </button>
+              ) : (
+                <PresetsBar projectId={projectId} canEdit={canEdit} />
+              )}
             </div>
-          </>
+          </div>
+
+          {/* ── Правая зона: присутствие, инфопанель, аннотации ── */}
+          <div className="flex flex-col items-end gap-2 h-full min-h-0 w-fit">
+            <div className="pointer-events-auto">
+              <PresenceBar currentUserId={userId} />
+            </div>
+            {canEdit && isMobile && (
+              <button
+                onClick={() => setLibraryOpen(true)}
+                className="pointer-events-auto w-11 h-11 rounded-full bg-vovplan-600 text-white text-xl shadow-xl flex items-center justify-center"
+                title="Библиотека моделей"
+              >
+                📦
+              </button>
+            )}
+            <div className="pointer-events-auto flex-1 min-h-0 overflow-y-auto flex flex-col items-end gap-2">
+              <ObjectInfoPanel projectId={projectId} />
+            </div>
+            <div className="pointer-events-auto">
+              <AnnotationsList projectId={projectId} />
+            </div>
+          </div>
+        </div>
+
+        {/* Мобильный оверлей библиотеки моделей */}
+        {canEdit && isMobile && libraryOpen && (
+          <div className="absolute inset-0 z-40 flex">
+            <div className="flex-1 bg-black/50 backdrop-blur-sm" onClick={() => setLibraryOpen(false)} />
+            <div className="relative h-full">
+              <button
+                onClick={() => setLibraryOpen(false)}
+                className="absolute -left-3 top-3 z-50 w-7 h-7 rounded-full bg-slate-800 text-white text-sm shadow-lg border border-white/10"
+                title="Закрыть"
+              >
+                ✕
+              </button>
+              <ModelLibrary projectId={projectId} onPlaceObject={(m) => { setLibraryOpen(false); return handlePlaceObject(m); }} />
+            </div>
+          </div>
         )}
       </div>
 

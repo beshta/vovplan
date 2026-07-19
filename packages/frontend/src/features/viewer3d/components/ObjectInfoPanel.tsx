@@ -184,7 +184,7 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
   const inputClass = "w-16 px-1.5 py-1 text-xs bg-slate-800 text-slate-100 rounded border border-slate-600 focus:ring-1 focus:ring-vovplan-500 text-right";
 
   return (
-    <div className="absolute left-2 right-2 bottom-2 w-auto max-h-[45vh] md:left-auto md:right-[18rem] md:top-4 md:bottom-auto md:w-72 md:max-h-[calc(100vh-2rem)] bg-slate-900/95 backdrop-blur rounded-xl shadow-2xl border border-slate-700 overflow-hidden z-20 overflow-y-auto">
+    <div className="glass w-72 max-w-[80vw] max-h-full overflow-y-auto overflow-x-hidden">
       {/* Header */}
       <div className="px-4 py-3 bg-slate-800 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-2 min-w-0">

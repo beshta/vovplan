@@ -26,17 +26,17 @@ export default function DashboardPage() {
   const projects = projectsData?.data ?? [];
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#0b1020] bg-[radial-gradient(ellipse_60%_40%_at_50%_-10%,rgba(37,99,235,0.18),transparent)]">
       {/* Header */}
-      <header className="bg-slate-900 text-white">
+      <header className="border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">VOVPLAN</h1>
-            <span className="text-xs text-slate-400 hidden sm:block">3D-платформа проектов</span>
+            <h1 className="text-xl font-bold tracking-tight text-white">VOVPLAN</h1>
+            <span className="text-xs text-slate-500 hidden sm:block">3D-платформа проектов</span>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-slate-300">{user?.displayName}</span>
-            <button onClick={logout} className="text-sm text-slate-400 hover:text-white transition-colors">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-slate-400">{user?.displayName}</span>
+            <button onClick={logout} className="btn-ghost text-sm">
               Выйти
             </button>
           </div>
@@ -46,7 +46,7 @@ export default function DashboardPage() {
       {/* Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-slate-800">Мои проекты</h2>
+          <h2 className="text-xl font-semibold text-white tracking-tight">Мои проекты</h2>
           <button onClick={() => setShowCreate(true)} className="btn-primary">
             + Создать проект
           </button>
@@ -57,7 +57,7 @@ export default function DashboardPage() {
         ) : projects.length === 0 ? (
           <div className="text-center py-16">
             <div className="text-6xl mb-4">🗺️</div>
-            <h3 className="text-lg font-medium text-slate-700 mb-2">Пока нет проектов</h3>
+            <h3 className="text-lg font-medium text-slate-200 mb-2">Пока нет проектов</h3>
             <p className="text-slate-500 mb-4">Создайте первый проект, чтобы начать работу</p>
             <button onClick={() => setShowCreate(true)} className="btn-primary">
               + Создать проект
@@ -91,20 +91,20 @@ function ProjectCard({ project }: { project: Project }) {
   return (
     <div
       onClick={() => navigate(`/projects/${project.id}`)}
-      className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md hover:border-vovplan-300 transition-all cursor-pointer"
+      className="glass p-5 hover:bg-slate-800/80 hover:border-vovplan-500/40 hover:-translate-y-0.5 transition-all cursor-pointer"
     >
       <div className="flex items-start justify-between mb-3">
-        <h3 className="text-lg font-semibold text-slate-800">{project.name}</h3>
+        <h3 className="text-lg font-semibold text-white tracking-tight">{project.name}</h3>
         {project.myRole && (
-          <span className="text-xs px-2 py-1 bg-vovplan-50 text-vovplan-700 rounded-full font-medium whitespace-nowrap">
+          <span className="text-xs px-2 py-1 bg-vovplan-600/20 text-vovplan-200 rounded-full font-medium whitespace-nowrap">
             {ROLE_LABELS[project.myRole]}
           </span>
         )}
       </div>
-      <p className="text-sm text-slate-500 mb-4 line-clamp-2">
+      <p className="text-sm text-slate-400 mb-4 line-clamp-2">
         {project.description || 'Без описания'}
       </p>
-      <div className="flex items-center text-xs text-slate-400 gap-3">
+      <div className="flex items-center text-xs text-slate-500 gap-3">
         <span>📍 {project.centerLat.toFixed(4)}, {project.centerLng.toFixed(4)}</span>
         <span>•</span>
         <span>{new Date(project.createdAt).toLocaleDateString('ru-RU')}</span>
@@ -151,36 +151,36 @@ function CreateProjectModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={onClose}>
-      <div className="bg-white rounded-2xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-xl font-semibold text-slate-800 mb-4">Новый проект</h3>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <div className="glass p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-xl font-semibold text-white tracking-tight mb-4">Новый проект</h3>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+          <div className="mb-4 p-3 bg-red-500/15 border border-red-500/20 text-red-300 rounded-xl text-sm">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Название *</label>
+            <label className="input-label">Название *</label>
             <input required value={name} onChange={(e) => setName(e.target.value)} className="input-field" placeholder="Фестиваль «Лето 2026»" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Описание</label>
+            <label className="input-label">Описание</label>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="input-field" rows={3} placeholder="Краткое описание проекта" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Широта (Lat)</label>
+              <label className="input-label">Широта (Lat)</label>
               <input required type="number" step="0.0001" value={centerLat} onChange={(e) => setCenterLat(e.target.value)} className="input-field" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Долгота (Lng)</label>
+              <label className="input-label">Долгота (Lng)</label>
               <input required type="number" step="0.0001" value={centerLng} onChange={(e) => setCenterLng(e.target.value)} className="input-field" />
             </div>
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500">
             Центр территории проекта. Границы установятся автоматически (~1км радиус).
           </p>
 

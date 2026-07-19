@@ -53,22 +53,22 @@ export default function TerrainPanel({ projectId }: { projectId: string }) {
   };
 
   return (
-    <div className="absolute left-16 top-[280px] z-20 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 w-52">
+    <div className="glass pointer-events-auto w-52 shrink-0">
       {/* Header */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-slate-800"
+        className="w-full flex items-center justify-between px-3.5 py-2.5"
       >
-        <span>🏔️ Ландшафт</span>
-        <span className="text-slate-400 text-xs">{collapsed ? '▾' : '▴'}</span>
+        <span className="hud-title">🏔️ Ландшафт</span>
+        <span className="text-slate-500 text-xs">{collapsed ? '▾' : '▴'}</span>
       </button>
 
       {!collapsed && (
-        <div className="px-3 pb-3 space-y-2">
+        <div className="px-3 pb-3 space-y-2 border-t border-white/10 pt-2.5">
           {/* Current mode badge */}
           <div className="flex items-center gap-2 text-xs">
             <span className="text-slate-500">Режим:</span>
-            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium">
+            <span className="px-2 py-0.5 rounded-full bg-white/10 text-slate-300 font-medium">
               {terrainUrl ? 'DEM heightmap' : proceduralTerrain ? 'Процедурный' : 'Плоский'}
             </span>
           </div>
@@ -85,7 +85,7 @@ export default function TerrainPanel({ projectId }: { projectId: string }) {
             <button
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
-              className="w-full px-3 py-2 bg-vovplan-600 text-white rounded-lg text-xs font-medium hover:bg-vovplan-700 disabled:opacity-50 transition-colors"
+              className="btn-primary w-full text-xs py-2"
             >
               {uploading ? '⏳ Загрузка...' : '⬆ Загрузить heightmap (PNG)'}
             </button>
@@ -95,7 +95,7 @@ export default function TerrainPanel({ projectId }: { projectId: string }) {
           {terrainUrl && (
             <button
               onClick={handleRemoveTerrain}
-              className="w-full px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 transition-colors"
+              className="btn-danger w-full text-xs"
             >
               🗑 Удалить heightmap
             </button>
@@ -109,8 +109,8 @@ export default function TerrainPanel({ projectId }: { projectId: string }) {
             }}
             className={`w-full px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               proceduralTerrain && !terrainUrl
-                ? 'bg-vovplan-50 text-vovplan-700 ring-1 ring-vovplan-200'
-                : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                ? 'bg-vovplan-600/20 text-vovplan-200 ring-1 ring-vovplan-500/30'
+                : 'bg-white/5 text-slate-400 hover:bg-white/10'
             }`}
           >
             🎲 Процедурный рельеф
@@ -121,8 +121,8 @@ export default function TerrainPanel({ projectId }: { projectId: string }) {
             onClick={() => setWireframe(!wireframe)}
             className={`w-full px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               wireframe
-                ? 'bg-vovplan-50 text-vovplan-700 ring-1 ring-vovplan-200'
-                : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                ? 'bg-vovplan-600/20 text-vovplan-200 ring-1 ring-vovplan-500/30'
+                : 'bg-white/5 text-slate-400 hover:bg-white/10'
             }`}
           >
             🔲 Каркас (wireframe)
@@ -130,7 +130,7 @@ export default function TerrainPanel({ projectId }: { projectId: string }) {
 
           {/* Error */}
           {error && (
-            <div className="text-xs text-red-600 bg-red-50 rounded-md px-2 py-1">
+            <div className="text-xs text-red-300 bg-red-500/15 rounded-lg px-2 py-1">
               {error}
             </div>
           )}

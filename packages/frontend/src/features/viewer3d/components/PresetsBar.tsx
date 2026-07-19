@@ -51,7 +51,7 @@ export default function PresetsBar({ projectId, canEdit }: PresetsBarProps) {
   if (presets.length === 0 && !canEdit) return null;
 
   return (
-    <div className="absolute left-1/2 bottom-4 -translate-x-1/2 z-20 flex items-center gap-1.5 bg-slate-900/90 backdrop-blur rounded-full px-2 py-1.5 shadow-xl max-w-[70%] overflow-x-auto">
+    <div className="glass rounded-full flex items-center gap-1.5 px-2 py-1.5 max-w-[70vw] overflow-x-auto">
       <span className="text-[10px] uppercase tracking-wider text-slate-500 px-1 shrink-0">Виды</span>
 
       {presets.map((p: CameraPresetPayload) => (

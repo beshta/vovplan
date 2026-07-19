@@ -40,29 +40,29 @@ export default function UtilityLayersPanel() {
     return (
       <button
         onClick={() => setCollapsed(false)}
-        className="absolute left-16 top-4 z-20 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-800"
+        className="glass-chip pointer-events-auto"
         title="Инженерные сети"
       >
-        🔧 <span className="text-slate-400 text-xs">{utilities.length}</span>
+        🔧 <span className="text-slate-500 text-xs">{utilities.length}</span>
       </button>
     );
   }
 
   return (
-    <div className="absolute left-16 top-4 z-20 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 p-3 w-52">
+    <div className="glass pointer-events-auto p-3 w-52 shrink-0">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-slate-800">🔧 Инженерные сети</h3>
-        <button onClick={() => setCollapsed(true)} className="text-slate-400 text-xs hover:text-slate-600" title="Свернуть">▴</button>
+        <h3 className="hud-title">🔧 Инженерные сети</h3>
+        <button onClick={() => setCollapsed(true)} className="text-slate-500 text-xs hover:text-white transition-colors" title="Свернуть">▴</button>
       </div>
 
       {/* X-Ray toggle */}
       <button
         onClick={() => setXrayMode(!xrayMode)}
-        className={`w-full mb-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+        className={`w-full mb-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 ${
           xrayMode
-            ? 'bg-vovplan-600 text-white hover:bg-vovplan-700'
-            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            ? 'bg-vovplan-600 text-white hover:bg-vovplan-500 shadow-lg shadow-vovplan-600/30'
+            : 'bg-white/5 text-slate-300 hover:bg-white/10'
         }`}
       >
         <span>{xrayMode ? '👁' : '👁‍🗨'}</span>
@@ -70,7 +70,7 @@ export default function UtilityLayersPanel() {
       </button>
 
       {/* Type toggles */}
-      <div className="space-y-1">
+      <div className="space-y-0.5">
         {types.map((type) => {
           const meta = UTILITY_META[type];
           const isVisible = visibleUtilityTypes[type];
@@ -81,17 +81,15 @@ export default function UtilityLayersPanel() {
             <button
               key={type}
               onClick={() => toggleUtilityType(type)}
-              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors ${
-                isVisible ? 'bg-slate-50 hover:bg-slate-100' : 'opacity-40'
-              }`}
+              className={`hud-row text-xs ${isVisible ? '' : 'opacity-40'}`}
             >
               {/* Color dot */}
               <span
-                className="w-3 h-3 rounded-full flex-shrink-0"
+                className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                 style={{ backgroundColor: meta.color }}
               />
-              <span className="flex-1 text-left text-slate-700">{meta.icon} {meta.label}</span>
-              <span className="text-slate-400">{count}</span>
+              <span className="flex-1 text-left text-slate-300">{meta.label}</span>
+              <span className="text-slate-500">{count}</span>
             </button>
           );
         })}

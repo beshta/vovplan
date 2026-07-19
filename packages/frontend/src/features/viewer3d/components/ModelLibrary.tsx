@@ -52,14 +52,14 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
   const models = modelsData?.data ?? [];
 
   return (
-    <div className="w-72 bg-white border-l border-slate-200 flex flex-col overflow-hidden">
+    <div className="w-72 bg-slate-950/95 backdrop-blur-xl border-l border-white/10 flex flex-col overflow-hidden text-slate-200">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-slate-200">
-        <h3 className="text-sm font-semibold text-slate-800">📦 Библиотека моделей</h3>
+      <div className="px-4 py-3.5 border-b border-white/10">
+        <h3 className="hud-title">📦 Библиотека моделей</h3>
       </div>
 
       {/* Upload zone */}
-      <div className="p-4 border-b border-slate-100">
+      <div className="p-4 border-b border-white/5">
         <input
           ref={fileInputRef}
           type="file"
@@ -72,27 +72,27 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
           placeholder="Название модели (необязательно)"
           value={uploadName}
           onChange={(e) => setUploadName(e.target.value)}
-          className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg mb-2 focus:ring-2 focus:ring-vovplan-500 focus:border-transparent"
+          className="input-field text-sm mb-2"
         />
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={uploadMutation.isPending}
-          className="w-full px-4 py-2 bg-vovplan-600 text-white rounded-lg text-sm font-medium hover:bg-vovplan-700 disabled:opacity-50 transition-colors"
+          className="btn-primary w-full text-sm"
         >
           {uploadMutation.isPending ? '⏳ Загрузка...' : '⬆ Загрузить GLB'}
         </button>
         {uploadError && (
-          <p className="mt-2 text-xs text-red-600">{uploadError}</p>
+          <p className="mt-2 text-xs text-red-300">{uploadError}</p>
         )}
       </div>
 
       {/* Models list */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {isLoading && (
-          <p className="text-sm text-slate-400 text-center py-4">Загрузка...</p>
+          <p className="text-sm text-slate-500 text-center py-4">Загрузка...</p>
         )}
         {models.length === 0 && !isLoading && (
-          <div className="text-center py-8 text-slate-400">
+          <div className="text-center py-8 text-slate-500">
             <div className="text-3xl mb-2">📦</div>
             <p className="text-sm">Пока нет моделей</p>
             <p className="text-xs mt-1">Загрузите GLB-файл выше</p>
@@ -101,26 +101,26 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
         {models.map((model: Model3DPayload) => (
           <div
             key={model.id}
-            className="group bg-slate-50 rounded-lg p-3 hover:bg-slate-100 transition-colors"
+            className="group bg-white/5 rounded-xl p-3 hover:bg-white/10 transition-colors"
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-800 truncate">{model.name}</p>
+                <p className="text-sm font-medium text-slate-200 truncate">{model.name}</p>
                 <p className="text-xs text-slate-500">
                   {(model.fileSize / 1024).toFixed(0)} KB · {model.format.toUpperCase()}
                 </p>
-                <p className="text-xs text-slate-400 mt-0.5">by {model.uploadedBy}</p>
+                <p className="text-xs text-slate-600 mt-0.5">by {model.uploadedBy}</p>
               </div>
               <button
                 onClick={() => deleteMutation.mutate(model.id)}
-                className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-1 transition-opacity"
+                className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 text-xs px-1 transition-opacity"
                 title="Удалить модель"
               >✕</button>
             </div>
             {onPlaceObject && (
               <button
                 onClick={() => onPlaceObject(model)}
-                className="mt-2 w-full px-3 py-1.5 bg-vovplan-100 text-vovplan-700 rounded-md text-xs font-medium hover:bg-vovplan-200 transition-colors"
+                className="mt-2 w-full px-3 py-1.5 bg-vovplan-600/20 text-vovplan-200 rounded-lg text-xs font-medium hover:bg-vovplan-600/35 transition-colors"
               >➕ Разместить на сцене</button>
             )}
           </div>

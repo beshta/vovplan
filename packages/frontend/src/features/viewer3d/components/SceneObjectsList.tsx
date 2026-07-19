@@ -18,38 +18,36 @@ export default function SceneObjectsList() {
     return (
       <button
         onClick={() => setCollapsed(false)}
-        className="absolute left-4 bottom-20 z-20 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-800"
+        className="glass-chip pointer-events-auto"
         title="Объекты сцены"
       >
-        📋 <span className="text-slate-400 text-xs">{objects.length}</span>
+        📋 <span className="text-slate-500 text-xs">{objects.length}</span>
       </button>
     );
   }
 
   return (
-    <div className="absolute left-4 bottom-20 z-20 w-60 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+    <div className="glass pointer-events-auto w-52 shrink-0 overflow-hidden flex flex-col max-h-72">
       {/* Header */}
-      <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
-          📋 Объекты сцены ({objects.length})
-        </h3>
-        <button onClick={() => setCollapsed(true)} className="text-slate-400 text-xs hover:text-slate-600" title="Свернуть">▾</button>
+      <div className="px-3.5 py-2.5 border-b border-white/10 flex items-center justify-between shrink-0">
+        <h3 className="hud-title">📋 Объекты · {objects.length}</h3>
+        <button onClick={() => setCollapsed(true)} className="text-slate-500 text-xs hover:text-white transition-colors" title="Свернуть">▾</button>
       </div>
 
       {/* List */}
-      <div className="max-h-64 overflow-y-auto p-2 space-y-1">
+      <div className="overflow-y-auto p-1.5 space-y-0.5">
         {objects.map((obj) => {
           const isSelected = selectedObjectId === obj.id;
           return (
             <button
               key={obj.id}
               onClick={() => selectObject(obj.id)}
-              className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-colors ${
+              className={`hud-row ${
                 isSelected
-                  ? 'bg-vovplan-100 text-vovplan-700 ring-1 ring-vovplan-200'
+                  ? 'hud-row-active'
                   : obj.hidden
-                    ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
-                    : 'hover:bg-slate-50 text-slate-700'
+                    ? 'text-amber-300/80'
+                    : 'text-slate-300'
               }`}
             >
               {/* Icon */}
@@ -60,7 +58,7 @@ export default function SceneObjectsList() {
               {/* Name + author */}
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium truncate">{obj.name}</p>
-                <p className="text-[10px] text-slate-400 truncate">
+                <p className="text-[10px] text-slate-500 truncate">
                   {obj.authorName}
                   {obj.hidden && ' · скрыт'}
                 </p>

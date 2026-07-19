@@ -26,7 +26,7 @@ export default function PresenceBar({ currentUserId }: { currentUserId: string }
   const unique = Array.from(byUser.values());
 
   return (
-    <div className="absolute right-4 top-4 flex items-center gap-2 bg-slate-900/95 backdrop-blur rounded-xl px-3 py-2 shadow-2xl border border-slate-700 z-30">
+    <div className="glass flex items-center gap-2 px-3 py-2">
       <span
         className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-400' : 'bg-slate-500'}`}
         title={connected ? 'В сети' : 'Не подключено'}

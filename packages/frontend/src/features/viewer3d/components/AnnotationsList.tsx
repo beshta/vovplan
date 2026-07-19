@@ -54,30 +54,30 @@ export default function AnnotationsList({ projectId }: { projectId: string }) {
   const unresolvedCount = annotations.filter((a) => !a.resolved).length;
 
   return (
-    <div className="absolute right-4 bottom-4 z-20 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 w-64">
+    <div className="glass w-64">
       {/* Header */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-slate-800"
+        className="w-full flex items-center justify-between px-3.5 py-2.5"
       >
-        <span>📝 Аннотации</span>
+        <span className="hud-title">📝 Аннотации</span>
         <div className="flex items-center gap-2">
           {unresolvedCount > 0 && (
-            <span className="px-1.5 py-0.5 bg-red-100 text-red-600 text-[10px] rounded-full font-medium">
+            <span className="px-1.5 py-0.5 bg-red-500/20 text-red-300 text-[10px] rounded-full font-medium">
               {unresolvedCount}
             </span>
           )}
-          <span className="text-slate-400 text-xs">{collapsed ? '▾' : '▴'}</span>
+          <span className="text-slate-500 text-xs">{collapsed ? '▾' : '▴'}</span>
         </div>
       </button>
 
       {!collapsed && (
-        <div className="px-3 pb-3 space-y-1.5 max-h-64 overflow-y-auto">
+        <div className="px-2 pb-2 space-y-1 max-h-64 overflow-y-auto border-t border-white/10 pt-2">
           {annotations.map((ann) => (
             <div
               key={ann.id}
-              className={`flex items-start gap-2 px-2 py-1.5 rounded-md text-xs ${
-                ann.resolved ? 'bg-green-50 opacity-60' : 'bg-slate-50'
+              className={`flex items-start gap-2 px-2.5 py-2 rounded-xl text-xs ${
+                ann.resolved ? 'bg-emerald-500/10 opacity-60' : 'bg-white/5'
               }`}
             >
               {/* Type icon */}
@@ -86,24 +86,24 @@ export default function AnnotationsList({ projectId }: { projectId: string }) {
               {/* Content */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1">
-                  <span className="font-medium text-slate-700 truncate">{ann.authorName}</span>
-                  {ann.resolved && <span className="text-green-500 text-[10px]">✓</span>}
+                  <span className="font-medium text-slate-200 truncate">{ann.authorName}</span>
+                  {ann.resolved && <span className="text-emerald-400 text-[10px]">✓</span>}
                 </div>
-                <p className="text-slate-500 truncate">{ann.text}</p>
+                <p className="text-slate-400 truncate">{ann.text}</p>
               </div>
 
               {/* Actions */}
               <div className="flex flex-col gap-1 flex-shrink-0">
                 <button
                   onClick={() => handleResolve(ann.id, ann.resolved)}
-                  className="text-[10px] text-slate-400 hover:text-green-600"
+                  className="text-[10px] text-slate-500 hover:text-emerald-400 transition-colors"
                   title={ann.resolved ? 'Снять resolved' : 'Отметить решённым'}
                 >
                   {ann.resolved ? '↺' : '✓'}
                 </button>
                 <button
                   onClick={() => handleDelete(ann.id)}
-                  className="text-[10px] text-slate-400 hover:text-red-600"
+                  className="text-[10px] text-slate-500 hover:text-red-400 transition-colors"
                   title="Удалить"
                 >
                   ✕

@@ -35,14 +35,15 @@ export default function ViewerToolbar() {
   const setAnnDrawMode = useViewerStore((s) => s.setAnnDrawMode);
   const utilityDrawMode = useViewerStore((s) => s.utilityDrawMode);
   const setUtilityDrawMode = useViewerStore((s) => s.setUtilityDrawMode);
+  const selectObject = useViewerStore((s) => s.selectObject);
 
   const canAnnotate = role === 'MASTER' || role === 'DESIGNER' || role === 'SUPER_SPECTATOR';
   const canEdit = role === 'MASTER' || role === 'DESIGNER';
 
   return (
     <>
-      {/* ── Single left toolbar ── */}
-      <div className="absolute left-4 top-4 flex flex-col gap-1 bg-slate-900/95 backdrop-blur rounded-xl p-1.5 shadow-2xl border border-slate-700 z-30">
+      {/* ── Single left toolbar (позицию задаёт HUD-сетка) ── */}
+      <div className="glass flex flex-col gap-1 p-1.5">
         {/* Mode tools */}
         <ToolButton active={mode === 'view'} onClick={() => setMode('view')} title="Просмотр">👁</ToolButton>
 
@@ -65,7 +66,12 @@ export default function ViewerToolbar() {
         {canEdit && (
           <ToolButton
             active={utilityDrawMode}
-            onClick={() => setUtilityDrawMode(!utilityDrawMode)}
+            onClick={() => {
+              // Панель создания сети занимает правую зону — снимаем выделение,
+              // чтобы инфопанель объекта не оказалась под ней
+              if (!utilityDrawMode) selectObject(null);
+              setUtilityDrawMode(!utilityDrawMode);
+            }}
             title="Создание инженерных сетей"
           >🔧</ToolButton>
         )}
@@ -73,7 +79,7 @@ export default function ViewerToolbar() {
         {/* Transform tools */}
         {(mode === 'master-edit' || mode === 'partition-edit') && (
           <>
-            <div className="h-px bg-slate-700 my-1" />
+            <div className="hud-divider" />
             <ToolButton active={transformMode === 'translate'} onClick={() => setTransformMode('translate')} title="Перемещение">↔</ToolButton>
             <ToolButton active={transformMode === 'rotate'} onClick={() => setTransformMode('rotate')} title="Поворот">↻</ToolButton>
             <ToolButton active={transformMode === 'scale'} onClick={() => setTransformMode('scale')} title="Масштаб">⤢</ToolButton>
@@ -83,7 +89,7 @@ export default function ViewerToolbar() {
         {/* Annotation draw tools */}
         {mode === 'annotate' && (
           <>
-            <div className="h-px bg-slate-700 my-1" />
+            <div className="hud-divider" />
             <ToolButton active={annDrawMode === 'pin'} onClick={() => setAnnDrawMode('pin')} title="Метка (pin)">📍</ToolButton>
             <ToolButton active={annDrawMode === 'arrow'} onClick={() => setAnnDrawMode('arrow')} title="Стрелка">➤</ToolButton>
             <ToolButton active={annDrawMode === 'line'} onClick={() => setAnnDrawMode('line')} title="Линия">📏</ToolButton>
@@ -92,7 +98,7 @@ export default function ViewerToolbar() {
         )}
 
         {/* View / layer tools */}
-        <div className="h-px bg-slate-700 my-1" />
+        <div className="hud-divider" />
         {/* First-person использует PointerLock — на тач-устройствах недоступен */}
         {!isTouchDevice() && (
           <ToolButton
@@ -141,11 +147,7 @@ function ToolButton({
     <button
       onClick={onClick}
       title={title}
-      className={`w-9 h-9 flex items-center justify-center rounded-lg text-base transition-colors ${
-        active
-          ? 'bg-vovplan-600 text-white'
-          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-      }`}
+      className={`tool-btn ${active ? 'tool-btn-active' : ''}`}
     >
       {children}
     </button>

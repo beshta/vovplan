@@ -37,24 +37,23 @@ export default function NavigationHelp() {
 
   return (
     <>
-      {/* Bottom-left zone — controls hint + view toggle */}
-      <div className="absolute left-4 bottom-4 z-10 flex flex-col gap-2 pointer-events-auto">
+      {/* Controls hint + view toggle (позицию задаёт HUD-сетка) */}
+      <div className="flex flex-col gap-2 items-start">
         {/* View toggle button */}
         <button
           onClick={cycleCameraView}
           title={cameraView === 'top' ? 'Перейти в перспективу' : 'Вид сверху'}
-          className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/85 backdrop-blur text-slate-200 text-xs rounded-lg hover:bg-slate-800 transition-colors"
+          className="glass-chip text-xs"
         >
           {cameraView === 'top' ? '🔲 Перспектива' : '📐 Вид сверху'}
         </button>
 
         {/* Permanent hint */}
-        <div className="bg-slate-900/70 backdrop-blur text-slate-400 text-[11px] rounded-lg px-3 py-1.5 pointer-events-none">
+        <div className="glass rounded-xl text-slate-400 text-[11px] px-3 py-1.5 pointer-events-none">
           <div className="flex items-center gap-3 flex-wrap">
             <span><b className="text-slate-200">ЛКМ</b> — вращать</span>
             <span><b className="text-slate-200">ПКМ</b> — двигать</span>
             <span><b className="text-slate-200">Колесо</b> — зум</span>
-            <span><b className="text-slate-200">Shift+ЛКМ</b> — панорама</span>
           </div>
         </div>
       </div>
@@ -62,9 +61,9 @@ export default function NavigationHelp() {
       {/* First-visit tutorial popup */}
       {showTutorial && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 max-w-md w-full mx-4 overflow-hidden">
-            <div className="px-6 py-4 bg-slate-800 border-b border-slate-700">
-              <h2 className="text-white font-bold text-lg">Добро пожаловать в VOVPLAN!</h2>
+          <div className="glass max-w-md w-full mx-4 overflow-hidden">
+            <div className="px-6 py-4 border-b border-white/10">
+              <h2 className="text-white font-semibold text-lg tracking-tight">Добро пожаловать в VOVPLAN</h2>
               <p className="text-slate-400 text-sm mt-1">Управление в 3D-сцене</p>
             </div>
             <div className="p-6 space-y-4">
@@ -76,11 +75,10 @@ export default function NavigationHelp() {
               <TutorialRow icon="↩️" title="Ctrl+Z / Ctrl+Shift+Z" desc="Отмена / повтор последнего действия." />
               <TutorialRow icon="📐" title="Вид сверху" desc="Кнопка внизу слева переключает перспективу и вид сверху." />
             </div>
-            <div className="px-6 py-4 bg-slate-800/50 border-t border-slate-700">
-              <button
-                onClick={handleDismiss}
-                className="w-full px-4 py-2.5 bg-vovplan-600 text-white rounded-lg text-sm font-medium hover:bg-vovplan-700 transition-colors"
-              >Понятно, начать работу</button>
+            <div className="px-6 py-4 border-t border-white/10">
+              <button onClick={handleDismiss} className="btn-primary w-full text-sm">
+                Понятно, начать работу
+              </button>
             </div>
           </div>
         </div>

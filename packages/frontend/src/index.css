@@ -2,27 +2,90 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════
+   VOVPLAN Design System — тёмная glass-тема
+   Один акцент (brand blue), стеклянные панели,
+   Inter Variable, единые радиусы и тени.
+   ═══════════════════════════════════════════════ */
+
 @layer base {
   html, body, #root {
     height: 100%;
     margin: 0;
   }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
-    background: #f8fafc;
-    color: #1e293b;
+    background: #0b1020;
+    color: #e2e8f0;
+    font-feature-settings: 'cv11', 'ss01';
   }
+  ::selection {
+    background: rgba(59, 130, 246, 0.35);
+  }
+  /* Тонкие тёмные скроллбары */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+  }
+  *::-webkit-scrollbar { width: 6px; height: 6px; }
+  *::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.25); border-radius: 3px; }
+  *::-webkit-scrollbar-track { background: transparent; }
 }
 
 @layer components {
+  /* ── Стеклянная панель (базовый строительный блок HUD) ── */
+  .glass {
+    @apply bg-slate-900/75 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl shadow-black/30 text-slate-200;
+  }
+  /* Компактный чип (свёрнутая панель / бейдж) */
+  .glass-chip {
+    @apply glass rounded-full px-3 py-2 text-sm font-medium flex items-center gap-1.5 hover:bg-slate-800/80 transition-colors;
+  }
+  /* Заголовок панели HUD */
+  .hud-title {
+    @apply text-[11px] font-semibold uppercase tracking-widest text-slate-400 select-none;
+  }
+  /* Разделитель внутри панелей */
+  .hud-divider {
+    @apply h-px bg-white/10 my-1.5;
+  }
+
+  /* ── Кнопки ── */
   .btn-primary {
-    @apply px-4 py-2 bg-vovplan-600 text-white rounded-lg font-medium hover:bg-vovplan-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply px-4 py-2 bg-vovplan-600 text-white rounded-xl font-medium hover:bg-vovplan-500 active:scale-[0.98] transition disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
   }
   .btn-secondary {
-    @apply px-4 py-2 bg-white text-slate-700 border border-slate-300 rounded-lg font-medium hover:bg-slate-50 transition-colors;
+    @apply px-4 py-2 bg-white/5 text-slate-200 border border-white/10 rounded-xl font-medium hover:bg-white/10 active:scale-[0.98] transition;
   }
+  .btn-ghost {
+    @apply px-3 py-1.5 text-slate-400 rounded-lg text-sm font-medium hover:text-white hover:bg-white/5 transition-colors;
+  }
+  .btn-danger {
+    @apply px-3 py-1.5 bg-red-500/15 text-red-300 border border-red-500/20 rounded-xl text-sm font-medium hover:bg-red-500/25 transition-colors;
+  }
+
+  /* ── Поля ввода ── */
   .input-field {
-    @apply w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-vovplan-500 focus:border-transparent transition-shadow;
+    @apply w-full px-3.5 py-2.5 bg-white/5 border border-white/10 text-slate-100 placeholder-slate-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-vovplan-500/60 focus:border-vovplan-500/40 transition-shadow;
+  }
+  .input-label {
+    @apply block text-xs font-medium text-slate-400 mb-1.5;
+  }
+
+  /* ── Кнопка тулбара 3D-вьюера ── */
+  .tool-btn {
+    @apply w-10 h-10 flex items-center justify-center rounded-xl text-base transition-all text-slate-400 hover:bg-white/10 hover:text-white;
+  }
+  .tool-btn-active {
+    @apply bg-vovplan-600 text-white shadow-lg shadow-vovplan-600/30 hover:bg-vovplan-500;
+  }
+
+  /* ── Строка списка в панелях ── */
+  .hud-row {
+    @apply w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-left transition-colors text-sm hover:bg-white/5;
+  }
+  .hud-row-active {
+    @apply bg-vovplan-600/20 text-vovplan-200 ring-1 ring-vovplan-500/30;
   }
 }

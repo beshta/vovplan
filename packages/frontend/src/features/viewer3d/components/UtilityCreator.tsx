@@ -120,8 +120,8 @@ export default function UtilityCreator({ projectId }: UtilityCreatorProps) {
       {/* Control panel — прибита к правому верхнему углу экрана,
           а не к мировым координатам (раньше болталась по центру сцены) */}
       <Html fullscreen prepend zIndexRange={[30, 0]} style={{ pointerEvents: 'none' }}>
-        <div className="absolute right-4 top-16 pointer-events-auto bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 p-3 w-72 select-none">
-          <h3 className="text-sm font-semibold text-slate-800 mb-2">🔧 Создание сети</h3>
+        <div className="absolute right-3 top-20 pointer-events-auto glass p-3.5 w-72 max-w-[calc(100vw-5rem)] select-none">
+          <h3 className="hud-title mb-2.5">🔧 Создание сети</h3>
 
           {/* Type selector */}
           <div className="grid grid-cols-3 gap-1 mb-2">
@@ -129,8 +129,8 @@ export default function UtilityCreator({ projectId }: UtilityCreatorProps) {
               <button
                 key={type}
                 onClick={() => setUtilType(type)}
-                className={`px-1 py-1 rounded-md text-[10px] font-medium transition-colors ${
-                  utilType === type ? 'ring-2 ring-offset-1' : 'bg-slate-50 hover:bg-slate-100'
+                className={`px-1 py-1 rounded-lg text-[10px] font-medium transition-colors ${
+                  utilType === type ? 'ring-2 ring-white/30' : 'bg-white/5 text-slate-300 hover:bg-white/10'
                 }`}
                 style={utilType === type ? { backgroundColor: color, color: '#fff' } : {}}
               >
@@ -144,14 +144,14 @@ export default function UtilityCreator({ projectId }: UtilityCreatorProps) {
           <div className="flex gap-1 mb-2">
             <button
               onClick={() => setLocation('UNDERGROUND')}
-              className={`flex-1 px-2 py-1 rounded-md text-xs font-medium ${
-                location === 'UNDERGROUND' ? 'bg-vovplan-600 text-white' : 'bg-slate-100 text-slate-600'
+              className={`flex-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+                location === 'UNDERGROUND' ? 'bg-vovplan-600 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
               }`}
             >⬇ Подземная</button>
             <button
               onClick={() => setLocation('OVERHEAD')}
-              className={`flex-1 px-2 py-1 rounded-md text-xs font-medium ${
-                location === 'OVERHEAD' ? 'bg-vovplan-600 text-white' : 'bg-slate-100 text-slate-600'
+              className={`flex-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+                location === 'OVERHEAD' ? 'bg-vovplan-600 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
               }`}
             >⬆ Надземная</button>
           </div>
@@ -182,15 +182,15 @@ export default function UtilityCreator({ projectId }: UtilityCreatorProps) {
           {/* Actions */}
           <div className="flex gap-1">
             <button onClick={handleUndo} disabled={points.length === 0}
-              className="flex-1 px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-medium hover:bg-slate-200 disabled:opacity-40">
+              className="flex-1 px-2 py-1 bg-white/5 text-slate-300 rounded-lg text-xs font-medium hover:bg-white/10 disabled:opacity-40 transition-colors">
               ↶ Отмена
             </button>
             <button onClick={handleClear} disabled={points.length === 0}
-              className="flex-1 px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-medium hover:bg-slate-200 disabled:opacity-40">
+              className="flex-1 px-2 py-1 bg-white/5 text-slate-300 rounded-lg text-xs font-medium hover:bg-white/10 disabled:opacity-40 transition-colors">
               ✕ Очистить
             </button>
             <button onClick={handleCreate} disabled={points.length < 2}
-              className="flex-1 px-2 py-1 bg-vovplan-600 text-white rounded-md text-xs font-medium hover:bg-vovplan-700 disabled:opacity-40">
+              className="flex-1 px-2 py-1 bg-vovplan-600 text-white rounded-lg text-xs font-medium hover:bg-vovplan-500 disabled:opacity-40 transition-colors">
               ✓ Создать
             </button>
           </div>
