@@ -11,7 +11,7 @@ import prisma from './db/prisma.js';
 
 const marker = `apitest-${Date.now()}`;
 const emailOf = (who: string) => `${who}.${marker}@test.vovplan.io`;
-const PASSWORD = 'REDACTED-DEV-PASSWORD';
+const PASSWORD = 'vitest-fixture-pw-1';
 
 let app: FastifyInstance;
 let masterToken = '';

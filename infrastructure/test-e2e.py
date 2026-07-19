@@ -3,6 +3,13 @@
 import json
 import urllib.request
 
+import os
+
+DEV_PASSWORD = os.environ.get("VOVPLAN_DEV_PASSWORD")
+if not DEV_PASSWORD:
+    raise SystemExit("Set VOVPLAN_DEV_PASSWORD env var (see LINKS.local.txt)")
+
+
 BASE = "http://localhost:4000"
 
 def api(method, path, body=None, token=None):
@@ -35,14 +42,14 @@ print(f"   ✅ {body['status']}")
 print("\n2. Register user 'vladimir@vovplan.io'...")
 status, body = api("POST", "/api/auth/register", {
     "email": "vladimir@vovplan.io",
-    "password": "REDACTED-DEV-PASSWORD",
+    "password": DEV_PASSWORD,
     "displayName": "Vladimir"
 })
 if status == 409:
     print("   ⏭ User exists, logging in...")
     status, body = api("POST", "/api/auth/login", {
         "email": "vladimir@vovplan.io",
-        "password": "REDACTED-DEV-PASSWORD"
+        "password": DEV_PASSWORD
     })
 assert status in (200, 201), f"Auth failed: {body}"
 token = body["accessToken"]

@@ -96,7 +96,7 @@ print("=" * 55)
 print("\n1. Login...")
 status, body = api("POST", "/api/auth/login", {
     "email": "vladimir@vovplan.io",
-    "password": "REDACTED-DEV-PASSWORD"
+    "password": DEV_PASSWORD
 })
 token = body["accessToken"]
 print("   ✅ Token OK")
@@ -129,6 +129,13 @@ print(f"   ✅ Project terrainUrl: {body['terrainUrl']}")
 # 6. Fetch heightmap via static serving
 print("\n6. Fetch heightmap via static URL...")
 import urllib.request as ur
+
+import os
+
+DEV_PASSWORD = os.environ.get("VOVPLAN_DEV_PASSWORD")
+if not DEV_PASSWORD:
+    raise SystemExit("Set VOVPLAN_DEV_PASSWORD env var (see LINKS.local.txt)")
+
 try:
     with ur.urlopen(f"{BASE}{terrain_url}") as resp:
         content_type = resp.headers.get("Content-Type", "")

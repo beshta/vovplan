@@ -25,7 +25,7 @@ def api(method, path, body=None, token=None):
 print("1. Login...")
 status, body = api("POST", "/api/auth/login", {
     "email": "vladimir@vovplan.io",
-    "password": "REDACTED-DEV-PASSWORD"
+    "password": DEV_PASSWORD
 })
 token = body["accessToken"]
 print(f"   ✅ Token: {token[:20]}...")
@@ -69,6 +69,13 @@ print(f"   ✅ Created test GLB: {len(glb)} bytes")
 # 5. Upload model
 print("\n5. Upload GLB model...")
 import mimetypes
+
+import os
+
+DEV_PASSWORD = os.environ.get("VOVPLAN_DEV_PASSWORD")
+if not DEV_PASSWORD:
+    raise SystemExit("Set VOVPLAN_DEV_PASSWORD env var (see LINKS.local.txt)")
+
 boundary = "----VovplanBoundary"
 with open("test_model.glb", "rb") as f:
     file_data = f.read()
