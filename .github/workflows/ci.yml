@@ -2,28 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgis/postgis:16-3.4
-        env:
-          POSTGRES_DB: vovplan_test
-          POSTGRES_USER: vovplan
-          POSTGRES_PASSWORD: vovplan
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U vovplan"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -39,15 +24,15 @@ jobs:
 
       - name: Generate Prisma client
         run: npx turbo db:generate
-        env:
-          DATABASE_URL: "postgresql://vovplan:vovplan@localhost:5432/vovplan_test?schema=public"
 
-      - name: Lint
+      - name: Create SQLite schema
+        run: npm run db:push --workspace packages/backend
+
+      - name: Lint (typecheck)
         run: npm run lint
-        continue-on-error: true
+
+      - name: Test
+        run: npm test
 
       - name: Build
         run: npm run build
-        env:
-          DATABASE_URL: "postgresql://vovplan:vovplan@localhost:5432/vovplan_test?schema=public"
-          JWT_SECRET: "ci-test-secret-32-chars-long-xxxxxxx"
