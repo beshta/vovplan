@@ -25,6 +25,19 @@ jobs:
       - name: Generate Prisma client
         run: npx turbo db:generate
 
+      - name: Check schema.prisma ↔ schema.postgres.prisma in sync
+        working-directory: packages/backend/prisma
+        run: |
+          diff <(sed -n '/SHARED SCHEMA BELOW/,$p' schema.prisma) \
+               <(sed -n '/SHARED SCHEMA BELOW/,$p' schema.postgres.prisma) \
+            || { echo "::error::Схемы разошлись — правьте обе (общая часть после маркера SHARED)"; exit 1; }
+
+      - name: Validate postgres schema
+        working-directory: packages/backend
+        run: npm run db:validate:pg
+        env:
+          DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+
       - name: Create SQLite schema
         run: npm run db:push --workspace packages/backend
 

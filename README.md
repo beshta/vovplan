@@ -48,6 +48,27 @@ npm run dev
 - Frontend: http://localhost:5173 (фронт ходит на бэкенд через vite-прокси `/api` и `/socket.io`)
 - Backend: http://localhost:4000
 
+## Продакшн: PostgreSQL
+
+Дев работает на SQLite (`prisma/schema.prisma`), прод — на PostgreSQL
+(`prisma/schema.postgres.prisma`). Общая часть обеих схем идентична —
+CI падает, если они разошлись.
+
+```bash
+# 1. Поднять инфраструктуру (PostgreSQL+PostGIS, Redis, MinIO)
+cd infrastructure && docker compose up -d && cd ..
+
+# 2. Задать DATABASE_URL (postgresql://...) в окружении
+
+# 3. Сгенерировать клиент и применить схему из postgres-варианта
+npm run db:generate:pg --workspace packages/backend
+npm run db:push:pg     --workspace packages/backend   # или db:migrate:pg при наличии миграций
+
+# 4. Собрать и запустить
+npm run build
+npm run start --workspace packages/backend
+```
+
 ## Структура
 
 ```

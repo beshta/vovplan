@@ -1,5 +1,7 @@
-// VOVPLAN — Database Schema (DEV: SQLite, без Docker)
-// Продакшн-схема: schema.postgres.prisma (PostgreSQL).
+// VOVPLAN — Database Schema (PROD: PostgreSQL + PostGIS)
+// Dev-схема: schema.prisma (SQLite). Клиент для прода генерируется так:
+//   npx prisma generate --schema prisma/schema.postgres.prisma
+//   npx prisma migrate deploy --schema prisma/schema.postgres.prisma
 // Всё ниже маркера SHARED должно быть идентично в обоих файлах — проверяется в CI.
 
 generator client {
@@ -7,8 +9,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ── SHARED SCHEMA BELOW — keep in sync with schema.postgres.prisma (checked in CI) ──
