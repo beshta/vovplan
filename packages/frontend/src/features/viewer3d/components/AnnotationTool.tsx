@@ -1,5 +1,4 @@
-import { useState, useCallback } from 'react';
-import { useThree } from '@react-three/fiber';
+import { useState, useCallback, useEffect } from 'react';
 import * as THREE from 'three';
 import { useViewerStore } from '../stores/viewerStore';
 import { commentsApi } from '../../../shared/api';
@@ -26,22 +25,11 @@ interface AnnotationToolProps {
 }
 
 export default function AnnotationTool({ projectId, drawMode, color, onFinished }: AnnotationToolProps) {
-  const { raycaster, camera, pointer } = useThree();
   const [points, setPoints] = useState<[number, number, number][]>([]);
   const [isDragging, setIsDragging] = useState(false);
 
   const addAnnotation = useViewerStore((s) => s.addAnnotation);
-
-  // Get intersection point with terrain or objects
-  const getHitPoint = useCallback((): [number, number, number] | null => {
-    raycaster.setFromCamera(pointer, camera);
-    const scene = camera.parent;
-    if (!scene) return null;
-    const intersects = raycaster.intersectObjects(scene.children, true);
-    if (intersects.length === 0) return null;
-    const pt = intersects[0].point;
-    return [pt.x, pt.y, pt.z];
-  }, [raycaster, camera, pointer]);
+  const setGroundHandlers = useViewerStore((s) => s.setGroundHandlers);
 
   const saveAnnotation = useCallback(async (pts: [number, number, number][]) => {
     if (pts.length === 0) return;
@@ -77,12 +65,8 @@ export default function AnnotationTool({ projectId, drawMode, color, onFinished 
     onFinished();
   }, [projectId, drawMode, color, addAnnotation, onFinished]);
 
-  // ── Click handler ────────────────────────────
-  const handleClick = useCallback((e: { stopPropagation: () => void }) => {
-    e.stopPropagation();
-    const pt = getHitPoint();
-    if (!pt) return;
-
+  // ── Click handler (по точке рельефа от Scene) ──
+  const handleClick = useCallback((pt: [number, number, number]) => {
     if (drawMode === 'pin') {
       saveAnnotation([pt]);
     } else if (drawMode === 'arrow') {
@@ -94,16 +78,14 @@ export default function AnnotationTool({ projectId, drawMode, color, onFinished 
     } else if (drawMode === 'line') {
       setPoints([...points, pt]);
     }
-  }, [drawMode, points, getHitPoint, saveAnnotation]);
+  }, [drawMode, points, saveAnnotation]);
 
   // ── Pointer down/up for freehand ─────────────
-  const handlePointerDown = useCallback((e: { stopPropagation: () => void }) => {
+  const handlePointerDown = useCallback((pt: [number, number, number]) => {
     if (drawMode !== 'freehand') return;
-    e.stopPropagation();
     setIsDragging(true);
-    const pt = getHitPoint();
-    if (pt) setPoints([pt]);
-  }, [drawMode, getHitPoint]);
+    setPoints([pt]);
+  }, [drawMode]);
 
   const handlePointerUp = useCallback(() => {
     if (drawMode !== 'freehand' || !isDragging) return;
@@ -113,11 +95,34 @@ export default function AnnotationTool({ projectId, drawMode, color, onFinished 
     }
   }, [drawMode, isDragging, points, saveAnnotation]);
 
-  const handlePointerMove = useCallback(() => {
+  const handlePointerMove = useCallback((pt: [number, number, number]) => {
     if (drawMode !== 'freehand' || !isDragging) return;
-    const pt = getHitPoint();
-    if (pt) setPoints((prev) => [...prev, pt]);
-  }, [drawMode, isDragging, getHitPoint]);
+    setPoints((prev) => [...prev, pt]);
+  }, [drawMode, isDragging]);
+
+  // ── Регистрация обработчиков кликов по рельефу ──
+  useEffect(() => {
+    setGroundHandlers({
+      onClick: handleClick,
+      onDown: handlePointerDown,
+      onMove: handlePointerMove,
+      onUp: handlePointerUp,
+    });
+    return () => setGroundHandlers(null);
+  }, [setGroundHandlers, handleClick, handlePointerDown, handlePointerMove, handlePointerUp]);
+
+  // ── Линия: Enter — завершить, Escape — отменить ──
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && drawMode === 'line' && points.length >= 2) {
+        saveAnnotation(points);
+      } else if (e.key === 'Escape') {
+        setPoints([]);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawMode, points, saveAnnotation]);
 
   // ── Render preview line ──────────────────────
   const previewGeom = points.length >= 2 ? (() => {
@@ -126,12 +131,7 @@ export default function AnnotationTool({ projectId, drawMode, color, onFinished 
   })() : null;
 
   return (
-    <group
-      onClick={handleClick}
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      onPointerMove={handlePointerMove}
-    >
+    <group>
       {/* Preview line */}
       {previewGeom && (
         <line>

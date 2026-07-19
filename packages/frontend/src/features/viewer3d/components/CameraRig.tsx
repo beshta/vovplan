@@ -17,6 +17,10 @@ import * as THREE from 'three';
  *
  * When a transform is active (dragging), orbit controls are disabled.
  */
+// Максимальный наклон камеры от зенита: ~88° — почти на уровне земли,
+// но не «под землю» (раньше было 60°, к земле опуститься было нельзя)
+const MAX_POLAR = Math.PI * 0.49;
+
 export default function CameraRig() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const { camera } = useThree();
@@ -79,9 +83,9 @@ export default function CameraRig() {
       controlsRef.current.minPolarAngle = 0;
       controlsRef.current.update();
     } else if (cameraView === 'orbit') {
-      // Restore perspective limits
-      controlsRef.current.maxPolarAngle = Math.PI / 3;
-      controlsRef.current.minPolarAngle = Math.PI / 6;
+      // Restore perspective limits (до ~88° — можно опуститься почти к земле)
+      controlsRef.current.maxPolarAngle = MAX_POLAR;
+      controlsRef.current.minPolarAngle = 0;
       camera.position.set(40, 45, 40);
       controlsRef.current.target.set(0, 0, 0);
       controlsRef.current.update();
@@ -98,8 +102,8 @@ export default function CameraRig() {
       enabled={!cameraLocked}
       enableDamping
       dampingFactor={0.08}
-      minPolarAngle={cameraView === 'top' ? 0 : Math.PI / 6}
-      maxPolarAngle={cameraView === 'top' ? 0 : Math.PI / 3}
+      minPolarAngle={0}
+      maxPolarAngle={cameraView === 'top' ? 0 : MAX_POLAR}
       minAzimuthAngle={-Infinity}
       maxAzimuthAngle={Infinity}
       minDistance={5}

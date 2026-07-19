@@ -36,7 +36,17 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
   const showHidden = useViewerStore((s) => s.showHidden);
   const modelCache = useViewerStore((s) => s.modelCache);
   const pushHistory = useViewerStore((s) => s.pushHistory);
+  const utilityDrawMode = useViewerStore((s) => s.utilityDrawMode);
+  const cameraView = useViewerStore((s) => s.cameraView);
+  const fpPoint = useViewerStore((s) => s.fpPoint);
   const [hovered, setHovered] = useState(false);
+
+  // Активен «наземный» инструмент — клики должны проходить сквозь объекты
+  // к террейну (рисование сетей/аннотаций, выбор точки первого лица)
+  const groundToolActive =
+    utilityDrawMode ||
+    mode === 'annotate' ||
+    (cameraView === 'first-person' && !fpPoint);
 
   // Transform snapshot at drag start (for history) + live-emit throttle
   const dragStart = useRef<{ position: [number, number, number]; rotation: [number, number, number]; scale: [number, number, number] } | null>(null);
@@ -53,8 +63,10 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
   // Locked objects cannot be transformed
   const canTransform = canEdit && isSelected && !data.locked;
 
-  // Click — works in ALL modes
+  // Click — выбор объекта; при активном наземном инструменте событие
+  // не глотаем (без stopPropagation оно дойдёт до террейна)
   const handleClick = (e: any) => {
+    if (groundToolActive) return;
     e.stopPropagation();
     selectObject(data.id);
   };

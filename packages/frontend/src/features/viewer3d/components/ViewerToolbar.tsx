@@ -1,8 +1,6 @@
 import { useViewerStore } from '../stores/viewerStore';
 import { isTouchDevice } from '../utils/deviceProfiler';
 
-type DrawMode = 'pin' | 'arrow' | 'line' | 'freehand';
-
 /**
  * Single left-side vertical toolbar.
  * All tools in one column — no separate right toolbar.
@@ -33,9 +31,10 @@ export default function ViewerToolbar() {
     xrayMode, setXrayMode,
   } = useViewerStore();
 
-  const annDrawMode = useViewerStore((s) => (s as any).annDrawMode ?? 'pin');
-  const setAnnDrawMode = (m: DrawMode) =>
-    useViewerStore.setState({ annDrawMode: m } as any);
+  const annDrawMode = useViewerStore((s) => s.annDrawMode);
+  const setAnnDrawMode = useViewerStore((s) => s.setAnnDrawMode);
+  const utilityDrawMode = useViewerStore((s) => s.utilityDrawMode);
+  const setUtilityDrawMode = useViewerStore((s) => s.setUtilityDrawMode);
 
   const canAnnotate = role === 'MASTER' || role === 'DESIGNER' || role === 'SUPER_SPECTATOR';
   const canEdit = role === 'MASTER' || role === 'DESIGNER';
@@ -65,11 +64,8 @@ export default function ViewerToolbar() {
 
         {canEdit && (
           <ToolButton
-            active={!!(useViewerStore.getState() as any).utilityDrawMode}
-            onClick={() => {
-              const st = useViewerStore.getState() as any;
-              useViewerStore.setState({ utilityDrawMode: !st.utilityDrawMode } as any);
-            }}
+            active={utilityDrawMode}
+            onClick={() => setUtilityDrawMode(!utilityDrawMode)}
             title="Создание инженерных сетей"
           >🔧</ToolButton>
         )}

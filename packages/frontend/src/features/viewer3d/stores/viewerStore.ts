@@ -14,6 +14,26 @@ interface ViewerState {
   cameraView: CameraView;
   setCameraView: (v: CameraView) => void;
 
+  // ── First-person: точка «высадки» на земле ──
+  fpPoint: [number, number, number] | null;
+  setFpPoint: (p: [number, number, number] | null) => void;
+
+  // ── Инструменты рисования ─────────────────
+  annDrawMode: 'pin' | 'arrow' | 'line' | 'freehand';
+  setAnnDrawMode: (m: 'pin' | 'arrow' | 'line' | 'freehand') => void;
+  utilityDrawMode: boolean;
+  setUtilityDrawMode: (v: boolean) => void;
+
+  /** Обработчики кликов по рельефу — регистрирует активный инструмент.
+      Scene рейкастит сам террейн и зовёт их с точной точкой попадания. */
+  groundHandlers: {
+    onClick?: (pt: [number, number, number]) => void;
+    onDown?: (pt: [number, number, number]) => void;
+    onMove?: (pt: [number, number, number]) => void;
+    onUp?: () => void;
+  } | null;
+  setGroundHandlers: (h: ViewerState['groundHandlers']) => void;
+
   // ── Selection ─────────────────────────────
   selectedObjectId: string | null;
   selectObject: (id: string | null) => void;
@@ -124,7 +144,21 @@ export const useViewerStore = create<ViewerState>((set) => ({
 
   // Camera
   cameraView: 'orbit',
-  setCameraView: (cameraView) => set({ cameraView }),
+  // Выход из first-person сбрасывает точку высадки
+  setCameraView: (cameraView) =>
+    set(cameraView === 'first-person' ? { cameraView } : { cameraView, fpPoint: null }),
+
+  // First-person
+  fpPoint: null,
+  setFpPoint: (fpPoint) => set({ fpPoint }),
+
+  // Инструменты рисования
+  annDrawMode: 'pin',
+  setAnnDrawMode: (annDrawMode) => set({ annDrawMode }),
+  utilityDrawMode: false,
+  setUtilityDrawMode: (utilityDrawMode) => set({ utilityDrawMode }),
+  groundHandlers: null,
+  setGroundHandlers: (groundHandlers) => set({ groundHandlers }),
 
   // Selection
   selectedObjectId: null,

@@ -13,6 +13,7 @@ import UtilityLayersPanel from './components/UtilityLayersPanel';
 import TerrainPanel from './components/TerrainPanel';
 import AnnotationsList from './components/AnnotationsList';
 import PresetsBar from './components/PresetsBar';
+import SceneObjectsList from './components/SceneObjectsList';
 import PresenceBar from '../collaboration/PresenceBar';
 import { useRealtime } from '../collaboration/useRealtime';
 import { useAuthStore } from '../../shared/authStore';
@@ -38,6 +39,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const addObject = useViewerStore((s) => s.addObject);
   const cameraView = useViewerStore((s) => s.cameraView);
   const setCameraView = useViewerStore((s) => s.setCameraView);
+  const fpPoint = useViewerStore((s) => s.fpPoint);
 
   const userName = useAuthStore((s) => s.user?.displayName ?? s.user?.email ?? 'Гость');
 
@@ -211,6 +213,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
         <UtilityLayersPanel />
         <AnnotationsList projectId={projectId} />
         <PresetsBar projectId={projectId} canEdit={role === 'MASTER' || role === 'DESIGNER'} />
+        <SceneObjectsList />
         <NavigationHelp />
         {canEdit && <TerrainPanel projectId={projectId} />}
 
@@ -258,8 +261,10 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
             >
               ↩ Назад к обзору
             </button>
-            <div className="absolute left-1/2 top-8 -translate-x-1/2 px-3 py-1.5 bg-slate-900/90 text-slate-300 text-xs rounded-full z-30">
-              Вид от первого лица · высота 1.7м
+            <div className="absolute left-1/2 top-8 -translate-x-1/2 px-3 py-1.5 bg-slate-900/90 text-slate-300 text-xs rounded-full z-30 whitespace-nowrap">
+              {fpPoint
+                ? 'Вид от первого лица · мышь — осмотр · WASD — ходьба · ESC — курсор'
+                : '👣 Кликните точку на земле, куда «спуститься»'}
             </div>
           </>
         )}

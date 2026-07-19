@@ -10,6 +10,7 @@ import Annotation3D from './Annotation3D';
 import AnnotationTool from './AnnotationTool';
 import SceneGrid from './SceneGrid';
 import UtilityCreator from './UtilityCreator';
+import FirstPersonView from './FirstPersonView';
 import PeerLayer from '../../collaboration/PeerLayer';
 import { useViewerStore } from '../stores/viewerStore';
 import { detectQuality } from '../utils/deviceProfiler';
@@ -28,8 +29,13 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
   const annotations = useViewerStore((s) => s.annotations);
   const showAnnotations = useViewerStore((s) => s.showAnnotations);
   const mode = useViewerStore((s) => s.mode);
-  const annDrawMode = (useViewerStore.getState() as any).annDrawMode ?? 'pin';
-  const utilityDrawMode = (useViewerStore.getState() as any).utilityDrawMode;
+  // Реактивные подписки: раньше здесь был нереактивный getState(),
+  // из-за чего включение инструментов не перерисовывало сцену
+  const annDrawMode = useViewerStore((s) => s.annDrawMode);
+  const utilityDrawMode = useViewerStore((s) => s.utilityDrawMode);
+  const cameraView = useViewerStore((s) => s.cameraView);
+  const fpPoint = useViewerStore((s) => s.fpPoint);
+  const setFpPoint = useViewerStore((s) => s.setFpPoint);
 
   return (
     <Canvas
@@ -51,12 +57,45 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
       <Suspense fallback={null}>
         <Lighting shadowMapSize={quality.shadowMapSize} />
         <CameraRig />
-        <TerrainManager
-          size={200}
-          heightmapUrl={terrainUrl}
-          procedural={proceduralTerrain}
-          xray={xrayMode}
-        />
+        {/* Группа-приёмник кликов по рельефу: R3F-события всплывают от
+            меша террейна, e.point — точное 3D-попадание (работает и на
+            холмах, в отличие от прежних плоских «планов-ловушек») */}
+        <group
+          onClick={(e) => {
+            const pt: [number, number, number] = [e.point.x, e.point.y, e.point.z];
+            if (cameraView === 'first-person' && !fpPoint) {
+              e.stopPropagation();
+              setFpPoint(pt);
+              return;
+            }
+            const h = useViewerStore.getState().groundHandlers;
+            if (h?.onClick) {
+              e.stopPropagation();
+              h.onClick(pt);
+            }
+          }}
+          onPointerDown={(e) => {
+            const h = useViewerStore.getState().groundHandlers;
+            if (h?.onDown) {
+              e.stopPropagation();
+              h.onDown([e.point.x, e.point.y, e.point.z]);
+            }
+          }}
+          onPointerMove={(e) => {
+            const h = useViewerStore.getState().groundHandlers;
+            h?.onMove?.([e.point.x, e.point.y, e.point.z]);
+          }}
+          onPointerUp={() => {
+            useViewerStore.getState().groundHandlers?.onUp?.();
+          }}
+        >
+          <TerrainManager
+            size={200}
+            heightmapUrl={terrainUrl}
+            procedural={proceduralTerrain}
+            xray={xrayMode}
+          />
+        </group>
 
         {/* Coordinate grid + ruler */}
         <SceneGrid size={200} />
@@ -83,6 +122,9 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
             onFinished={() => {}}
           />
         )}
+
+        {/* First-person: спуск камеры к выбранной точке (клик ловит группа террейна) */}
+        {cameraView === 'first-person' && <FirstPersonView targetPoint={fpPoint} />}
 
         {/* Render all scene objects */}
         {objects.map((obj) => (

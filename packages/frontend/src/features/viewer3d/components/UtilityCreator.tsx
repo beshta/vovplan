@@ -1,5 +1,4 @@
-import { useState, useCallback } from 'react';
-import { useThree } from '@react-three/fiber';
+import { useState, useEffect } from 'react';
 import * as THREE from 'three';
 import { Html } from '@react-three/drei';
 import { useViewerStore } from '../stores/viewerStore';
@@ -31,7 +30,6 @@ interface UtilityCreatorProps {
 }
 
 export default function UtilityCreator({ projectId }: UtilityCreatorProps) {
-  const { raycaster, camera, pointer } = useThree();
   const [points, setPoints] = useState<[number, number, number][]>([]);
   const [utilType, setUtilType] = useState<string>('WATER');
   const [location, setLocation] = useState<'UNDERGROUND' | 'OVERHEAD'>('UNDERGROUND');
@@ -39,22 +37,15 @@ export default function UtilityCreator({ projectId }: UtilityCreatorProps) {
   const [diameter, setDiameter] = useState(200);
 
   const setUtilities = useViewerStore((s) => s.setUtilities);
+  const setGroundHandlers = useViewerStore((s) => s.setGroundHandlers);
 
-  const getHitPoint = useCallback((): [number, number, number] | null => {
-    raycaster.setFromCamera(pointer, camera);
-    const scene = camera.parent;
-    if (!scene) return null;
-    const intersects = raycaster.intersectObjects(scene.children, true);
-    if (intersects.length === 0) return null;
-    const pt = intersects[0].point;
-    return [pt.x, pt.y, pt.z];
-  }, [raycaster, camera, pointer]);
-
-  const handleClick = useCallback((e: { stopPropagation: () => void }) => {
-    e.stopPropagation();
-    const pt = getHitPoint();
-    if (pt) setPoints((prev) => [...prev, pt]);
-  }, [getHitPoint]);
+  // Регистрируем приём кликов по рельефу (Scene рейкастит террейн сам)
+  useEffect(() => {
+    setGroundHandlers({
+      onClick: (pt) => setPoints((prev) => [...prev, pt]),
+    });
+    return () => setGroundHandlers(null);
+  }, [setGroundHandlers]);
 
   const handleUndo = () => setPoints((prev) => prev.slice(0, -1));
   const handleClear = () => setPoints([]);
@@ -101,16 +92,6 @@ export default function UtilityCreator({ projectId }: UtilityCreatorProps) {
 
   return (
     <>
-      {/* Click-to-add invisible plane */}
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0.05, 0]}
-        onClick={handleClick}
-      >
-        <planeGeometry args={[400, 400]} />
-        <meshBasicMaterial transparent opacity={0} />
-      </mesh>
-
       {/* Preview line */}
       {previewGeom && (
         <line>
@@ -136,9 +117,10 @@ export default function UtilityCreator({ projectId }: UtilityCreatorProps) {
         </Html>
       )}
 
-      {/* Control panel */}
-      <Html position={[0, 0, 0]} prepend center zIndexRange={[30, 0]}>
-        <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 p-3 w-72 select-none">
+      {/* Control panel — прибита к правому верхнему углу экрана,
+          а не к мировым координатам (раньше болталась по центру сцены) */}
+      <Html fullscreen prepend zIndexRange={[30, 0]} style={{ pointerEvents: 'none' }}>
+        <div className="absolute right-4 top-16 pointer-events-auto bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 p-3 w-72 select-none">
           <h3 className="text-sm font-semibold text-slate-800 mb-2">🔧 Создание сети</h3>
 
           {/* Type selector */}

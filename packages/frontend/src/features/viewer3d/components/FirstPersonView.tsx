@@ -17,6 +17,8 @@ export default function FirstPersonView({ targetPoint }: { targetPoint: [number,
   const { camera } = useThree();
   const startPos = useRef(new THREE.Vector3());
   const targetPos = useRef(new THREE.Vector3());
+  const startGaze = useRef(new THREE.Vector3());
+  const endGaze = useRef(new THREE.Vector3());
   const progress = useRef(0);
   const isAnimating = useRef(false);
 
@@ -27,22 +29,71 @@ export default function FirstPersonView({ targetPoint }: { targetPoint: [number,
     if (!targetPoint || cameraView !== 'first-person') return;
 
     startPos.current.copy(camera.position);
-    targetPos.current.set(targetPoint[0], EYE_HEIGHT, targetPoint[2]);
+    // Высота глаз считается от уровня земли в точке клика
+    targetPos.current.set(targetPoint[0], targetPoint[1] + EYE_HEIGHT, targetPoint[2]);
+
+    // Взгляд: из текущего направления → к горизонту в сторону центра сцены
+    // (иначе камера сохраняет орбитальный наклон и после спуска смотрит в землю)
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    startGaze.current.copy(camera.position).addScaledVector(dir, 30);
+
+    const horiz = new THREE.Vector3(-targetPoint[0], 0, -targetPoint[2]);
+    if (horiz.lengthSq() < 1) horiz.set(0, 0, -1); // высадка у центра — смотрим на север
+    horiz.normalize();
+    endGaze.current.copy(targetPos.current).addScaledVector(horiz, 30);
+
     progress.current = 0;
     isAnimating.current = true;
   }, [targetPoint, cameraView]);
 
-  // ── Animate camera descent ──
+  // ── WASD-движение (после спуска) ──
+  const keys = useRef<Record<string, boolean>>({});
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => { keys.current[e.code] = true; };
+    const up = (e: KeyboardEvent) => { keys.current[e.code] = false; };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+    };
+  }, []);
+
+  // ── Animate camera descent + walking ──
   useFrame((_, delta) => {
-    if (!isAnimating.current) return;
+    if (isAnimating.current) {
+      progress.current = Math.min(progress.current + delta * 1.2, 1);
+      const t = easeInOutCubic(progress.current);
+      camera.position.lerpVectors(startPos.current, targetPos.current, t);
+      // Плавно поднимаем взгляд к горизонту
+      const gaze = new THREE.Vector3().lerpVectors(startGaze.current, endGaze.current, t);
+      camera.lookAt(gaze);
 
-    progress.current = Math.min(progress.current + delta * 1.2, 1);
-    const t = easeInOutCubic(progress.current);
-    camera.position.lerpVectors(startPos.current, targetPos.current, t);
-
-    if (progress.current >= 1) {
-      isAnimating.current = false;
+      if (progress.current >= 1) {
+        isAnimating.current = false;
+      }
+      return;
     }
+
+    if (!targetPoint || cameraView !== 'first-person') return;
+
+    // Ходьба: WASD/стрелки в горизонтальной плоскости, высота глаз фиксирована
+    const k = keys.current;
+    const forward = (k['KeyW'] || k['ArrowUp'] ? 1 : 0) - (k['KeyS'] || k['ArrowDown'] ? 1 : 0);
+    const strafe = (k['KeyD'] || k['ArrowRight'] ? 1 : 0) - (k['KeyA'] || k['ArrowLeft'] ? 1 : 0);
+    if (forward === 0 && strafe === 0) return;
+
+    const speed = 8 * delta; // м/с
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    dir.y = 0;
+    dir.normalize();
+    const side = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).negate();
+
+    camera.position.addScaledVector(dir, forward * speed);
+    camera.position.addScaledVector(side, -strafe * speed);
+    camera.position.y = EYE_HEIGHT + targetPoint[1]; // остаёмся на высоте глаз
   });
 
   return null;

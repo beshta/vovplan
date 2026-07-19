@@ -17,7 +17,9 @@ export default function Terrain({ size = 200, xray = false }: { size?: number; x
       receiveShadow
     >
       <planeGeometry args={[size, size, 1, 1]} />
+      {/* key пересоздаёт материал при переключении X-ray (см. DemTerrain) */}
       <meshStandardMaterial
+        key={xray ? 'flat-xray' : 'flat-solid'}
         map={gridTexture}
         color="#5a7a5a"
         roughness={0.85}

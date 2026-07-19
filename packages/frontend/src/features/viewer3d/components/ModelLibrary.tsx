@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { modelsApi, type Model3DPayload } from '../../../shared/api';
-import SceneObjectsList from './SceneObjectsList';
 
 interface Props {
   projectId: string;
@@ -10,7 +9,6 @@ interface Props {
 
 /**
  * Model Library panel — upload GLB files, browse existing models, place on scene.
- * Also shows a list of all placed objects in the current scene (SceneObjectsList).
  */
 export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -129,8 +127,6 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
         ))}
       </div>
 
-      {/* Scene objects list — placed objects in the scene */}
-      <SceneObjectsList />
     </div>
   );
 }

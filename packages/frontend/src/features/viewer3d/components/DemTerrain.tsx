@@ -158,8 +158,13 @@ export default function DemTerrain({
   }, [maxHeight, onTerrainReady]);
 
   return (
-    <mesh ref={meshRef} geometry={geometry} receiveShadow castShadow>
+    <mesh ref={meshRef} geometry={geometry} receiveShadow castShadow={!xray}>
+      {/* key форсирует пересоздание материала при переключении X-ray:
+          переключение transparent на живом материале three.js применяет
+          недетерминированно (нужна перекомпиляция шейдера) — из-за этого
+          прозрачность «то есть, то нет» */}
       <meshStandardMaterial
+        key={xray ? 'terrain-xray' : 'terrain-solid'}
         vertexColors
         roughness={0.9}
         metalness={0}
