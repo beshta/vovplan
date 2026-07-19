@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useViewerStore } from '../stores/viewerStore';
 import type { UtilityType } from '../types';
 
@@ -27,16 +28,32 @@ export default function UtilityLayersPanel() {
     counts[u.type] = (counts[u.type] ?? 0) + 1;
   }
 
+  // На узких экранах панель по умолчанию свёрнута, чтобы не закрывать сцену
+  const [collapsed, setCollapsed] = useState(() => window.matchMedia('(max-width: 767px)').matches);
+
   const hasUtilities = utilities.length > 0;
   if (!hasUtilities) return null;
 
   const types = Object.keys(UTILITY_META) as UtilityType[];
+
+  if (collapsed) {
+    return (
+      <button
+        onClick={() => setCollapsed(false)}
+        className="absolute left-16 top-4 z-20 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-800"
+        title="Инженерные сети"
+      >
+        🔧 <span className="text-slate-400 text-xs">{utilities.length}</span>
+      </button>
+    );
+  }
 
   return (
     <div className="absolute left-16 top-4 z-20 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 p-3 w-52">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold text-slate-800">🔧 Инженерные сети</h3>
+        <button onClick={() => setCollapsed(true)} className="text-slate-400 text-xs hover:text-slate-600" title="Свернуть">▴</button>
       </div>
 
       {/* X-Ray toggle */}

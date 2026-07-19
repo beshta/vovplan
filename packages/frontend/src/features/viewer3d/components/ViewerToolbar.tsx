@@ -1,4 +1,5 @@
 import { useViewerStore } from '../stores/viewerStore';
+import { isTouchDevice } from '../utils/deviceProfiler';
 
 type DrawMode = 'pin' | 'arrow' | 'line' | 'freehand';
 
@@ -96,11 +97,14 @@ export default function ViewerToolbar() {
 
         {/* View / layer tools */}
         <div className="h-px bg-slate-700 my-1" />
-        <ToolButton
-          active={cameraView === 'first-person'}
-          onClick={() => setCameraView(cameraView === 'first-person' ? 'orbit' : 'first-person')}
-          title="Вид от первого лица / Обзор"
-        >{cameraView === 'first-person' ? '🗺️' : '🚶'}</ToolButton>
+        {/* First-person использует PointerLock — на тач-устройствах недоступен */}
+        {!isTouchDevice() && (
+          <ToolButton
+            active={cameraView === 'first-person'}
+            onClick={() => setCameraView(cameraView === 'first-person' ? 'orbit' : 'first-person')}
+            title="Вид от первого лица / Обзор"
+          >{cameraView === 'first-person' ? '🗺️' : '🚶'}</ToolButton>
+        )}
 
         <ToolButton
           active={xrayMode}

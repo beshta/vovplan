@@ -44,24 +44,25 @@ export default function ProjectPage() {
     <div className="h-screen flex flex-col bg-slate-900">
       {/* Top bar */}
       <header className="bg-slate-950 text-white px-4 py-2.5 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4 min-w-0">
           <button
             onClick={() => navigate('/')}
-            className="text-slate-400 hover:text-white transition-colors"
+            className="text-slate-400 hover:text-white transition-colors shrink-0"
             title="К проектам"
           >
-            ← Проекты
+            <span className="hidden md:inline">← Проекты</span>
+            <span className="md:hidden">←</span>
           </button>
-          <div className="h-5 w-px bg-slate-700" />
-          <h1 className="text-lg font-semibold">{project.name}</h1>
+          <div className="h-5 w-px bg-slate-700 shrink-0" />
+          <h1 className="text-base md:text-lg font-semibold truncate">{project.name}</h1>
           {project.myRole && (
-            <span className="text-xs px-2 py-0.5 bg-vovplan-600/30 text-vovplan-200 rounded-full">
+            <span className="hidden md:inline text-xs px-2 py-0.5 bg-vovplan-600/30 text-vovplan-200 rounded-full shrink-0">
               {ROLE_LABELS[project.myRole]}
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 overflow-x-auto shrink-0 max-w-[60vw]">
           <button
             onClick={() => setTab('viewer')}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${

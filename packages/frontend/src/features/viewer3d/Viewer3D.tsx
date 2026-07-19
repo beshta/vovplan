@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { ProjectRole } from '@vovplan/shared';
 import { useViewerStore } from './stores/viewerStore';
@@ -16,6 +16,7 @@ import PresetsBar from './components/PresetsBar';
 import PresenceBar from '../collaboration/PresenceBar';
 import { useRealtime } from '../collaboration/useRealtime';
 import { useAuthStore } from '../../shared/authStore';
+import { useIsMobile } from '../../shared/useIsMobile';
 
 interface Viewer3DProps {
   projectId: string;
@@ -195,6 +196,8 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   };
 
   const canEdit = role === 'MASTER' || role === 'DESIGNER';
+  const isMobile = useIsMobile();
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   return (
     <div className="flex w-full h-full">
@@ -219,6 +222,34 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
           </div>
         )}
 
+        {/* Мобильный доступ к библиотеке моделей: FAB + оверлей */}
+        {canEdit && isMobile && (
+          <>
+            <button
+              onClick={() => setLibraryOpen(true)}
+              className="absolute right-4 top-16 z-30 w-11 h-11 rounded-full bg-vovplan-600 text-white text-xl shadow-xl flex items-center justify-center"
+              title="Библиотека моделей"
+            >
+              📦
+            </button>
+            {libraryOpen && (
+              <div className="absolute inset-0 z-40 flex">
+                <div className="flex-1 bg-black/40" onClick={() => setLibraryOpen(false)} />
+                <div className="relative h-full">
+                  <button
+                    onClick={() => setLibraryOpen(false)}
+                    className="absolute -left-3 top-3 z-50 w-7 h-7 rounded-full bg-slate-800 text-white text-sm shadow-lg"
+                    title="Закрыть"
+                  >
+                    ✕
+                  </button>
+                  <ModelLibrary projectId={projectId} onPlaceObject={(m) => { setLibraryOpen(false); return handlePlaceObject(m); }} />
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
         {cameraView === 'first-person' && (
           <>
             <button
@@ -234,8 +265,8 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
         )}
       </div>
 
-      {/* Model Library (only for editors) */}
-      {canEdit && (
+      {/* Model Library (only for editors) — десктоп: постоянный сайдбар */}
+      {canEdit && !isMobile && (
         <ModelLibrary projectId={projectId} onPlaceObject={handlePlaceObject} />
       )}
     </div>

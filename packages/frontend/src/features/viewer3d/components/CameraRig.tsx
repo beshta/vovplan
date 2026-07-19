@@ -106,6 +106,7 @@ export default function CameraRig() {
       maxDistance={200}
       enablePan
       screenSpacePanning={false}
+      touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
     />
   );
 }

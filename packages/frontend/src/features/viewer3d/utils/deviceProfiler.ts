@@ -3,8 +3,17 @@
  * Detect device capabilities and return a quality profile.
  * Mobile devices get reduced shadows and lower LOD.
  */
+
+/** Тач-устройство (включая новые iPad, которые прикидываются Mac) */
+export function isTouchDevice(): boolean {
+  return (navigator.maxTouchPoints ?? 0) > 0 || window.matchMedia('(pointer: coarse)').matches;
+}
+
 export function detectQuality() {
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const isMobile =
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    // iPadOS 13+ выдаёт себя за Macintosh, но с тач-экраном
+    (/Macintosh/i.test(navigator.userAgent) && (navigator.maxTouchPoints ?? 0) > 1);
   const cores = navigator.hardwareConcurrency ?? 4;
   const memory = (navigator as any).deviceMemory ?? 4; // GB, Chrome only
 
