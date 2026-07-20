@@ -118,10 +118,8 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
         {/* Engineering utility networks */}
         <UtilityNetworks3D />
 
-        {/* Utility creator (when in utility-draw mode) */}
-        {utilityDrawMode && (
-          <UtilityCreator projectId={projectId} />
-        )}
+        {/* Utility creator (when in utility-draw mode) — только 3D-превью/клики */}
+        {utilityDrawMode && <UtilityCreator />}
 
         {/* 3D Annotations (arrows, lines, pins) */}
         {showAnnotations && annotations.map((ann) => (

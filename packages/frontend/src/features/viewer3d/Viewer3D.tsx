@@ -11,6 +11,7 @@ import ObjectInfoPanel from './components/ObjectInfoPanel';
 import ModelLibrary from './components/ModelLibrary';
 import NavigationHelp from './components/NavigationHelp';
 import UtilityLayersPanel from './components/UtilityLayersPanel';
+import UtilityDrawPanel from './components/UtilityDrawPanel';
 import TerrainPanel from './components/TerrainPanel';
 import AnnotationsList from './components/AnnotationsList';
 import UtilityEditPanel from './components/UtilityEditPanel';
@@ -44,6 +45,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const cameraView = useViewerStore((s) => s.cameraView);
   const setCameraView = useViewerStore((s) => s.setCameraView);
   const fpPoint = useViewerStore((s) => s.fpPoint);
+  const utilityDrawMode = useViewerStore((s) => s.utilityDrawMode);
 
   const userName = useAuthStore((s) => s.user?.displayName ?? s.user?.email ?? 'Гость');
 
@@ -234,6 +236,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
             </div>
             <div className="flex flex-col gap-2 min-h-0 w-56">
               <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 items-start pr-0.5">
+                {utilityDrawMode && canEdit && <UtilityDrawPanel projectId={projectId} />}
                 <UtilityLayersPanel />
                 {canEdit && <TerrainPanel projectId={projectId} centerLat={projectData?.centerLat} centerLng={projectData?.centerLng} />}
                 <SceneObjectsList />

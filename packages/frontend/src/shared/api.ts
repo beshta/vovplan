@@ -20,9 +20,14 @@ export function clearToken(): void {
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...options.headers as Record<string, string>,
   };
+
+  // Content-Type только когда есть тело: fastify отклоняет DELETE/GET с
+  // content-type=json и пустым телом (400 «Body cannot be empty»)
+  if (options.body != null) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
