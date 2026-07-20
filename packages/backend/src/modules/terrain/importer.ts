@@ -24,16 +24,27 @@ const MAX_TILES = 48;
 
 export interface LatLng { lat: number; lng: number }
 
+export interface BuildingBox {
+  /** Контур в локальных метрах от центра (x — восток, z — юг) */
+  p: [number, number][];
+  /** Высота коробки, м */
+  h: number;
+  /** Высота основания над minElev, м (посадка на рельеф) */
+  base: number;
+}
+
 export interface ImportResult {
-  heightmap: Buffer;       // grayscale PNG
-  texture: Buffer;         // RGB PNG (затемнение вне полигона)
+  heightmap: Buffer;       // PNG, высота 16 бит: R — старший байт, G — младший
+  texture: Buffer;         // JPEG (затемнение вне полигона)
   widthM: number;          // размер bbox по долготе, метры
   heightM: number;         // размер bbox по широте, метры
   minElev: number;         // минимальная высота, м
   maxElev: number;         // максимальная высота, м
-  /** Полигон в локальных координатах сцены до нормализации (метры от центра bbox; x — восток, z — юг) */
+  /** Полигон в локальных координатах сцены (метры от центра bbox; x — восток, z — юг) */
   polygonLocal: [number, number][];
   origin: LatLng;          // центр bbox
+  /** Здания из OSM (может быть пустым при недоступности Overpass) */
+  buildings: BuildingBox[];
 }
 
 // ── Slippy-tile математика ──────────────────────
@@ -81,22 +92,27 @@ export function pointInPolygon(px: number, py: number, poly: [number, number][])
 
 /** Скачивает тайл (PNG или JPEG) и декодирует в RGBA 256×256. До 3 попыток. */
 async function fetchTileRgba(url: string): Promise<Buffer> {
-  let res: Response | null = null;
+  let buf: Buffer | null = null;
   let lastErr: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      res = await fetch(url, { signal: AbortSignal.timeout(20000) });
-      if (res.ok) break;
-      lastErr = new Error(`HTTP ${res.status}`);
-      res = null;
+      const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+      if (res.ok) {
+        const body = Buffer.from(await res.arrayBuffer());
+        if (body.length > 0) {
+          buf = body;
+          break;
+        }
+        lastErr = new Error('пустое тело ответа');
+      } else {
+        lastErr = new Error(`HTTP ${res.status}`);
+      }
     } catch (err) {
       lastErr = err;
-      res = null;
     }
     await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
   }
-  if (!res) throw new Error(`Тайл недоступен: ${url} (${(lastErr as Error)?.message})`);
-  const buf = Buffer.from(await res.arrayBuffer());
+  if (!buf) throw new Error(`Тайл недоступен: ${url} (${(lastErr as Error)?.message})`);
   const { data, info } = await sharp(buf)
     .ensureAlpha()
     .resize(TILE, TILE, { fit: 'fill' })
@@ -175,6 +191,61 @@ function cropMosaic(m: Mosaic, bbox: { west: number; east: number; north: number
   return { data: out, width: w, height: h };
 }
 
+// ── Здания из OSM (Overpass API) ────────────────
+
+const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+const MAX_BUILDINGS = 4000;
+const FLOOR_HEIGHT_M = 3;
+const DEFAULT_BUILDING_H = 9; // 3 этажа, если OSM не знает высоту
+
+/** Высота здания из OSM-тегов: height → building:levels × 3м → дефолт */
+export function buildingHeight(tags: Record<string, string> | undefined): number {
+  if (!tags) return DEFAULT_BUILDING_H;
+  const h = parseFloat(tags['height'] ?? tags['building:height'] ?? '');
+  if (Number.isFinite(h) && h > 0 && h < 500) return h;
+  const levels = parseFloat(tags['building:levels'] ?? '');
+  if (Number.isFinite(levels) && levels > 0 && levels < 150) {
+    return levels * FLOOR_HEIGHT_M;
+  }
+  return DEFAULT_BUILDING_H;
+}
+
+interface OverpassWay {
+  type: string;
+  tags?: Record<string, string>;
+  geometry?: { lat: number; lon: number }[];
+}
+
+/** Контуры зданий bbox из Overpass. Ошибки не валят импорт — вернём []. */
+async function fetchBuildings(
+  bbox: { west: number; east: number; north: number; south: number },
+): Promise<{ latlngs: LatLng[]; height: number }[]> {
+  const query = `[out:json][timeout:25];way["building"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});out geom ${MAX_BUILDINGS};`;
+  try {
+    const res = await fetch(OVERPASS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `data=${encodeURIComponent(query)}`,
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!res.ok) throw new Error(`Overpass HTTP ${res.status}`);
+    const json = (await res.json()) as { elements?: OverpassWay[] };
+    const out: { latlngs: LatLng[]; height: number }[] = [];
+    for (const el of json.elements ?? []) {
+      if (el.type !== 'way' || !el.geometry || el.geometry.length < 3) continue;
+      out.push({
+        latlngs: el.geometry.map((g) => ({ lat: g.lat, lng: g.lon })),
+        height: buildingHeight(el.tags),
+      });
+    }
+    return out;
+  } catch (err) {
+    // Overpass бывает перегружен — площадка без зданий лучше, чем ошибка импорта
+    console.warn('[terrain] Overpass недоступен, импорт без зданий:', (err as Error).message);
+    return [];
+  }
+}
+
 // ── Основной импорт ─────────────────────────────
 
 export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult> {
@@ -205,7 +276,9 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
   const heightM = (bbox.north - bbox.south) * mPerDegLat;
 
   // ── DEM ──
-  const zDem = pickZoom(bbox, 384);
+  // Максимальная детальность: на z15 terrarium даёт ~2.7м/пиксель на 55°
+  // широты — перепады набережная/река становятся различимы
+  const zDem = pickZoom(bbox, 1024);
   const demMosaic = await buildMosaic(TERRARIUM_URL, bbox, zDem);
   const dem = cropMosaic(demMosaic, bbox);
 
@@ -229,13 +302,14 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
     else if (elev[i] > maxElev) elev[i] = maxElev;
   }
 
-  // Grayscale heightmap PNG (яркость = нормализованная высота)
+  // Heightmap PNG, 16-бит кодирование: R — старший байт, G — младший.
+  // 8-бит квантование давало «терраски» ~0.4м; 16 бит — шаг ~1.4мм.
   const hmRaw = Buffer.alloc(dem.width * dem.height * 4);
   for (let i = 0; i < elev.length; i++) {
-    const v = Math.round(((elev[i] - minElev) / range) * 255);
-    hmRaw[i * 4] = v;
-    hmRaw[i * 4 + 1] = v;
-    hmRaw[i * 4 + 2] = v;
+    const v16 = Math.round(((elev[i] - minElev) / range) * 65535);
+    hmRaw[i * 4] = v16 >> 8;
+    hmRaw[i * 4 + 1] = v16 & 0xff;
+    hmRaw[i * 4 + 2] = 0;
     hmRaw[i * 4 + 3] = 255;
   }
   const heightmap = await sharp(hmRaw, { raw: { width: dem.width, height: dem.height, channels: 4 } })
@@ -267,10 +341,37 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
     .toBuffer();
 
   // Полигон в локальных метрах от центра (x — восток, z — юг: соответствует сцене three.js)
-  const polygonLocal: [number, number][] = polygon.map((p) => [
+  const toLocal = (p: LatLng): [number, number] => [
     (p.lng - origin.lng) * mPerDegLng,
     (origin.lat - p.lat) * mPerDegLat,
-  ]);
+  ];
+  const polygonLocal: [number, number][] = polygon.map(toLocal);
 
-  return { heightmap, texture, widthM, heightM, minElev, maxElev, polygonLocal, origin };
+  // ── Здания (OSM) ──
+  // Сэмпл высоты рельефа в точке (локальные метры) — для посадки коробок
+  const elevAtLocal = (x: number, z: number): number => {
+    const px = Math.round(((x + widthM / 2) / widthM) * (dem.width - 1));
+    const py = Math.round(((z + heightM / 2) / heightM) * (dem.height - 1));
+    const cx = Math.min(Math.max(px, 0), dem.width - 1);
+    const cy = Math.min(Math.max(py, 0), dem.height - 1);
+    return elev[cy * dem.width + cx];
+  };
+
+  const rawBuildings = await fetchBuildings(bbox);
+  const buildings: BuildingBox[] = rawBuildings.map((b) => {
+    const p = b.latlngs.map(toLocal);
+    // Основание — минимум рельефа по вершинам контура (чтобы не висело на склоне)
+    let base = Infinity;
+    for (const [x, z] of p) {
+      const e = elevAtLocal(x, z);
+      if (e < base) base = e;
+    }
+    return {
+      p: p.map(([x, z]) => [Math.round(x * 10) / 10, Math.round(z * 10) / 10] as [number, number]),
+      h: b.height,
+      base: Math.round((base - minElev) * 10) / 10,
+    };
+  });
+
+  return { heightmap, texture, widthM, heightM, minElev, maxElev, polygonLocal, origin, buildings };
 }

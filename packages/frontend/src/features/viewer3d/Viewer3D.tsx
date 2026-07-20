@@ -149,6 +149,18 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
     setTerrainMeta((projectData as any).terrainMeta ?? null);
   }, [projectData, setTerrainUrl, setTerrainMeta]);
 
+  // ── При появлении реального ландшафта — обзорный вид на всю площадку ──
+  const metaKey = (projectData as any)?.terrainMeta?.textureUrl ?? null;
+  useEffect(() => {
+    if (!metaKey) return;
+    const meta = (projectData as any).terrainMeta;
+    const size = Math.max(meta.widthM, meta.heightM);
+    useViewerStore.getState().flyTo({
+      position: [size * 0.35, size * 0.4, size * 0.35],
+      target: [0, 0, 0],
+    });
+  }, [metaKey]);
+
   // ── Sync comments → annotations store ──
   useEffect(() => {
     if (!commentsData?.data) return;

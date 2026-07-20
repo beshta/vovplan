@@ -9,6 +9,7 @@ import UtilityNetworks3D from './UtilityNetworks3D';
 import Annotation3D from './Annotation3D';
 import AnnotationTool from './AnnotationTool';
 import SceneGrid from './SceneGrid';
+import BuildingsLayer from './BuildingsLayer';
 import UtilityCreator from './UtilityCreator';
 import FirstPersonView from './FirstPersonView';
 import PeerLayer from '../../collaboration/PeerLayer';
@@ -38,6 +39,9 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
   const fpPoint = useViewerStore((s) => s.fpPoint);
   const setFpPoint = useViewerStore((s) => s.setFpPoint);
 
+  // Масштаб 1:1 для реального ландшафта: размер сцены = размер площадки в метрах
+  const sceneSize = terrainMeta ? Math.max(terrainMeta.widthM, terrainMeta.heightM) : 200;
+
   return (
     <Canvas
       shadows={quality.enableShadows ? 'soft' : false}
@@ -48,17 +52,17 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
         toneMapping: ACESFilmicToneMapping,
         toneMappingExposure: 1.8,
       }}
-      camera={{ fov: 50, near: 0.1, far: 1000, position: [50, 55, 50] }}
+      camera={{ fov: 50, near: 0.1, far: Math.max(1000, sceneSize * 6), position: [50, 55, 50] }}
       onPointerMissed={() => selectObject(null)}
     >
       {/* Sky background color */}
       <color attach="background" args={['#a8c8e8']} />
       {/* Дымка только у горизонта: ближе 300 юнитов сцена полностью чистая
           (при 120 туман съедал дальний край 200-юнитного ландшафта) */}
-      <fog attach="fog" args={['#a8c8e8', 300, 900]} />
+      <fog attach="fog" args={['#a8c8e8', sceneSize * 1.5, sceneSize * 4.5]} />
 
       <Suspense fallback={null}>
-        <Lighting shadowMapSize={quality.shadowMapSize} />
+        <Lighting shadowMapSize={quality.shadowMapSize} sceneSize={sceneSize} />
         <CameraRig />
         {/* Группа-приёмник кликов по рельефу: R3F-события всплывают от
             меша террейна, e.point — точное 3D-попадание (работает и на
@@ -102,7 +106,10 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
         </group>
 
         {/* Coordinate grid + ruler */}
-        <SceneGrid size={200} />
+        <SceneGrid size={sceneSize} />
+
+        {/* Здания OSM (только для импортированного реального ландшафта) */}
+        {terrainMeta?.buildingsUrl && <BuildingsLayer meta={terrainMeta} />}
 
         {/* Engineering utility networks */}
         <UtilityNetworks3D />

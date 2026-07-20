@@ -149,12 +149,17 @@ export default async function terrainRoutes(fastify: FastifyInstance) {
     const id = randomUUID();
     const hmName = `real-${id}.png`;
     const texName = `tex-${id}.png`;
+    const bldName = `buildings-${id}.json`;
     writeFileSync(join(projectDir, hmName), result.heightmap);
     writeFileSync(join(projectDir, texName), result.texture);
+    writeFileSync(join(projectDir, bldName), JSON.stringify({ buildings: result.buildings }));
 
     const terrainUrl = `/uploads/${projectId}/terrain/${hmName}`;
     const terrainMeta = {
       textureUrl: `/uploads/${projectId}/terrain/${texName}`,
+      buildingsUrl: `/uploads/${projectId}/terrain/${bldName}`,
+      buildingCount: result.buildings.length,
+      encoding: 'rg16', // 16-битные высоты: R — старший байт, G — младший
       widthM: Math.round(result.widthM),
       heightM: Math.round(result.heightM),
       minElev: Math.round(result.minElev * 10) / 10,

@@ -240,6 +240,11 @@ export const utilitiesApi = {
 /** Метаданные импортированного реального рельефа */
 export interface TerrainMeta {
   textureUrl: string;
+  /** JSON со зданиями OSM: { buildings: [{ p, h, base }] } */
+  buildingsUrl?: string;
+  buildingCount?: number;
+  /** Кодирование heightmap: 'rg16' — 16 бит (R старший, G младший); нет — 8-бит яркость */
+  encoding?: string;
   widthM: number;
   heightM: number;
   minElev: number;

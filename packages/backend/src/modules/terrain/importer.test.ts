@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { lngToTileX, latToTileY, pickZoom, pointInPolygon } from './importer.js';
+import { lngToTileX, latToTileY, pickZoom, pointInPolygon, buildingHeight } from './importer.js';
 
 describe('terrain importer: тайловая математика', () => {
   it('lng/lat → тайловые координаты (Москва, z=10)', () => {
@@ -41,5 +41,26 @@ describe('terrain importer: point-in-polygon', () => {
     const lShape: [number, number][] = [[0, 0], [10, 0], [10, 5], [5, 5], [5, 10], [0, 10]];
     expect(pointInPolygon(2, 8, lShape)).toBe(true);   // в «ноге» L
     expect(pointInPolygon(8, 8, lShape)).toBe(false);  // в вырезе
+  });
+});
+
+describe('terrain importer: высота зданий из OSM-тегов', () => {
+  it('явный height приоритетнее этажей', () => {
+    expect(buildingHeight({ height: '25', 'building:levels': '3' })).toBe(25);
+  });
+
+  it('этажи × 3м', () => {
+    expect(buildingHeight({ 'building:levels': '9' })).toBe(27);
+  });
+
+  it('дефолт без тегов — 9м (3 этажа)', () => {
+    expect(buildingHeight(undefined)).toBe(9);
+    expect(buildingHeight({})).toBe(9);
+  });
+
+  it('мусорные значения → дефолт', () => {
+    expect(buildingHeight({ height: 'высокое' })).toBe(9);
+    expect(buildingHeight({ height: '-5' })).toBe(9);
+    expect(buildingHeight({ 'building:levels': '9999' })).toBe(9);
   });
 });

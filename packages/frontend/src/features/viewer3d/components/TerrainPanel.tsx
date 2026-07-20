@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Mountain, Upload, Trash2, Dices, Grid3x3, Globe } from 'lucide-react';
+import { Mountain, Upload, Trash2, Dices, Grid3x3, Globe, Building2 } from 'lucide-react';
 import MapImportModal from './MapImportModal';
 import { useViewerStore } from '../stores/viewerStore';
 import { terrainApi } from '../../../shared/api';
@@ -24,6 +24,9 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
   const proceduralTerrain = useViewerStore((s) => s.proceduralTerrain);
   const setProceduralTerrain = useViewerStore((s) => s.setProceduralTerrain);
   const wireframe = useViewerStore((s) => s.wireframe);
+  const terrainMeta = useViewerStore((s) => s.terrainMeta);
+  const showBuildings = useViewerStore((s) => s.showBuildings);
+  const setShowBuildings = useViewerStore((s) => s.setShowBuildings);
   const setWireframe = useViewerStore((s) => s.setWireframe);
   const setTerrainMeta = useViewerStore((s) => s.setTerrainMeta);
 
@@ -139,6 +142,22 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
           >
             <span className="flex items-center justify-center gap-1.5"><Grid3x3 size={14} /> Каркас</span>
           </button>
+
+          {/* Здания OSM (только для импортированного реального рельефа) */}
+          {terrainMeta?.buildingsUrl && (
+            <button
+              onClick={() => setShowBuildings(!showBuildings)}
+              className={`w-full px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                showBuildings
+                  ? 'bg-vovplan-600/20 text-vovplan-200 ring-1 ring-vovplan-500/30'
+                  : 'bg-white/5 text-slate-400 hover:bg-white/10'
+              }`}
+            >
+              <span className="flex items-center justify-center gap-1.5">
+                <Building2 size={14} /> Здания · {terrainMeta.buildingCount ?? 0}
+              </span>
+            </button>
+          )}
 
           {/* Error */}
           {error && (

@@ -72,8 +72,7 @@ export default function DemTerrain(props: DemTerrainProps) {
 // ═══ Режим 1: реальный рельеф с текстурой ═══════
 
 function RealTerrain({
-  size = 200,
-  segments = 192,
+  segments = 256,
   heightmapUrl,
   meta,
   wireframe = false,
@@ -88,13 +87,12 @@ function RealTerrain({
   }, [surfaceTex]);
 
   const { geometry } = useMemo(() => {
-    // Нормировка: большая сторона области → size сценических единиц.
-    // Высоты масштабируются тем же коэффициентом — рельеф геометрически честный.
-    const maxSideM = Math.max(meta.widthM, meta.heightM);
-    const k = size / maxSideM;
-    const sizeX = meta.widthM * k;
-    const sizeZ = meta.heightM * k;
-    const heightRange = Math.max(meta.maxElev - meta.minElev, 1) * k;
+    // Масштаб 1:1 — один юнит сцены = один метр. Сетка, объекты,
+    // вид от первого лица (1.7м) и рельеф в одной честной системе.
+    const sizeX = meta.widthM;
+    const sizeZ = meta.heightM;
+    const heightRange = Math.max(meta.maxElev - meta.minElev, 1);
+    const is16bit = meta.encoding === 'rg16';
 
     const hm = imageToData(heightTex.image as HTMLImageElement);
 
@@ -105,16 +103,32 @@ function RealTerrain({
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const z = pos.getZ(i);
+      // Билинейная интерполяция — без «ступенек» между пикселями DEM
       const u = (x / sizeX + 0.5) * (hm.width - 1);
       const v = (z / sizeZ + 0.5) * (hm.height - 1);
-      const idx = (Math.floor(v) * hm.width + Math.floor(u)) * 4;
-      const elevation01 = hm.data[idx] / 255;
+      const x0 = Math.floor(u);
+      const y0 = Math.floor(v);
+      const x1 = Math.min(x0 + 1, hm.width - 1);
+      const y1 = Math.min(y0 + 1, hm.height - 1);
+      const fx = u - x0;
+      const fy = v - y0;
+
+      const sample = (px: number, py: number) => {
+        const idx = (py * hm.width + px) * 4;
+        return is16bit
+          ? (hm.data[idx] * 256 + hm.data[idx + 1]) / 65535
+          : hm.data[idx] / 255;
+      };
+
+      const top = sample(x0, y0) * (1 - fx) + sample(x1, y0) * fx;
+      const bot = sample(x0, y1) * (1 - fx) + sample(x1, y1) * fx;
+      const elevation01 = top * (1 - fy) + bot * fy;
       pos.setY(i, elevation01 * heightRange);
     }
     geo.computeVertexNormals();
 
     return { geometry: geo };
-  }, [heightTex, meta, size, segments]);
+  }, [heightTex, meta, segments]);
 
   return (
     <mesh geometry={geometry} receiveShadow castShadow={!xray}>

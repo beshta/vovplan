@@ -90,6 +90,9 @@ interface ViewerState {
   /** Метаданные импортированного реального рельефа (текстура, размеры, высоты, периметр) */
   terrainMeta: import('../../../shared/api').TerrainMeta | null;
   setTerrainMeta: (m: import('../../../shared/api').TerrainMeta | null) => void;
+  /** Показ OSM-зданий импортированного ландшафта */
+  showBuildings: boolean;
+  setShowBuildings: (v: boolean) => void;
   proceduralTerrain: boolean;
   setProceduralTerrain: (v: boolean) => void;
   wireframe: boolean;
@@ -235,6 +238,8 @@ export const useViewerStore = create<ViewerState>((set) => ({
   setTerrainUrl: (terrainUrl) => set({ terrainUrl }),
   terrainMeta: null,
   setTerrainMeta: (terrainMeta) => set({ terrainMeta }),
+  showBuildings: true,
+  setShowBuildings: (showBuildings) => set({ showBuildings }),
   proceduralTerrain: true,
   setProceduralTerrain: (proceduralTerrain) => set({ proceduralTerrain }),
   wireframe: false,

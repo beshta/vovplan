@@ -5,14 +5,21 @@ import * as THREE from 'three';
  * Natural lighting: directional sun light + hemisphere sky/ground light.
  * Shadows use PCFSoftShadowMap for soft edges.
  *
- * The sun position can be animated or set to a fixed angle.
- * Default: 50° elevation, south-east azimuth — good shadow visibility.
+ * sceneSize — размер площадки в юнитах (метрах): shadow-камера и позиция
+ * солнца масштабируются, чтобы тени покрывали всю сцену и на площадках
+ * в несколько километров.
  */
-export default function Lighting({ shadowMapSize = 2048 }: { shadowMapSize?: number }) {
+export default function Lighting({
+  shadowMapSize = 2048,
+  sceneSize = 200,
+}: {
+  shadowMapSize?: number;
+  sceneSize?: number;
+}) {
   const sunRef = useRef<THREE.DirectionalLight>(null);
 
-  // Fixed sun position — can be made dynamic (time-of-day) later
-  const sunPosition: [number, number, number] = [80, 100, 40];
+  const half = sceneSize * 0.65;
+  const sunPosition: [number, number, number] = [sceneSize * 0.4, sceneSize * 0.5, sceneSize * 0.2];
 
   return (
     <>
@@ -30,11 +37,11 @@ export default function Lighting({ shadowMapSize = 2048 }: { shadowMapSize?: num
         castShadow
         shadow-mapSize-width={shadowMapSize}
         shadow-mapSize-height={shadowMapSize}
-        shadow-camera-far={300}
-        shadow-camera-left={-100}
-        shadow-camera-right={100}
-        shadow-camera-top={100}
-        shadow-camera-bottom={-100}
+        shadow-camera-far={sceneSize * 2}
+        shadow-camera-left={-half}
+        shadow-camera-right={half}
+        shadow-camera-top={half}
+        shadow-camera-bottom={-half}
         shadow-camera-near={0.5}
         shadow-bias={-0.0005}
       />
