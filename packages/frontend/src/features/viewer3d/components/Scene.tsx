@@ -53,7 +53,11 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
         toneMappingExposure: 1.8,
       }}
       camera={{ fov: 50, near: 0.1, far: Math.max(1000, sceneSize * 6), position: [50, 55, 50] }}
-      onPointerMissed={() => selectObject(null)}
+      onPointerMissed={() => {
+        selectObject(null);
+        useViewerStore.getState().selectUtility(null);
+        useViewerStore.getState().selectAnnotation(null);
+      }}
     >
       {/* Sky background color */}
       <color attach="background" args={['#a8c8e8']} />
@@ -129,7 +133,6 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
           <AnnotationTool
             projectId={projectId}
             drawMode={annDrawMode}
-            color="#ef4444"
             onFinished={() => {}}
           />
         )}

@@ -17,6 +17,8 @@ export default function UtilityNetworks3D() {
   const utilities = useViewerStore((s) => s.utilities);
   const visibleUtilityTypes = useViewerStore((s) => s.visibleUtilityTypes);
   const xrayMode = useViewerStore((s) => s.xrayMode);
+  const selectedUtilityId = useViewerStore((s) => s.selectedUtilityId);
+  const selectUtility = useViewerStore((s) => s.selectUtility);
 
   // Filter by visibility toggle
   const visibleUtilities = utilities.filter((u) => visibleUtilityTypes[u.type]);
@@ -24,14 +26,20 @@ export default function UtilityNetworks3D() {
   return (
     <group>
       {visibleUtilities.map((util) => (
-        <UtilityPipe key={util.id} data={util} xray={xrayMode} />
+        <UtilityPipe
+          key={util.id}
+          data={util}
+          xray={xrayMode}
+          selected={selectedUtilityId === util.id}
+          onSelect={() => selectUtility(util.id)}
+        />
       ))}
     </group>
   );
 }
 
 /** Render a single utility network as a 3D tube along its geometry */
-function UtilityPipe({ data, xray }: { data: UtilityNetworkData; xray: boolean }) {
+function UtilityPipe({ data, xray, selected, onSelect }: { data: UtilityNetworkData; xray: boolean; selected: boolean; onSelect: () => void }) {
   // Build a CatmullRom curve through the geometry points
   const { curve, tubeGeometry } = useMemo(() => {
     // For underground networks, subtract burial depth from y coordinate
@@ -57,12 +65,18 @@ function UtilityPipe({ data, xray }: { data: UtilityNetworkData; xray: boolean }
 
   return (
     <group>
-      {/* The pipe itself */}
-      <mesh geometry={tubeGeometry} castShadow={!xray}>
+      {/* The pipe itself — кликабельна для выбора/редактирования */}
+      <mesh
+        geometry={tubeGeometry}
+        castShadow={!xray}
+        onClick={(e) => { e.stopPropagation(); onSelect(); }}
+        onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer'; }}
+        onPointerOut={() => { document.body.style.cursor = ''; }}
+      >
         <meshStandardMaterial
           color={data.color}
-          emissive={data.color}
-          emissiveIntensity={xray ? 0.5 : 0.15}
+          emissive={selected ? '#ffffff' : data.color}
+          emissiveIntensity={selected ? 0.8 : (xray ? 0.5 : 0.15)}
           roughness={0.6}
           metalness={0.3}
           transparent={xray}

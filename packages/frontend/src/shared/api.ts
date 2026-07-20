@@ -367,6 +367,7 @@ export interface CommentPayload {
   type: AnnotationType | null;
   geometry: [number, number, number][] | null;
   color: string | null;
+  width: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -382,6 +383,7 @@ export const commentsApi = {
     type?: AnnotationType;
     geometry?: [number, number, number][];
     color?: string;
+    width?: number;
     parentId?: string;
   }) =>
     apiFetch<CommentPayload>(`/api/projects/${projectId}/comments`, {
@@ -392,6 +394,8 @@ export const commentsApi = {
   update: (projectId: string, id: string, data: Partial<{
     text: string;
     resolved: boolean;
+    color: string;
+    width: number;
   }>) =>
     apiFetch<CommentPayload>(`/api/projects/${projectId}/comments/${id}`, {
       method: 'PATCH',

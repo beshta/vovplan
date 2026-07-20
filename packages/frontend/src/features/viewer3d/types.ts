@@ -43,6 +43,7 @@ export interface AnnotationData {
   type: 'arrow' | 'line' | 'freehand' | 'pin';
   points: [number, number, number][];
   color: string;
+  width?: number;
   text: string;
   authorId: string;
   authorName: string;

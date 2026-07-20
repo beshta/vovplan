@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
-import { OrbitControls, PointerLockControls } from '@react-three/drei';
+import { OrbitControls } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useViewerStore } from '../stores/viewerStore';
 import * as THREE from 'three';
@@ -95,8 +95,10 @@ export default function CameraRig() {
     }
   }, [cameraView, camera]);
 
+  // В first-person камерой управляет FirstPersonView (drag-look мышью + WASD).
+  // Никаких OrbitControls/PointerLock здесь — иначе они перехватывают ввод.
   if (cameraView === 'first-person') {
-    return <PointerLockControls />;
+    return null;
   }
 
   return (

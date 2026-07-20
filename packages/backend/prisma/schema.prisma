@@ -238,6 +238,7 @@ model Comment {
   type        String?   // 'arrow' | 'line' | 'freehand' | 'pin'
   geometry    Json?     // [[x,y,z], ...] — polyline points
   color       String?   // hex color
+  width       Float?    // толщина линии аннотации (мировые единицы)
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

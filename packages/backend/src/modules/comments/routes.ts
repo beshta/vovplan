@@ -21,12 +21,15 @@ const createCommentSchema = z.object({
   type: z.enum(['arrow', 'line', 'freehand', 'pin']).optional(),
   geometry: z.array(z.array(z.number()).length(3)).optional(),
   color: z.string().optional(),
+  width: z.number().min(0.05).max(5).optional(),
   parentId: z.string().optional(),
 });
 
 const updateCommentSchema = z.object({
   text: z.string().min(1).max(5000).optional(),
   resolved: z.boolean().optional(),
+  color: z.string().optional(),
+  width: z.number().min(0.05).max(5).optional(),
 });
 
 export default async function commentRoutes(fastify: FastifyInstance) {
@@ -64,6 +67,7 @@ export default async function commentRoutes(fastify: FastifyInstance) {
         type: c.type,
         geometry: c.geometry,
         color: c.color,
+        width: c.width,
         createdAt: c.createdAt.toISOString(),
         updatedAt: c.updatedAt.toISOString(),
       })),
@@ -99,6 +103,7 @@ export default async function commentRoutes(fastify: FastifyInstance) {
         type: data.type ?? null,
         geometry: data.geometry ? JSON.parse(JSON.stringify(data.geometry)) : undefined,
         color: data.color ?? null,
+        width: data.width ?? null,
         parentId: data.parentId ?? null,
       },
       include: {
@@ -121,6 +126,7 @@ export default async function commentRoutes(fastify: FastifyInstance) {
       type: comment.type,
       geometry: comment.geometry,
       color: comment.color,
+      width: comment.width,
       createdAt: comment.createdAt.toISOString(),
       updatedAt: comment.updatedAt.toISOString(),
     };
@@ -158,6 +164,8 @@ export default async function commentRoutes(fastify: FastifyInstance) {
       data: {
         ...(data.text !== undefined && { text: data.text }),
         ...(data.resolved !== undefined && { resolved: data.resolved }),
+        ...(data.color !== undefined && { color: data.color }),
+        ...(data.width !== undefined && { width: data.width }),
       },
       include: {
         author: { select: { id: true, displayName: true } },
@@ -177,6 +185,7 @@ export default async function commentRoutes(fastify: FastifyInstance) {
       type: updated.type,
       geometry: updated.geometry,
       color: updated.color,
+      width: updated.width,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
     };

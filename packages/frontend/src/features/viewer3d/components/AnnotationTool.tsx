@@ -20,16 +20,18 @@ type DrawMode = 'pin' | 'arrow' | 'line' | 'freehand';
 interface AnnotationToolProps {
   projectId: string;
   drawMode: DrawMode;
-  color: string;
   onFinished: () => void;
 }
 
-export default function AnnotationTool({ projectId, drawMode, color, onFinished }: AnnotationToolProps) {
+export default function AnnotationTool({ projectId, drawMode, onFinished }: AnnotationToolProps) {
   const [points, setPoints] = useState<[number, number, number][]>([]);
   const [isDragging, setIsDragging] = useState(false);
 
   const addAnnotation = useViewerStore((s) => s.addAnnotation);
   const setGroundHandlers = useViewerStore((s) => s.setGroundHandlers);
+  const color = useViewerStore((s) => s.annColor);
+  const width = useViewerStore((s) => s.annWidth);
+  const selectAnnotation = useViewerStore((s) => s.selectAnnotation);
 
   const saveAnnotation = useCallback(async (pts: [number, number, number][]) => {
     if (pts.length === 0) return;
@@ -44,6 +46,7 @@ export default function AnnotationTool({ projectId, drawMode, color, onFinished 
         type: drawMode,
         geometry: pts,
         color,
+        width,
       });
 
       addAnnotation({
@@ -51,19 +54,22 @@ export default function AnnotationTool({ projectId, drawMode, color, onFinished 
         type: drawMode,
         points: pts,
         color,
+        width,
         text: result.text,
         authorId: result.authorId,
         authorName: result.authorName,
         resolved: false,
         createdAt: result.createdAt,
       });
+      // Сразу открываем редактор новой аннотации — задать текст/цвет/толщину
+      selectAnnotation(result.id);
     } catch (err) {
       console.error('Failed to save annotation:', err);
     }
 
     setPoints([]);
     onFinished();
-  }, [projectId, drawMode, color, addAnnotation, onFinished]);
+  }, [projectId, drawMode, color, width, addAnnotation, onFinished, selectAnnotation]);
 
   // ── Click handler (по точке рельефа от Scene) ──
   const handleClick = useCallback((pt: [number, number, number]) => {

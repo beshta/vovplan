@@ -6,6 +6,8 @@ import {
 import { useViewerStore } from '../stores/viewerStore';
 import { isTouchDevice } from '../utils/deviceProfiler';
 
+const ANN_PALETTE = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ffffff'];
+
 /**
  * Single left-side vertical toolbar.
  * All tools in one column — no separate right toolbar.
@@ -24,6 +26,8 @@ export default function ViewerToolbar() {
 
   const annDrawMode = useViewerStore((s) => s.annDrawMode);
   const setAnnDrawMode = useViewerStore((s) => s.setAnnDrawMode);
+  const annColor = useViewerStore((s) => s.annColor);
+  const setAnnColor = useViewerStore((s) => s.setAnnColor);
   const utilityDrawMode = useViewerStore((s) => s.utilityDrawMode);
   const setUtilityDrawMode = useViewerStore((s) => s.setUtilityDrawMode);
   const selectObject = useViewerStore((s) => s.selectObject);
@@ -101,6 +105,18 @@ export default function ViewerToolbar() {
             <ToolButton active={annDrawMode === 'freehand'} onClick={() => setAnnDrawMode('freehand')} title="От руки">
               <Brush size={20} />
             </ToolButton>
+            {/* Палитра цвета для новых аннотаций */}
+            <div className="grid grid-cols-3 gap-1 px-0.5 pt-1">
+              {ANN_PALETTE.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setAnnColor(c)}
+                  className={`w-2.5 h-2.5 rounded-full transition-transform ${annColor === c ? 'ring-2 ring-white scale-125' : ''}`}
+                  style={{ backgroundColor: c }}
+                  title={`Цвет: ${c}`}
+                />
+              ))}
+            </div>
           </>
         )}
 

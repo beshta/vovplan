@@ -13,6 +13,8 @@ import NavigationHelp from './components/NavigationHelp';
 import UtilityLayersPanel from './components/UtilityLayersPanel';
 import TerrainPanel from './components/TerrainPanel';
 import AnnotationsList from './components/AnnotationsList';
+import UtilityEditPanel from './components/UtilityEditPanel';
+import AnnotationEditPanel from './components/AnnotationEditPanel';
 import PresetsBar from './components/PresetsBar';
 import SceneObjectsList from './components/SceneObjectsList';
 import PresenceBar from '../collaboration/PresenceBar';
@@ -171,6 +173,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
         type: c.type as 'arrow' | 'line' | 'freehand' | 'pin',
         points: c.geometry as [number, number, number][],
         color: c.color ?? '#f59e0b',
+        width: c.width ?? 0.4,
         text: c.text,
         authorId: c.authorId,
         authorName: c.authorName,
@@ -248,7 +251,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
                 <div className="glass-chip text-xs whitespace-nowrap">
                   <Footprints size={14} />
                   {fpPoint
-                    ? 'Мышь — осмотр · WASD — ходьба · ESC — курсор'
+                    ? 'Зажмите мышь — осмотр по сторонам · WASD — ходьба'
                     : 'Кликните точку на земле, куда «спуститься»'}
                 </div>
               )}
@@ -289,6 +292,8 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
             )}
             <div className="pointer-events-auto flex-1 min-h-0 overflow-y-auto flex flex-col items-end gap-2">
               <ObjectInfoPanel projectId={projectId} />
+              <UtilityEditPanel projectId={projectId} />
+              <AnnotationEditPanel projectId={projectId} />
             </div>
             <div className="pointer-events-auto">
               <AnnotationsList projectId={projectId} />

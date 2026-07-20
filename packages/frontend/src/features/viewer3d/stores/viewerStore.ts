@@ -20,6 +20,10 @@ interface ViewerState {
 
   // ── Инструменты рисования ─────────────────
   annDrawMode: 'pin' | 'arrow' | 'line' | 'freehand';
+  annColor: string;
+  setAnnColor: (c: string) => void;
+  annWidth: number;
+  setAnnWidth: (w: number) => void;
   setAnnDrawMode: (m: 'pin' | 'arrow' | 'line' | 'freehand') => void;
   utilityDrawMode: boolean;
   setUtilityDrawMode: (v: boolean) => void;
@@ -37,6 +41,12 @@ interface ViewerState {
   // ── Selection ─────────────────────────────
   selectedObjectId: string | null;
   selectObject: (id: string | null) => void;
+  /** Выбранная инженерная сеть (для панели редактирования) */
+  selectedUtilityId: string | null;
+  selectUtility: (id: string | null) => void;
+  /** Выбранная аннотация (для редактора) */
+  selectedAnnotationId: string | null;
+  selectAnnotation: (id: string | null) => void;
 
   // ── Transform ─────────────────────────────
   transformMode: TransformMode;
@@ -161,6 +171,10 @@ export const useViewerStore = create<ViewerState>((set) => ({
   // Инструменты рисования
   annDrawMode: 'pin',
   setAnnDrawMode: (annDrawMode) => set({ annDrawMode }),
+  annColor: '#ef4444',
+  setAnnColor: (annColor) => set({ annColor }),
+  annWidth: 0.4,
+  setAnnWidth: (annWidth) => set({ annWidth }),
   utilityDrawMode: false,
   setUtilityDrawMode: (utilityDrawMode) => set({ utilityDrawMode }),
   groundHandlers: null,
@@ -169,6 +183,11 @@ export const useViewerStore = create<ViewerState>((set) => ({
   // Selection
   selectedObjectId: null,
   selectObject: (selectedObjectId) => set({ selectedObjectId }),
+
+  selectedUtilityId: null,
+  selectUtility: (selectedUtilityId) => set({ selectedUtilityId }),
+  selectedAnnotationId: null,
+  selectAnnotation: (selectedAnnotationId) => set({ selectedAnnotationId }),
 
   // Transform
   transformMode: 'translate',
