@@ -58,18 +58,24 @@ export function latToTileY(lat: number, z: number): number {
   return ((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * 2 ** z;
 }
 
-/** Подбор зума: bbox должен дать ≥ minPx пикселей по большей стороне, но ≤ MAX_TILES тайлов */
-export function pickZoom(bbox: { west: number; east: number; north: number; south: number }, minPx = 384): number {
-  for (let z = 15; z >= 1; z--) {
+/**
+ * Подбор зума: самый детальный (высокий) зум, при котором область
+ * укладывается в ≤ MAX_TILES тайлов. Для маленькой площадки это даёт
+ * максимальную детализацию, для большой — снижает зум под лимит.
+ * (Раньше использовался порог minPx, который для маленьких площадок
+ * никогда не достигался и ошибочно ронял зум до z1 → пустая вырезка.)
+ */
+export function pickZoom(
+  bbox: { west: number; east: number; north: number; south: number },
+  maxZoom = 15,
+): number {
+  for (let z = Math.min(maxZoom, 15); z >= 1; z--) {
     const x0 = Math.floor(lngToTileX(bbox.west, z));
     const x1 = Math.floor(lngToTileX(bbox.east, z));
     const y0 = Math.floor(latToTileY(bbox.north, z));
     const y1 = Math.floor(latToTileY(bbox.south, z));
     const tiles = (x1 - x0 + 1) * (y1 - y0 + 1);
-    if (tiles > MAX_TILES) continue;
-    const pxW = (lngToTileX(bbox.east, z) - lngToTileX(bbox.west, z)) * TILE;
-    const pxH = (latToTileY(bbox.south, z) - latToTileY(bbox.north, z)) * TILE;
-    if (Math.max(pxW, pxH) >= minPx || z === 1) return z;
+    if (tiles <= MAX_TILES) return z;
   }
   return 1;
 }
@@ -90,38 +96,42 @@ export function pointInPolygon(px: number, py: number, poly: [number, number][])
 
 // ── Скачивание и склейка тайлов ─────────────────
 
-/** Скачивает тайл (PNG или JPEG) и декодирует в RGBA 256×256. До 3 попыток. */
+/**
+ * Скачивает тайл (PNG или JPEG) и декодирует в RGBA 256×256. До 4 попыток.
+ * И сетевые ошибки, и битые/пустые тела ретраятся — наружу летит только
+ * понятная ошибка после исчерпания попыток (не сырой «Input Buffer is empty»).
+ */
 async function fetchTileRgba(url: string): Promise<Buffer> {
-  let buf: Buffer | null = null;
   let lastErr: unknown;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
-      if (res.ok) {
-        const body = Buffer.from(await res.arrayBuffer());
-        if (body.length > 0) {
-          buf = body;
-          break;
-        }
-        lastErr = new Error('пустое тело ответа');
-      } else {
+      if (!res.ok) {
         lastErr = new Error(`HTTP ${res.status}`);
+      } else {
+        const body = Buffer.from(await res.arrayBuffer());
+        if (body.length === 0) {
+          lastErr = new Error('пустое тело ответа');
+        } else {
+          // Декодируем здесь же: битый PNG (например, HTML-заглушка ошибки)
+          // тоже должен привести к ретраю, а не к падению всего импорта
+          const { data, info } = await sharp(body)
+            .ensureAlpha()
+            .resize(TILE, TILE, { fit: 'fill' })
+            .raw()
+            .toBuffer({ resolveWithObject: true });
+          if (info.width === TILE && info.height === TILE) {
+            return data;
+          }
+          lastErr = new Error(`неверный размер тайла ${info.width}x${info.height}`);
+        }
       }
     } catch (err) {
       lastErr = err;
     }
-    await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+    await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
   }
-  if (!buf) throw new Error(`Тайл недоступен: ${url} (${(lastErr as Error)?.message})`);
-  const { data, info } = await sharp(buf)
-    .ensureAlpha()
-    .resize(TILE, TILE, { fit: 'fill' })
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  if (info.width !== TILE || info.height !== TILE) {
-    throw new Error(`Неожиданный размер тайла: ${info.width}x${info.height}`);
-  }
-  return data;
+  throw new Error(`тайл недоступен (${(lastErr as Error)?.message})`);
 }
 
 interface Mosaic {
@@ -193,7 +203,12 @@ function cropMosaic(m: Mosaic, bbox: { west: number; east: number; north: number
 
 // ── Здания из OSM (Overpass API) ────────────────
 
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+// Публичные зеркала Overpass — перебираем при перегрузке (504/429) одного из них
+const OVERPASS_MIRRORS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+];
 const MAX_BUILDINGS = 4000;
 const FLOOR_HEIGHT_M = 3;
 const DEFAULT_BUILDING_H = 9; // 3 этажа, если OSM не знает высоту
@@ -221,29 +236,38 @@ async function fetchBuildings(
   bbox: { west: number; east: number; north: number; south: number },
 ): Promise<{ latlngs: LatLng[]; height: number }[]> {
   const query = `[out:json][timeout:25];way["building"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});out geom ${MAX_BUILDINGS};`;
-  try {
-    const res = await fetch(OVERPASS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `data=${encodeURIComponent(query)}`,
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!res.ok) throw new Error(`Overpass HTTP ${res.status}`);
-    const json = (await res.json()) as { elements?: OverpassWay[] };
-    const out: { latlngs: LatLng[]; height: number }[] = [];
-    for (const el of json.elements ?? []) {
-      if (el.type !== 'way' || !el.geometry || el.geometry.length < 3) continue;
-      out.push({
-        latlngs: el.geometry.map((g) => ({ lat: g.lat, lng: g.lon })),
-        height: buildingHeight(el.tags),
+  // Перебираем зеркала: перегруженное отдаёт 504/429 — идём к следующему
+  for (const host of OVERPASS_MIRRORS) {
+    try {
+      const res = await fetch(host, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          // Overpass отклоняет анонимные запросы (406) — нужен осмысленный User-Agent
+          'User-Agent': 'VOVPLAN/1.0 (terrain importer)',
+          Accept: 'application/json',
+        },
+        body: `data=${encodeURIComponent(query)}`,
+        signal: AbortSignal.timeout(30000),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = (await res.json()) as { elements?: OverpassWay[] };
+      const out: { latlngs: LatLng[]; height: number }[] = [];
+      for (const el of json.elements ?? []) {
+        if (el.type !== 'way' || !el.geometry || el.geometry.length < 3) continue;
+        out.push({
+          latlngs: el.geometry.map((g) => ({ lat: g.lat, lng: g.lon })),
+          height: buildingHeight(el.tags),
+        });
+      }
+      return out;
+    } catch (err) {
+      console.warn(`[terrain] Overpass ${host.split('/')[2]} недоступен:`, (err as Error).message);
     }
-    return out;
-  } catch (err) {
-    // Overpass бывает перегружен — площадка без зданий лучше, чем ошибка импорта
-    console.warn('[terrain] Overpass недоступен, импорт без зданий:', (err as Error).message);
-    return [];
   }
+  // Все зеркала перегружены — площадка без зданий лучше, чем ошибка импорта
+  console.warn('[terrain] здания не загружены (все зеркала Overpass недоступны)');
+  return [];
 }
 
 // ── Основной импорт ─────────────────────────────
@@ -278,9 +302,12 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
   // ── DEM ──
   // Максимальная детальность: на z15 terrarium даёт ~2.7м/пиксель на 55°
   // широты — перепады набережная/река становятся различимы
-  const zDem = pickZoom(bbox, 1024);
+  const zDem = pickZoom(bbox, 15);
   const demMosaic = await buildMosaic(TERRARIUM_URL, bbox, zDem);
   const dem = cropMosaic(demMosaic, bbox);
+  if (dem.width < 2 || dem.height < 2) {
+    throw new Error(`вырезка рельефа пуста (${dem.width}x${dem.height}px, zoom ${zDem})`);
+  }
 
   // Декод высот terrarium
   const elev = new Float32Array(dem.width * dem.height);
@@ -317,7 +344,8 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
     .toBuffer();
 
   // ── Спутниковая текстура (зум повыше для чёткости) ──
-  const zTex = Math.min(pickZoom(bbox, 768), zDem + 2);
+  // Текстура чуть детальнее рельефа (спутник резче), но в пределах лимита тайлов
+  const zTex = pickZoom(bbox, zDem + 2);
   const texMosaic = await buildMosaic(ESRI_URL, bbox, Math.max(zTex, zDem));
   const tex = cropMosaic(texMosaic, bbox);
 

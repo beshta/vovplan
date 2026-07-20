@@ -138,7 +138,10 @@ export default async function terrainRoutes(fastify: FastifyInstance) {
       request.log.error({ err }, 'Terrain import failed');
       return reply.code(502).send({
         error: 'UPSTREAM_ERROR',
-        message: `Не удалось получить данные рельефа: ${(err as Error).message}`,
+        message:
+          'Сервис данных рельефа сейчас недоступен (нет ответа от источника высот). ' +
+          'Проверьте соединение и попробуйте через минуту.',
+        detail: (err as Error).message,
         statusCode: 502,
       });
     }

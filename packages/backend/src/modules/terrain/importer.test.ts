@@ -13,15 +13,20 @@ describe('terrain importer: тайловая математика', () => {
     expect(lngToTileX(180, 5)).toBe(32);
   });
 
-  it('pickZoom даёт достаточное разрешение и не превышает лимит тайлов', () => {
+  it('pickZoom: маленькая площадка → максимальный зум, большая → ниже', () => {
     const bboxSmall = { west: 37.53, east: 37.57, north: 55.715, south: 55.695 };
-    const z = pickZoom(bboxSmall, 384);
-    expect(z).toBeGreaterThanOrEqual(10);
-    expect(z).toBeLessThanOrEqual(15);
+    const z = pickZoom(bboxSmall);
+    expect(z).toBe(15); // маленькая площадка укладывается в лимит тайлов на макс. зуме
 
-    // Большая область → зум меньше
+    // Большая область → зум меньше (иначе тайлов больше лимита)
     const bboxBig = { west: 37.0, east: 38.0, north: 56.0, south: 55.0 };
-    expect(pickZoom(bboxBig, 384)).toBeLessThan(z);
+    expect(pickZoom(bboxBig)).toBeLessThan(z);
+  });
+
+  it('pickZoom: крошечная область всё равно z15, не падает до z1 (регресс)', () => {
+    // Раньше порог minPx ронял зум до z1 → пустая вырезка → «Input Buffer is empty»
+    const tiny = { west: 37.150, east: 37.170, north: 56.735, south: 56.715 };
+    expect(pickZoom(tiny)).toBe(15);
   });
 });
 
