@@ -110,6 +110,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
         docUrl: o.docUrl,
         createdAt: o.createdAt,
         locked: o.locked,
+        groundSnap: o.groundSnap,
       })),
     );
   }, [sceneData, setObjects]);

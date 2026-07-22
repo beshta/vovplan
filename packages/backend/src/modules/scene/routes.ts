@@ -23,6 +23,7 @@ const updateObjectSchema = z.object({
   description: z.string().max(2000).optional(),
   docUrl: z.string().url().max(500).optional().or(z.literal('')),
   locked: z.boolean().optional(),
+  groundSnap: z.boolean().optional(),
 });
 
 export default async function sceneRoutes(fastify: FastifyInstance) {
@@ -61,6 +62,7 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
       docUrl: o.docUrl ?? '',
       createdAt: o.createdAt.toISOString(),
       locked: o.locked,
+      groundSnap: o.groundSnap,
     }));
 
     return reply.send({ data });
@@ -116,6 +118,7 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
       docUrl: obj.docUrl ?? '',
       createdAt: obj.createdAt.toISOString(),
       locked: obj.locked,
+      groundSnap: obj.groundSnap,
     };
     emitObjectChanged(fastify, projectId, payload);
     return reply.code(201).send(payload);

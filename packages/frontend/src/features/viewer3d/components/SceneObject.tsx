@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { TransformControls } from '@react-three/drei';
+import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useViewerStore } from '../stores/viewerStore';
 import type { SceneObjectData } from '../types';
@@ -25,8 +26,15 @@ interface Props {
  * - Reset to original transform
  * - Undo/redo history (Ctrl+Z / Ctrl+Shift+Z)
  */
+// Переиспользуемые объекты для рейкаста привязки к земле
+const _ray = new THREE.Raycaster();
+const _down = new THREE.Vector3(0, -1, 0);
+const _box = new THREE.Box3();
+
 export default function SceneObject({ data, currentUserId, projectId }: Props) {
   const groupRef = useRef<THREE.Group>(null);
+  const { scene } = useThree();
+  const snapped = useRef(false);
 
   const mode = useViewerStore((s) => s.mode);
   const selectedObjectId = useViewerStore((s) => s.selectedObjectId);
@@ -159,6 +167,29 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
     groupRef.current.rotation.set(...data.rotation);
     groupRef.current.scale.set(...data.scale);
   }, [data.position, data.rotation, data.scale]);
+
+  // ── Привязка к земле: низ объекта касается рельефа ──
+  // Пересчитываем при смене X/Z, флага, масштаба или террейна.
+  const groundSnap = data.groundSnap !== false; // по умолчанию true
+  useEffect(() => { snapped.current = false; }, [data.position[0], data.position[2], data.scale[0], groundSnap, data.modelId]);
+
+  useFrame(() => {
+    const g = groupRef.current;
+    if (!g || !groundSnap || snapped.current) return;
+    // Рейкаст вниз через точку объекта до террейн-мешей
+    const terrains: THREE.Object3D[] = [];
+    scene.traverse((o) => { if (o.userData?.isTerrain) terrains.push(o); });
+    if (terrains.length === 0) return; // террейн ещё не смонтирован
+    _ray.set(new THREE.Vector3(g.position.x, g.position.y + 1000, g.position.z), _down);
+    const hits = _ray.intersectObjects(terrains, true);
+    if (hits.length === 0) return; // мимо — ждём следующего кадра
+    const groundY = hits[0].point.y;
+    _box.setFromObject(g);
+    if (_box.isEmpty() || !isFinite(_box.min.y)) return; // модель ещё грузится
+    const bottomLocal = _box.min.y - g.position.y; // низ объекта относительно pivot (инвариант)
+    g.position.y = groundY - bottomLocal;
+    snapped.current = true;
+  });
 
   const model = data.modelId ? modelCache[data.modelId] : undefined;
   const color = data.hidden ? '#f59e0b' : isSelected ? '#10b981' : hovered ? '#60a5fa' : '#3b82f6';

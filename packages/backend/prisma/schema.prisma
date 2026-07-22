@@ -150,6 +150,7 @@ model SceneObject {
   description String?  // Free-text description by the person who placed it
   docUrl      String?  // URL to external documentation/specs
   locked      Boolean  @default(true)  // Locked by default — must unlock to edit
+  groundSnap  Boolean  @default(true)  // Стоит на земле: низ объекта привязан к рельефу
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

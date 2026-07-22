@@ -33,6 +33,8 @@ export interface SceneObjectData {
   createdAt?: string;
   /** Locked = cannot be transformed without unlocking */
   locked?: boolean;
+  /** Стоит на земле: низ объекта привязан к рельефу (по умолчанию true) */
+  groundSnap?: boolean;
   /** Bounding box in local coords */
   bbox?: { min: [number, number, number]; max: [number, number, number] };
 }

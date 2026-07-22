@@ -141,7 +141,7 @@ function RealTerrain({
   }, [heightTex, meta]);
 
   return (
-    <mesh geometry={geometry} receiveShadow castShadow={!xray}>
+    <mesh geometry={geometry} receiveShadow castShadow={!xray} userData={{ isTerrain: true }}>
       <meshStandardMaterial
         key={xray ? 'real-xray' : 'real-solid'}
         map={surfaceTex}
@@ -199,7 +199,7 @@ function HeightmapTerrain({
   }, [heightTex, size, segments, heightScale]);
 
   return (
-    <mesh geometry={geometry} receiveShadow castShadow={!xray}>
+    <mesh geometry={geometry} receiveShadow castShadow={!xray} userData={{ isTerrain: true }}>
       <meshStandardMaterial
         key={xray ? 'hm-xray' : 'hm-solid'}
         vertexColors
@@ -255,7 +255,7 @@ function ProceduralTerrain({
   }, [size, segments, heightScale, seed, frequency]);
 
   return (
-    <mesh geometry={geometry} receiveShadow castShadow={!xray}>
+    <mesh geometry={geometry} receiveShadow castShadow={!xray} userData={{ isTerrain: true }}>
       <meshStandardMaterial
         key={xray ? 'proc-xray' : 'proc-solid'}
         vertexColors

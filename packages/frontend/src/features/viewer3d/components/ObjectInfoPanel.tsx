@@ -122,6 +122,16 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
     }
   };
 
+  const handleToggleGroundSnap = async () => {
+    const newSnap = !(obj.groundSnap !== false);
+    updateObject(obj.id, { groundSnap: newSnap });
+    try {
+      await sceneApi.updateObject(projectId, obj.id, { groundSnap: newSnap });
+    } catch (err) {
+      console.error('Failed to toggle groundSnap:', err);
+    }
+  };
+
   const handleEditToggle = () => {
     if (isEditing) {
       setMode('view');
@@ -213,6 +223,21 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
 
       {/* Numeric transform fields */}
       <div className="px-4 pb-3 space-y-2">
+        {/* Стоит на земле — привязка низа объекта к рельефу */}
+        <button
+          onClick={handleToggleGroundSnap}
+          disabled={!canEdit || isLocked}
+          className="w-full flex items-center gap-2 text-xs text-slate-300 disabled:opacity-50"
+          title="Низ объекта автоматически ложится на рельеф. Снимите — чтобы задавать высоту вручную."
+        >
+          <span className={`w-4 h-4 rounded flex items-center justify-center border ${
+            obj.groundSnap !== false ? 'bg-vovplan-600 border-vovplan-500' : 'bg-white/5 border-white/20'
+          }`}>
+            {obj.groundSnap !== false && <Check size={12} className="text-white" />}
+          </span>
+          Стоит на земле
+        </button>
+
         <label className="text-xs text-slate-400 block">Позиция (X, Y, Z)</label>
         <div className="flex gap-1">
           <input type="number" step="0.1" value={posDraft[0].toFixed(1)}
@@ -221,7 +246,8 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           />
           <input type="number" step="0.1" value={posDraft[1].toFixed(1)}
             onChange={(e) => setPosDraft([posDraft[0], parseFloat(e.target.value) || 0, posDraft[2]])}
-            className={inputClass} disabled={isLocked || !canEdit}
+            className={inputClass} disabled={isLocked || !canEdit || obj.groundSnap !== false}
+            title={obj.groundSnap !== false ? 'Высота задаётся привязкой к земле' : 'Высота (Y)'}
           />
           <input type="number" step="0.1" value={posDraft[2].toFixed(1)}
             onChange={(e) => setPosDraft([posDraft[0], posDraft[1], parseFloat(e.target.value) || 0])}
