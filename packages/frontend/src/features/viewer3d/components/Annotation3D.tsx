@@ -44,27 +44,62 @@ function HoverLabel({ data, position }: { data: AnnotationData; position: [numbe
   );
 }
 
-// ── Pin: sphere marker at a point ─────────────
+// ── Одна наклонная «ножка» буквы V (цилиндр между двумя точками) ──
+function Leg({ from, to, radius, color, opacity }: {
+  from: [number, number, number]; to: [number, number, number];
+  radius: number; color: string; opacity: number;
+}) {
+  const { pos, quat, len } = useMemo(() => {
+    const a = new THREE.Vector3(...from);
+    const b = new THREE.Vector3(...to);
+    const dir = b.clone().sub(a);
+    const length = dir.length();
+    const mid = a.clone().add(b).multiplyScalar(0.5);
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    return { pos: mid.toArray() as [number, number, number], quat: q.toArray() as [number, number, number, number], len: length };
+  }, [from, to]);
+
+  return (
+    <mesh position={pos} quaternion={quat} castShadow>
+      <cylinderGeometry args={[radius, radius, len, 8]} />
+      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.35} roughness={0.5} transparent={opacity < 1} opacity={opacity} />
+    </mesh>
+  );
+}
+
+// ── Pin: метка-«V» с шариком в развилке (фирменный знак VOVPLAN) ──
 function PinAnnotation({ data, hovered, selected, hoverProps }: { data: AnnotationData; hovered: boolean; selected: boolean; hoverProps: any }) {
-  const pos = data.points[0] ?? [0, 0, 0];
-  const labelPos: [number, number, number] = [pos[0], pos[1] + 1, pos[2]];
-  const r = selected ? 0.55 : 0.4;
+  const base = data.points[0] ?? [0, 0, 0]; // острие «V» — на земле
+  const H = selected ? 2.6 : 2.2;           // высота буквы
+  const spread = 0.75;                       // разброс верхних концов ножек
+  const legR = 0.09;
+
+  const apex: [number, number, number] = [base[0], base[1], base[2]];
+  const topL: [number, number, number] = [base[0] - spread, base[1] + H, base[2]];
+  const topR: [number, number, number] = [base[0] + spread, base[1] + H, base[2]];
+  const ballPos: [number, number, number] = [base[0], base[1] + H * 0.6, base[2]];
+  const labelPos: [number, number, number] = [base[0], base[1] + H + 0.6, base[2]];
+
+  const legColor = selected ? '#ffffff' : data.color;
+  const opacity = data.resolved ? 0.4 : 1;
+  const ballR = selected ? 0.42 : 0.34;
 
   return (
     <group {...hoverProps}>
-      <mesh position={pos}>
-        <sphereGeometry args={[r, 16, 16]} />
+      {/* Две ножки буквы V, сходятся к острию на земле */}
+      <Leg from={apex} to={topL} radius={legR} color={legColor} opacity={opacity} />
+      <Leg from={apex} to={topR} radius={legR} color={legColor} opacity={opacity} />
+      {/* Шарик в развилке между ножками */}
+      <mesh position={ballPos} castShadow>
+        <sphereGeometry args={[ballR, 20, 20]} />
         <meshStandardMaterial
           color={selected ? '#ffffff' : data.color}
           emissive={data.color}
-          emissiveIntensity={selected ? 1 : 0.6}
+          emissiveIntensity={selected ? 1 : 0.7}
+          roughness={0.3}
           transparent={data.resolved}
-          opacity={data.resolved ? 0.4 : 1}
+          opacity={opacity}
         />
-      </mesh>
-      <mesh position={[pos[0], pos[1] - 0.5, pos[2]]}>
-        <cylinderGeometry args={[0.05, 0.05, 1, 6]} />
-        <meshStandardMaterial color={data.color} transparent={data.resolved} opacity={data.resolved ? 0.4 : 1} />
       </mesh>
       {hovered && <HoverLabel data={data} position={labelPos} />}
     </group>
