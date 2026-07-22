@@ -2,6 +2,7 @@ import { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import { useLoader } from '@react-three/fiber';
 import { fbm, ridged } from '../utils/noise';
+import { detectQuality } from '../utils/deviceProfiler';
 import type { TerrainMeta } from '../../../shared/api';
 
 /**
@@ -72,7 +73,6 @@ export default function DemTerrain(props: DemTerrainProps) {
 // ═══ Режим 1: реальный рельеф с текстурой ═══════
 
 function RealTerrain({
-  segments = 256,
   heightmapUrl,
   meta,
   wireframe = false,
@@ -83,7 +83,7 @@ function RealTerrain({
 
   useEffect(() => {
     surfaceTex.colorSpace = THREE.SRGBColorSpace;
-    surfaceTex.anisotropy = 4;
+    surfaceTex.anisotropy = 8;
   }, [surfaceTex]);
 
   const { geometry } = useMemo(() => {
@@ -95,6 +95,12 @@ function RealTerrain({
     const is16bit = meta.encoding === 'rg16';
 
     const hm = imageToData(heightTex.image as HTMLImageElement);
+
+    // Детализация меша = разрешение DEM (не грубее данных), с потолком по
+    // устройству: десктоп до 640², мобильные до 256². Раньше было фикс. 256,
+    // что недосэмплило рельеф (~740px DEM → терялась половина деталей).
+    const cap = detectQuality().isMobile ? 256 : 640;
+    const segments = Math.max(64, Math.min(Math.max(hm.width, hm.height) - 1, cap));
 
     const geo = new THREE.PlaneGeometry(sizeX, sizeZ, segments, segments);
     geo.rotateX(-Math.PI / 2);
@@ -128,7 +134,7 @@ function RealTerrain({
     geo.computeVertexNormals();
 
     return { geometry: geo };
-  }, [heightTex, meta, segments]);
+  }, [heightTex, meta]);
 
   return (
     <mesh geometry={geometry} receiveShadow castShadow={!xray}>

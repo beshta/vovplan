@@ -20,7 +20,9 @@ const ESRI_URL = (z: number, x: number, y: number) =>
 
 const TILE = 256;
 /** Максимум тайлов на запрос (защита от гигантских областей) */
-const MAX_TILES = 48;
+// Лимит тайлов на запрос. Выше = детальнее для больших площадок (держат
+// более высокий зум), ценой большего времени/памяти при склейке.
+const MAX_TILES = 120;
 
 export interface LatLng { lat: number; lng: number }
 
