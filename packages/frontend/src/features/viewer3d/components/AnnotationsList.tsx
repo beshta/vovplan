@@ -23,6 +23,8 @@ export default function AnnotationsList({ projectId }: { projectId: string }) {
 
   const annotations = useViewerStore((s) => s.annotations);
   const removeAnnotation = useViewerStore((s) => s.removeAnnotation);
+  const selectedAnnotationId = useViewerStore((s) => s.selectedAnnotationId);
+  const selectAnnotation = useViewerStore((s) => s.selectAnnotation);
 
   if (annotations.length === 0) return null;
 
@@ -74,11 +76,16 @@ export default function AnnotationsList({ projectId }: { projectId: string }) {
 
       {!collapsed && (
         <div className="px-2 pb-2 space-y-1 max-h-64 overflow-y-auto border-t border-white/10 pt-2">
-          {annotations.map((ann) => (
+          {annotations.map((ann) => {
+            const isSelected = selectedAnnotationId === ann.id;
+            return (
             <div
               key={ann.id}
-              className={`flex items-start gap-2 px-2.5 py-2 rounded-xl text-xs ${
-                ann.resolved ? 'bg-emerald-500/10 opacity-60' : 'bg-white/5'
+              onClick={() => selectAnnotation(ann.id)}
+              className={`flex items-start gap-2 px-2.5 py-2 rounded-xl text-xs cursor-pointer transition-colors ${
+                isSelected
+                  ? 'bg-vovplan-600/20 ring-1 ring-vovplan-500/40'
+                  : ann.resolved ? 'bg-emerald-500/10 opacity-60 hover:opacity-80' : 'bg-white/5 hover:bg-white/10'
               }`}
             >
               {/* Type icon */}
@@ -96,14 +103,14 @@ export default function AnnotationsList({ projectId }: { projectId: string }) {
               {/* Actions */}
               <div className="flex flex-col gap-1 flex-shrink-0">
                 <button
-                  onClick={() => handleResolve(ann.id, ann.resolved)}
+                  onClick={(e) => { e.stopPropagation(); handleResolve(ann.id, ann.resolved); }}
                   className="text-[10px] text-slate-500 hover:text-emerald-400 transition-colors"
-                  title={ann.resolved ? 'Снять resolved' : 'Отметить решённым'}
+                  title={ann.resolved ? 'Показать' : 'Скрыть (приглушить)'}
                 >
                   {ann.resolved ? '↺' : '✓'}
                 </button>
                 <button
-                  onClick={() => handleDelete(ann.id)}
+                  onClick={(e) => { e.stopPropagation(); handleDelete(ann.id); }}
                   className="text-[10px] text-slate-500 hover:text-red-400 transition-colors"
                   title="Удалить"
                 >
@@ -117,7 +124,8 @@ export default function AnnotationsList({ projectId }: { projectId: string }) {
                 style={{ backgroundColor: ann.color }}
               />
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
     </div>

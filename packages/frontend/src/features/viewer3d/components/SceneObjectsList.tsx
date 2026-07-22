@@ -20,9 +20,11 @@ export default function SceneObjectsList() {
       <button
         onClick={() => setCollapsed(false)}
         className="glass-chip pointer-events-auto"
-        title="Объекты сцены"
+        title="Объекты на сцене"
       >
-        <Boxes size={16} /> <span className="text-slate-500 text-xs">{objects.length}</span>
+        <Boxes size={16} />
+        <span className="text-xs font-medium">Объекты на сцене</span>
+        <span className="text-slate-500 text-xs">{objects.length}</span>
       </button>
     );
   }
