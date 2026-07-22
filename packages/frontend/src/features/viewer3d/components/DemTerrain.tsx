@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { useLoader } from '@react-three/fiber';
 import { fbm, ridged } from '../utils/noise';
 import { detectQuality } from '../utils/deviceProfiler';
+import { useViewerStore } from '../stores/viewerStore';
 import type { TerrainMeta } from '../../../shared/api';
 
 /**
@@ -78,8 +79,11 @@ function RealTerrain({
   wireframe = false,
   xray = false,
 }: DemTerrainProps & { heightmapUrl: string; meta: TerrainMeta }) {
+  const basemap = useViewerStore((s) => s.basemap);
   const heightTex = useLoader(THREE.TextureLoader, heightmapUrl);
-  const surfaceTex = useLoader(THREE.TextureLoader, meta.textureUrl);
+  // Спутник — только если сервер его сгенерировал; иначе всегда схема
+  const surfaceUrl = basemap === 'satellite' && meta.satelliteUrl ? meta.satelliteUrl : meta.textureUrl;
+  const surfaceTex = useLoader(THREE.TextureLoader, surfaceUrl);
 
   useEffect(() => {
     surfaceTex.colorSpace = THREE.SRGBColorSpace;

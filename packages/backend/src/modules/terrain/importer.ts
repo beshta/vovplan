@@ -17,6 +17,9 @@ const TERRARIUM_URL = (z: number, x: number, y: number) =>
   `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
 const ESRI_URL = (z: number, x: number, y: number) =>
   `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+// Схема OpenStreetMap (дороги, реки, здания) — дефолтная текстура, читаемее спутника
+const OSM_URL = (z: number, x: number, y: number) =>
+  `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
 
 const TILE = 256;
 /** Максимум тайлов на запрос (защита от гигантских областей) */
@@ -37,7 +40,8 @@ export interface BuildingBox {
 
 export interface ImportResult {
   heightmap: Buffer;       // PNG, высота 16 бит: R — старший байт, G — младший
-  texture: Buffer;         // JPEG (затемнение вне полигона)
+  texture: Buffer;         // JPEG схема OSM (дефолт, затемнение вне полигона)
+  satellite: Buffer | null; // JPEG спутник Esri (может отсутствовать)
   widthM: number;          // размер bbox по долготе, метры
   heightM: number;         // размер bbox по широте, метры
   minElev: number;         // минимальная высота, м
@@ -107,7 +111,11 @@ async function fetchTileRgba(url: string): Promise<Buffer> {
   let lastErr: unknown;
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+      // OSM и др. тайл-серверы отклоняют анонимные запросы — нужен User-Agent
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'VOVPLAN/1.0 (terrain importer)' },
+        signal: AbortSignal.timeout(20000),
+      });
       if (!res.ok) {
         lastErr = new Error(`HTTP ${res.status}`);
       } else {
@@ -345,30 +353,43 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
     .png()
     .toBuffer();
 
-  // ── Спутниковая текстура (зум повыше для чёткости) ──
-  // Текстура чуть детальнее рельефа (спутник резче), но в пределах лимита тайлов
+  // ── Две текстуры: схема (OSM) по умолчанию + спутник (Esri) ──
+  // Зум чуть выше рельефа для чёткости, в пределах лимита тайлов.
   const zTex = pickZoom(bbox, zDem + 2);
-  const texMosaic = await buildMosaic(ESRI_URL, bbox, Math.max(zTex, zDem));
-  const tex = cropMosaic(texMosaic, bbox);
+  const zFinal = Math.max(zTex, zDem);
 
-  // Маска полигона: затемняем всё, что вне периметра («вырез» участка)
-  const polyPx: [number, number][] = polygon.map((p) => [
-    ((p.lng - bbox.west) / (bbox.east - bbox.west)) * tex.width,
-    ((bbox.north - p.lat) / (bbox.north - bbox.south)) * tex.height,
-  ]);
-  for (let y = 0; y < tex.height; y++) {
-    for (let x = 0; x < tex.width; x++) {
-      if (!pointInPolygon(x + 0.5, y + 0.5, polyPx)) {
-        const i = (y * tex.width + x) * 4;
-        tex.data[i] = Math.round(tex.data[i] * 0.35);
-        tex.data[i + 1] = Math.round(tex.data[i + 1] * 0.35);
-        tex.data[i + 2] = Math.round(tex.data[i + 2] * 0.35);
+  // Маска полигона + JPEG. Затемняем всё вне периметра («вырез» участка).
+  const maskAndEncode = async (urlOf: (z: number, x: number, y: number) => string): Promise<Buffer> => {
+    const mosaic = await buildMosaic(urlOf, bbox, zFinal);
+    const tex = cropMosaic(mosaic, bbox);
+    const polyPx: [number, number][] = polygon.map((p) => [
+      ((p.lng - bbox.west) / (bbox.east - bbox.west)) * tex.width,
+      ((bbox.north - p.lat) / (bbox.north - bbox.south)) * tex.height,
+    ]);
+    for (let y = 0; y < tex.height; y++) {
+      for (let x = 0; x < tex.width; x++) {
+        if (!pointInPolygon(x + 0.5, y + 0.5, polyPx)) {
+          const i = (y * tex.width + x) * 4;
+          tex.data[i] = Math.round(tex.data[i] * 0.35);
+          tex.data[i + 1] = Math.round(tex.data[i + 1] * 0.35);
+          tex.data[i + 2] = Math.round(tex.data[i + 2] * 0.35);
+        }
       }
     }
+    return sharp(tex.data, { raw: { width: tex.width, height: tex.height, channels: 4 } })
+      .jpeg({ quality: 88 })
+      .toBuffer();
+  };
+
+  // Схема — дефолт (чёткая, читаемая); спутник — по желанию через переключатель.
+  // Если Esri недоступен, спутник не срабатывает — схема всё равно есть.
+  const texture = await maskAndEncode(OSM_URL);
+  let satellite: Buffer | null = null;
+  try {
+    satellite = await maskAndEncode(ESRI_URL);
+  } catch (err) {
+    console.warn('[terrain] спутниковая текстура недоступна:', (err as Error).message);
   }
-  const texture = await sharp(tex.data, { raw: { width: tex.width, height: tex.height, channels: 4 } })
-    .jpeg({ quality: 85 })
-    .toBuffer();
 
   // Полигон в локальных метрах от центра (x — восток, z — юг: соответствует сцене three.js)
   const toLocal = (p: LatLng): [number, number] => [
@@ -403,5 +424,5 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
     };
   });
 
-  return { heightmap, texture, widthM, heightM, minElev, maxElev, polygonLocal, origin, buildings };
+  return { heightmap, texture, satellite, widthM, heightM, minElev, maxElev, polygonLocal, origin, buildings };
 }

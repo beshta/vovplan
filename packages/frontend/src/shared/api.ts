@@ -244,7 +244,10 @@ export const utilitiesApi = {
 // ── Terrain API (DEM heightmap) ───────────────
 /** Метаданные импортированного реального рельефа */
 export interface TerrainMeta {
+  /** Схема OSM (текстура по умолчанию) */
   textureUrl: string;
+  /** Спутник Esri (переключается во вкладке «Ландшафт»); null если недоступен */
+  satelliteUrl?: string | null;
   /** JSON со зданиями OSM: { buildings: [{ p, h, base }] } */
   buildingsUrl?: string;
   buildingCount?: number;

@@ -21,6 +21,8 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
 
   const terrainUrl = useViewerStore((s) => s.terrainUrl);
   const setTerrainUrl = useViewerStore((s) => s.setTerrainUrl);
+  const basemap = useViewerStore((s) => s.basemap);
+  const setBasemap = useViewerStore((s) => s.setBasemap);
   const proceduralTerrain = useViewerStore((s) => s.proceduralTerrain);
   const setProceduralTerrain = useViewerStore((s) => s.setProceduralTerrain);
   const wireframe = useViewerStore((s) => s.wireframe);
@@ -79,6 +81,33 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
               {terrainUrl ? 'DEM heightmap' : proceduralTerrain ? 'Процедурный' : 'Плоский'}
             </span>
           </div>
+
+          {/* Переключатель подложки для реального ландшафта: схема / спутник */}
+          {terrainMeta && (
+            <div>
+              <span className="text-[11px] text-slate-500">Подложка</span>
+              <div className="flex gap-1 mt-1">
+                <button
+                  onClick={() => setBasemap('scheme')}
+                  className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    basemap === 'scheme' ? 'bg-vovplan-600 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                  }`}
+                >
+                  Схема
+                </button>
+                <button
+                  onClick={() => terrainMeta.satelliteUrl && setBasemap('satellite')}
+                  disabled={!terrainMeta.satelliteUrl}
+                  title={terrainMeta.satelliteUrl ? 'Спутниковый снимок' : 'Спутник недоступен для этой площадки'}
+                  className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 ${
+                    basemap === 'satellite' ? 'bg-vovplan-600 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                  }`}
+                >
+                  Спутник
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Импорт реального ландшафта с карты */}
           <button

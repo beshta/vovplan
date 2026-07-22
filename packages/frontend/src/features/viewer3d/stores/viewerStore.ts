@@ -100,6 +100,9 @@ interface ViewerState {
   /** Метаданные импортированного реального рельефа (текстура, размеры, высоты, периметр) */
   terrainMeta: import('../../../shared/api').TerrainMeta | null;
   setTerrainMeta: (m: import('../../../shared/api').TerrainMeta | null) => void;
+  /** Подложка реального ландшафта: 'scheme' (OSM, дефолт) | 'satellite' (Esri) */
+  basemap: 'scheme' | 'satellite';
+  setBasemap: (b: 'scheme' | 'satellite') => void;
   /** Показ OSM-зданий импортированного ландшафта */
   showBuildings: boolean;
   setShowBuildings: (v: boolean) => void;
@@ -270,6 +273,8 @@ export const useViewerStore = create<ViewerState>((set) => ({
   setTerrainUrl: (terrainUrl) => set({ terrainUrl }),
   terrainMeta: null,
   setTerrainMeta: (terrainMeta) => set({ terrainMeta }),
+  basemap: 'scheme',
+  setBasemap: (basemap) => set({ basemap }),
   showBuildings: true,
   setShowBuildings: (showBuildings) => set({ showBuildings }),
 

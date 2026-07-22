@@ -151,15 +151,18 @@ export default async function terrainRoutes(fastify: FastifyInstance) {
     mkdirSync(projectDir, { recursive: true });
     const id = randomUUID();
     const hmName = `real-${id}.png`;
-    const texName = `tex-${id}.png`;
+    const texName = `tex-${id}.jpg`;
+    const satName = `sat-${id}.jpg`;
     const bldName = `buildings-${id}.json`;
     writeFileSync(join(projectDir, hmName), result.heightmap);
     writeFileSync(join(projectDir, texName), result.texture);
+    if (result.satellite) writeFileSync(join(projectDir, satName), result.satellite);
     writeFileSync(join(projectDir, bldName), JSON.stringify({ buildings: result.buildings }));
 
     const terrainUrl = `/uploads/${projectId}/terrain/${hmName}`;
     const terrainMeta = {
-      textureUrl: `/uploads/${projectId}/terrain/${texName}`,
+      textureUrl: `/uploads/${projectId}/terrain/${texName}`,       // схема OSM (дефолт)
+      satelliteUrl: result.satellite ? `/uploads/${projectId}/terrain/${satName}` : null, // спутник Esri
       buildingsUrl: `/uploads/${projectId}/terrain/${bldName}`,
       buildingCount: result.buildings.length,
       encoding: 'rg16', // 16-битные высоты: R — старший байт, G — младший
