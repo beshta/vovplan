@@ -25,6 +25,42 @@ export default function AnnotationsList({ projectId }: { projectId: string }) {
   const removeAnnotation = useViewerStore((s) => s.removeAnnotation);
   const selectedAnnotationId = useViewerStore((s) => s.selectedAnnotationId);
   const selectAnnotation = useViewerStore((s) => s.selectAnnotation);
+  const flyTo = useViewerStore((s) => s.flyTo);
+  const cameraGetter = useViewerStore((s) => s.cameraGetter);
+
+  // Выбор аннотации из списка + плавный перелёт камеры к её центру
+  const handleSelect = (ann: (typeof annotations)[number]) => {
+    selectAnnotation(ann.id);
+    const pts = ann.points;
+    if (!pts.length) return;
+
+    // Центр аннотации и её размах
+    const c: [number, number, number] = [0, 0, 0];
+    for (const p of pts) { c[0] += p[0]; c[1] += p[1]; c[2] += p[2]; }
+    c[0] /= pts.length; c[1] /= pts.length; c[2] /= pts.length;
+    let spread = 0;
+    for (const p of pts) spread = Math.max(spread, Math.hypot(p[0] - c[0], p[1] - c[1], p[2] - c[2]));
+    const dist = Math.max(spread * 2.5, 15);
+
+    // Сохраняем текущий угол обзора — только смещаем фокус на аннотацию
+    const cur = cameraGetter?.();
+    let dir: [number, number, number] = [0.6, 0.7, 0.6];
+    if (cur) {
+      const dx = cur.position[0] - cur.target[0];
+      const dy = cur.position[1] - cur.target[1];
+      const dz = cur.position[2] - cur.target[2];
+      const len = Math.hypot(dx, dy, dz) || 1;
+      dir = [dx / len, dy / len, dz / len];
+    } else {
+      const len = Math.hypot(...dir);
+      dir = [dir[0] / len, dir[1] / len, dir[2] / len];
+    }
+
+    flyTo({
+      position: [c[0] + dir[0] * dist, c[1] + dir[1] * dist, c[2] + dir[2] * dist],
+      target: c,
+    });
+  };
 
   if (annotations.length === 0) return null;
 
@@ -81,7 +117,7 @@ export default function AnnotationsList({ projectId }: { projectId: string }) {
             return (
             <div
               key={ann.id}
-              onClick={() => selectAnnotation(ann.id)}
+              onClick={() => handleSelect(ann)}
               className={`flex items-start gap-2 px-2.5 py-2 rounded-xl text-xs cursor-pointer transition-colors ${
                 isSelected
                   ? 'bg-vovplan-600/20 ring-1 ring-vovplan-500/40'
