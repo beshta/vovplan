@@ -94,6 +94,7 @@ model Project {
   shareLinks  ShareLink[]
   activity    ActivityEvent[]
   invites     Invite[]
+  snapshots   SceneSnapshot[]
 
   @@map("projects")
 }
@@ -290,4 +291,22 @@ model Invite {
   project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@map("invites")
+}
+
+// ═══════════════════════════════════════════════
+// Scene snapshots (история версий сцены)
+// ═══════════════════════════════════════════════
+
+model SceneSnapshot {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  createdById String
+  createdAt   DateTime @default(now())
+  data        Json     // { objects[], utilities[], annotations[], terrainUrl, terrainMeta, counts }
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@map("scene_snapshots")
 }

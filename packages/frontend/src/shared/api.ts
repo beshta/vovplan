@@ -306,6 +306,26 @@ export const activityApi = {
     apiFetch<{ data: ActivityEventPayload[] }>(`/api/projects/${projectId}/activity`),
 };
 
+// ── Scene Snapshots API (история версий) ──────
+export interface SnapshotPayload {
+  id: string;
+  name: string;
+  createdAt: string;
+  authorName: string;
+  counts: { objects: number; utilities: number; annotations: number };
+}
+
+export const snapshotsApi = {
+  list: (projectId: string) =>
+    apiFetch<{ data: SnapshotPayload[] }>(`/api/projects/${projectId}/snapshots`),
+  create: (projectId: string, name: string) =>
+    apiFetch<SnapshotPayload>(`/api/projects/${projectId}/snapshots`, { method: 'POST', body: JSON.stringify({ name }) }),
+  restore: (projectId: string, id: string) =>
+    apiFetch<{ restored: boolean; counts: any }>(`/api/projects/${projectId}/snapshots/${id}/restore`, { method: 'POST' }),
+  remove: (projectId: string, id: string) =>
+    apiFetch<void>(`/api/projects/${projectId}/snapshots/${id}`, { method: 'DELETE' }),
+};
+
 // ── Invites API (приглашение по ссылке) ───────
 export interface InvitePayload {
   id: string;

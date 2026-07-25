@@ -8,8 +8,9 @@ import { Viewer3D } from '../features/viewer3d';
 import MembersPanel from '../components/MembersPanel';
 import SharePanel from '../components/SharePanel';
 import ActivityPanel from '../components/ActivityPanel';
+import SnapshotsPanel from '../components/SnapshotsPanel';
 
-type Tab = 'viewer' | 'members' | 'activity' | 'share' | 'settings';
+type Tab = 'viewer' | 'members' | 'activity' | 'versions' | 'share' | 'settings';
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -88,6 +89,14 @@ export default function ProjectPage() {
           >
             Активность
           </button>
+          <button
+            onClick={() => setTab('versions')}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              tab === 'versions' ? 'bg-vovplan-600 text-white' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Версии
+          </button>
           {isMaster && (
             <button
               onClick={() => setTab('share')}
@@ -118,6 +127,7 @@ export default function ProjectPage() {
         )}
         {tab === 'members' && <MembersPanel projectId={project.id} isMaster={isMaster} />}
         {tab === 'activity' && <ActivityPanel projectId={project.id} />}
+        {tab === 'versions' && <SnapshotsPanel projectId={project.id} isMaster={isMaster} canEdit={project.myRole === 'MASTER' || project.myRole === 'DESIGNER'} />}
         {tab === 'share' && isMaster && <SharePanel projectId={project.id} />}
         {tab === 'settings' && isMaster && (
           <ProjectSettings projectId={project.id} project={project} />
