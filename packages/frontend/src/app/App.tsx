@@ -6,6 +6,7 @@ import RegisterPage from '../pages/RegisterPage';
 import DashboardPage from '../pages/DashboardPage';
 import ProjectPage from '../pages/ProjectPage';
 import SharedViewerPage from '../pages/SharedViewerPage';
+import InvitePage from '../pages/InvitePage';
 import LoadingScreen from '../components/LoadingScreen';
 
 export default function App() {
@@ -24,6 +25,9 @@ export default function App() {
     <Routes>
       {/* Public share link — no registration required */}
       <Route path="/share/:token" element={<SharedViewerPage />} />
+
+      {/* Invite link — регистрация/вход прямо на странице приглашения */}
+      <Route path="/invite/:token" element={<InvitePage />} />
 
       {/* Auth routes — redirect to dashboard if already logged in */}
       <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <LoginPage />} />

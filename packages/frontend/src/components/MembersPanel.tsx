@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { UserPlus, X, ShieldCheck, Check, Minus, Info } from 'lucide-react';
+import { UserPlus, X, ShieldCheck, Check, Minus, Info, Link2, Copy } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { projectsApi } from '../shared/api';
+import { projectsApi, invitesApi } from '../shared/api';
+import type { InvitePayload } from '../shared/api';
 import { ROLE_LABELS, ProjectRole } from '@vovplan/shared';
 
 const ROLE_OPTIONS = [ProjectRole.DESIGNER, ProjectRole.SUPER_SPECTATOR, ProjectRole.SPECTATOR, ProjectRole.EXTERNAL_SPECTATOR];
@@ -34,10 +35,35 @@ export default function MembersPanel({ projectId, isMaster }: { projectId: strin
   const [inviteRole, setInviteRole] = useState<string>('SPECTATOR');
   const [error, setError] = useState('');
 
+  const [linkRole, setLinkRole] = useState<string>('SPECTATOR');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   const { data: membersData, isLoading } = useQuery({
     queryKey: ['members', projectId],
     queryFn: () => projectsApi.listMembers(projectId),
   });
+
+  const { data: invitesData } = useQuery({
+    queryKey: ['invites', projectId],
+    queryFn: () => invitesApi.list(projectId),
+    enabled: isMaster,
+  });
+
+  const createInvite = useMutation({
+    mutationFn: () => invitesApi.create(projectId, { role: linkRole }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['invites', projectId] }),
+  });
+  const removeInvite = useMutation({
+    mutationFn: (id: string) => invitesApi.remove(projectId, id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['invites', projectId] }),
+  });
+
+  const inviteUrl = (token: string) => `${window.location.origin}/invite/${token}`;
+  const copyLink = async (inv: InvitePayload) => {
+    await navigator.clipboard.writeText(inviteUrl(inv.token));
+    setCopiedId(inv.id);
+    setTimeout(() => setCopiedId(null), 1500);
+  };
 
   const inviteMutation = useMutation({
     mutationFn: () => projectsApi.inviteMember(projectId, { email: inviteEmail, role: inviteRole }),
@@ -96,6 +122,47 @@ export default function MembersPanel({ projectId, isMaster }: { projectId: strin
           <p className="text-[11px] text-slate-500 mt-2 flex items-center gap-1">
             <Info size={12} /> Пользователь должен быть зарегистрирован в VOVPLAN под этим email.
           </p>
+        </div>
+      )}
+
+      {/* Invite links — приглашение по ссылке (регистрация не требуется заранее) */}
+      {isMaster && (
+        <div className="glass p-4 mb-4">
+          <h3 className="hud-title mb-3 flex items-center gap-1.5"><Link2 size={14} /> Ссылки-приглашения</h3>
+          <div className="flex flex-wrap gap-2 items-center">
+            <select value={linkRole} onChange={(e) => setLinkRole(e.target.value)} className="input-field text-sm w-auto">
+              {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+            </select>
+            <button onClick={() => createInvite.mutate()} disabled={createInvite.isPending} className="btn-secondary text-sm">
+              Создать ссылку
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-500 mt-2 flex items-center gap-1">
+            <Info size={12} /> По ссылке можно зарегистрироваться и сразу войти в проект с выбранной ролью.
+          </p>
+
+          {(invitesData?.data ?? []).length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {invitesData!.data.map((inv) => {
+                const expired = inv.expiresAt && new Date(inv.expiresAt) < new Date();
+                return (
+                  <li key={inv.id} className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2">
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: `${roleColor(inv.role)}33`, color: roleColor(inv.role) }}>
+                      {ROLE_LABELS[inv.role as ProjectRole]}
+                    </span>
+                    <span className="text-xs text-slate-500 truncate flex-1 min-w-0">{inviteUrl(inv.token)}</span>
+                    {expired && <span className="text-[10px] text-red-300 shrink-0">истекла</span>}
+                    <button onClick={() => copyLink(inv)} className="shrink-0 text-slate-400 hover:text-white transition-colors flex items-center gap-1 text-xs" title="Копировать">
+                      {copiedId === inv.id ? <><Check size={13} className="text-emerald-400" /> ок</> : <Copy size={14} />}
+                    </button>
+                    <button onClick={() => removeInvite.mutate(inv.id)} className="shrink-0 text-slate-500 hover:text-red-400 transition-colors" title="Отозвать">
+                      <X size={15} />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       )}
 

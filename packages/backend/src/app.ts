@@ -15,6 +15,7 @@ import commentRoutes from './modules/comments/routes.js';
 import shareRoutes from './modules/share/routes.js';
 import publicShareRoutes from './modules/share/public.js';
 import activityRoutes from './modules/activity/routes.js';
+import { inviteRoutes, publicInviteRoutes } from './modules/invites/routes.js';
 import { setupRealtime } from './realtime/index.js';
 
 /**
@@ -58,7 +59,9 @@ export async function buildServer(opts: { logger?: boolean } = {}): Promise<Fast
   await fastify.register(commentRoutes, { prefix: '/api/projects' });
   await fastify.register(shareRoutes, { prefix: '/api/projects' });
   await fastify.register(activityRoutes, { prefix: '/api/projects' });
+  await fastify.register(inviteRoutes, { prefix: '/api/projects' });
   await fastify.register(publicShareRoutes, { prefix: '/api/shared' });
+  await fastify.register(publicInviteRoutes, { prefix: '/api/invites' });
 
   // ── Real-time collaboration (Socket.io) ────
   setupRealtime(fastify);

@@ -306,6 +306,28 @@ export const activityApi = {
     apiFetch<{ data: ActivityEventPayload[] }>(`/api/projects/${projectId}/activity`),
 };
 
+// ── Invites API (приглашение по ссылке) ───────
+export interface InvitePayload {
+  id: string;
+  token: string;
+  role: string;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+export const invitesApi = {
+  list: (projectId: string) =>
+    apiFetch<{ data: InvitePayload[] }>(`/api/projects/${projectId}/invites`),
+  create: (projectId: string, data: { role: string; expiresDays?: number }) =>
+    apiFetch<InvitePayload>(`/api/projects/${projectId}/invites`, { method: 'POST', body: JSON.stringify(data) }),
+  remove: (projectId: string, id: string) =>
+    apiFetch<void>(`/api/projects/${projectId}/invites/${id}`, { method: 'DELETE' }),
+
+  // Публичные (страница /invite/:token)
+  info: (token: string) => apiFetch<{ projectName: string; role: string }>(`/api/invites/${token}`),
+  accept: (token: string) => apiFetch<{ projectId: string; role: string; already: boolean }>(`/api/invites/${token}/accept`, { method: 'POST' }),
+};
+
 // ── Camera Presets API ────────────────────────
 export interface CameraPresetPayload {
   id: string;

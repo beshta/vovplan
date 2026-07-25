@@ -93,6 +93,7 @@ model Project {
   presets     CameraPreset[]
   shareLinks  ShareLink[]
   activity    ActivityEvent[]
+  invites     Invite[]
 
   @@map("projects")
 }
@@ -271,4 +272,22 @@ model ActivityEvent {
 
   @@index([projectId, createdAt])
   @@map("activity_events")
+}
+
+// ═══════════════════════════════════════════════
+// Invite links (приглашение по ссылке + регистрация)
+// ═══════════════════════════════════════════════
+
+model Invite {
+  id          String      @id @default(cuid())
+  projectId   String
+  token       String      @unique // url-safe, многоразовая ссылка
+  role        ProjectRole // роль, с которой присоединяется перешедший
+  expiresAt   DateTime?   // null = бессрочная
+  createdById String
+  createdAt   DateTime    @default(now())
+
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("invites")
 }
