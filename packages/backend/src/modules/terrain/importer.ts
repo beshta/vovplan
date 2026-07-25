@@ -1,4 +1,17 @@
 import sharp from 'sharp';
+import { createHash } from 'node:crypto';
+import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+
+// Файловый кэш тайлов: они иммутабельны (фиксированные z/x/y), поэтому
+// кэшируются вечно. Импорт перестаёт зависеть от перегрузки OSM/DEM/Overpass.
+const TILE_CACHE_DIR = join(process.cwd(), '.tilecache');
+try { mkdirSync(TILE_CACHE_DIR, { recursive: true }); } catch { /* уже есть */ }
+
+function cachePath(url: string): string {
+  const hash = createHash('sha1').update(url).digest('hex');
+  return join(TILE_CACHE_DIR, `${hash}.bin`);
+}
 
 /**
  * Импорт реального рельефа по полигону, нарисованному на карте.
@@ -103,11 +116,18 @@ export function pointInPolygon(px: number, py: number, poly: [number, number][])
 // ── Скачивание и склейка тайлов ─────────────────
 
 /**
- * Скачивает тайл (PNG или JPEG) и декодирует в RGBA 256×256. До 4 попыток.
- * И сетевые ошибки, и битые/пустые тела ретраятся — наружу летит только
- * понятная ошибка после исчерпания попыток (не сырой «Input Buffer is empty»).
+ * Сырые байты тайла: сначала из файлового кэша, иначе из сети (до 4 попыток)
+ * с сохранением в кэш. `bypassCache` — принудительно скачать заново (битый кэш).
  */
-async function fetchTileRgba(url: string): Promise<Buffer> {
+async function fetchTileBytes(url: string, bypassCache = false): Promise<Buffer> {
+  const cf = cachePath(url);
+  if (!bypassCache && existsSync(cf)) {
+    try {
+      const cached = readFileSync(cf);
+      if (cached.length > 0) return cached;
+    } catch { /* повреждён — качаем заново */ }
+  }
+
   let lastErr: unknown;
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
@@ -123,17 +143,8 @@ async function fetchTileRgba(url: string): Promise<Buffer> {
         if (body.length === 0) {
           lastErr = new Error('пустое тело ответа');
         } else {
-          // Декодируем здесь же: битый PNG (например, HTML-заглушка ошибки)
-          // тоже должен привести к ретраю, а не к падению всего импорта
-          const { data, info } = await sharp(body)
-            .ensureAlpha()
-            .resize(TILE, TILE, { fit: 'fill' })
-            .raw()
-            .toBuffer({ resolveWithObject: true });
-          if (info.width === TILE && info.height === TILE) {
-            return data;
-          }
-          lastErr = new Error(`неверный размер тайла ${info.width}x${info.height}`);
+          try { writeFileSync(cf, body); } catch { /* кэш не критичен */ }
+          return body;
         }
       }
     } catch (err) {
@@ -142,6 +153,36 @@ async function fetchTileRgba(url: string): Promise<Buffer> {
     await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
   }
   throw new Error(`тайл недоступен (${(lastErr as Error)?.message})`);
+}
+
+/**
+ * Скачивает тайл (из кэша или сети) и декодирует в RGBA 256×256.
+ * Если декод падает (битый кэш/HTML-заглушка) — сбрасывает кэш и качает заново.
+ */
+async function fetchTileRgba(url: string): Promise<Buffer> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let bytes: Buffer;
+    try {
+      bytes = await fetchTileBytes(url, attempt > 0);
+    } catch (err) {
+      throw err; // сеть недоступна — понятная ошибка уже внутри
+    }
+    try {
+      const { data, info } = await sharp(bytes)
+        .ensureAlpha()
+        .resize(TILE, TILE, { fit: 'fill' })
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      if (info.width === TILE && info.height === TILE) return data;
+      lastErr = new Error(`неверный размер тайла ${info.width}x${info.height}`);
+    } catch (err) {
+      lastErr = err;
+    }
+    // Декод не удался — вероятно битый кэш; удаляем и пробуем скачать заново
+    try { rmSync(cachePath(url), { force: true }); } catch { /* ignore */ }
+  }
+  throw new Error(`тайл повреждён (${(lastErr as Error)?.message})`);
 }
 
 interface Mosaic {
@@ -246,6 +287,29 @@ async function fetchBuildings(
   bbox: { west: number; east: number; north: number; south: number },
 ): Promise<{ latlngs: LatLng[]; height: number }[]> {
   const query = `[out:json][timeout:25];way["building"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});out geom ${MAX_BUILDINGS};`;
+
+  const parseElements = (elements: OverpassWay[] | undefined) => {
+    const out: { latlngs: LatLng[]; height: number }[] = [];
+    for (const el of elements ?? []) {
+      if (el.type !== 'way' || !el.geometry || el.geometry.length < 3) continue;
+      out.push({
+        latlngs: el.geometry.map((g) => ({ lat: g.lat, lng: g.lon })),
+        height: buildingHeight(el.tags),
+      });
+    }
+    return out;
+  };
+
+  // Кэш ответа Overpass по хэшу запроса (bbox) — повторный импорт не зависит
+  // от перегрузки Overpass; здания в OSM меняются редко.
+  const cf = cachePath('overpass:' + query);
+  if (existsSync(cf)) {
+    try {
+      const cached = JSON.parse(readFileSync(cf, 'utf-8')) as { elements?: OverpassWay[] };
+      return parseElements(cached.elements);
+    } catch { /* повреждён — запрашиваем заново */ }
+  }
+
   // Перебираем зеркала: перегруженное отдаёт 504/429 — идём к следующему
   for (const host of OVERPASS_MIRRORS) {
     try {
@@ -262,15 +326,8 @@ async function fetchBuildings(
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = (await res.json()) as { elements?: OverpassWay[] };
-      const out: { latlngs: LatLng[]; height: number }[] = [];
-      for (const el of json.elements ?? []) {
-        if (el.type !== 'way' || !el.geometry || el.geometry.length < 3) continue;
-        out.push({
-          latlngs: el.geometry.map((g) => ({ lat: g.lat, lng: g.lon })),
-          height: buildingHeight(el.tags),
-        });
-      }
-      return out;
+      try { writeFileSync(cf, JSON.stringify({ elements: json.elements ?? [] })); } catch { /* кэш не критичен */ }
+      return parseElements(json.elements);
     } catch (err) {
       console.warn(`[terrain] Overpass ${host.split('/')[2]} недоступен:`, (err as Error).message);
     }
