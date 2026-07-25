@@ -17,9 +17,24 @@ export function detectQuality() {
   const cores = navigator.hardwareConcurrency ?? 4;
   const memory = (navigator as any).deviceMemory ?? 4; // GB, Chrome only
 
-  if (isMobile || cores <= 4 || memory <= 2) {
+  // Слабое устройство: мало ядер/памяти → отключаем тени, минимум DPR/LOD
+  const lowEnd = cores <= 2 || memory <= 2;
+  if (lowEnd) {
+    return {
+      isMobile: true,
+      lowEnd: true,
+      maxAnisotropy: 1,
+      shadowMapSize: 512,
+      maxLod: 2 as const,
+      enableShadows: false,
+      pixelRatio: 1,
+    };
+  }
+
+  if (isMobile || cores <= 4) {
     return {
       isMobile,
+      lowEnd: false,
       maxAnisotropy: 1,
       shadowMapSize: 1024,
       maxLod: 2 as const,
@@ -30,6 +45,7 @@ export function detectQuality() {
 
   return {
     isMobile: false,
+    lowEnd: false,
     maxAnisotropy: 4,
     shadowMapSize: 2048,
     maxLod: 0 as const,

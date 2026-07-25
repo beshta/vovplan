@@ -18,6 +18,8 @@ import UtilityEditPanel from './components/UtilityEditPanel';
 import AnnotationEditPanel from './components/AnnotationEditPanel';
 import PresetsBar from './components/PresetsBar';
 import SceneObjectsList from './components/SceneObjectsList';
+import TouchJoystick from './components/TouchJoystick';
+import { isTouchDevice } from './utils/deviceProfiler';
 import PresenceBar from '../collaboration/PresenceBar';
 import { useRealtime } from '../collaboration/useRealtime';
 import { useAuthStore } from '../../shared/authStore';
@@ -219,6 +221,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
 
   const canEdit = role === 'MASTER' || role === 'DESIGNER';
   const isMobile = useIsMobile();
+  const isTouch = isTouchDevice();
   const [libraryOpen, setLibraryOpen] = useState(false);
 
   return (
@@ -255,7 +258,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
                 <div className="glass-chip text-xs whitespace-nowrap">
                   <Footprints size={14} />
                   {fpPoint
-                    ? 'Зажмите мышь — осмотр по сторонам · WASD — ходьба'
+                    ? (isTouch ? 'Проведите пальцем — осмотр · джойстик слева — ходьба' : 'Зажмите мышь — осмотр по сторонам · WASD — ходьба')
                     : 'Кликните точку на земле, куда «спуститься»'}
                 </div>
               )}
@@ -278,6 +281,13 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
                 <PresetsBar projectId={projectId} canEdit={canEdit} />
               )}
             </div>
+
+            {/* Виртуальный джойстик ходьбы — только тач + режим первого лица */}
+            {cameraView === 'first-person' && isTouch && (
+              <div className="absolute left-4 bottom-4 pointer-events-none">
+                <TouchJoystick />
+              </div>
+            )}
           </div>
 
           {/* ── Правая зона: присутствие, инфопанель, аннотации ── */}

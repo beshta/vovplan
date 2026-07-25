@@ -4,7 +4,6 @@ import {
   ScanEye, MessageSquareText, EyeOff,
 } from 'lucide-react';
 import { useViewerStore } from '../stores/viewerStore';
-import { isTouchDevice } from '../utils/deviceProfiler';
 
 const ANN_PALETTE = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ffffff'];
 
@@ -122,14 +121,12 @@ export default function ViewerToolbar() {
 
         {/* View / layer tools */}
         <div className="hud-divider" />
-        {/* First-person использует PointerLock — на тач-устройствах недоступен */}
-        {!isTouchDevice() && (
-          <ToolButton
-            active={cameraView === 'first-person'}
-            onClick={() => setCameraView(cameraView === 'first-person' ? 'orbit' : 'first-person')}
-            title="Вид от первого лица / Обзор"
-          >{cameraView === 'first-person' ? <MapIcon size={20} /> : <PersonStanding size={20} />}</ToolButton>
-        )}
+        {/* First-person: осмотр — drag (мышь/палец), ходьба — WASD или тач-джойстик */}
+        <ToolButton
+          active={cameraView === 'first-person'}
+          onClick={() => setCameraView(cameraView === 'first-person' ? 'orbit' : 'first-person')}
+          title="Вид от первого лица / Обзор"
+        >{cameraView === 'first-person' ? <MapIcon size={20} /> : <PersonStanding size={20} />}</ToolButton>
 
         <ToolButton
           active={xrayMode}

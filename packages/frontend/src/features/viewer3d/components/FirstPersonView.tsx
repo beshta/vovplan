@@ -131,11 +131,12 @@ export default function FirstPersonView({ targetPoint }: { targetPoint: [number,
     );
     camera.lookAt(camera.position.clone().add(dir));
 
-    // Ходьба: WASD/стрелки в горизонтальной плоскости, высота глаз фиксирована
+    // Ходьба: WASD/стрелки (десктоп) ИЛИ виртуальный джойстик (тач)
     const k = keys.current;
-    const forward = (k['KeyW'] || k['ArrowUp'] ? 1 : 0) - (k['KeyS'] || k['ArrowDown'] ? 1 : 0);
-    const strafe = (k['KeyD'] || k['ArrowRight'] ? 1 : 0) - (k['KeyA'] || k['ArrowLeft'] ? 1 : 0);
-    if (forward === 0 && strafe === 0) return;
+    const move = useViewerStore.getState().fpMove;
+    const forward = (k['KeyW'] || k['ArrowUp'] ? 1 : 0) - (k['KeyS'] || k['ArrowDown'] ? 1 : 0) + move.y;
+    const strafe = (k['KeyD'] || k['ArrowRight'] ? 1 : 0) - (k['KeyA'] || k['ArrowLeft'] ? 1 : 0) + move.x;
+    if (Math.abs(forward) < 0.01 && Math.abs(strafe) < 0.01) return;
 
     const speed = 8 * delta; // м/с
     const flatDir = new THREE.Vector3(dir.x, 0, dir.z).normalize();

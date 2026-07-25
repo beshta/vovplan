@@ -103,6 +103,10 @@ interface ViewerState {
   /** Подложка реального ландшафта: 'scheme' (OSM, дефолт) | 'satellite' (Esri) */
   basemap: 'scheme' | 'satellite';
   setBasemap: (b: 'scheme' | 'satellite') => void;
+
+  /** Вектор ходьбы от виртуального джойстика (тач, first-person): x=строфа, y=вперёд, [-1..1] */
+  fpMove: { x: number; y: number };
+  setFpMove: (m: { x: number; y: number }) => void;
   /** Показ OSM-зданий импортированного ландшафта */
   showBuildings: boolean;
   setShowBuildings: (v: boolean) => void;
@@ -275,6 +279,8 @@ export const useViewerStore = create<ViewerState>((set) => ({
   setTerrainMeta: (terrainMeta) => set({ terrainMeta }),
   basemap: 'scheme',
   setBasemap: (basemap) => set({ basemap }),
+  fpMove: { x: 0, y: 0 },
+  setFpMove: (fpMove) => set({ fpMove }),
   showBuildings: true,
   setShowBuildings: (showBuildings) => set({ showBuildings }),
 
