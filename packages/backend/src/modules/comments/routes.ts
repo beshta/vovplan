@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../../db/prisma.js';
 import { getUserRole } from '../../utils/permissions.js';
 import { emitCommentChanged } from '../../realtime/index.js';
+import { logActivity } from '../../utils/activity.js';
 
 /**
  * Comments / Annotations API
@@ -131,6 +132,7 @@ export default async function commentRoutes(fastify: FastifyInstance) {
       updatedAt: comment.updatedAt.toISOString(),
     };
     emitCommentChanged(fastify, projectId, payload);
+    logActivity(fastify, { projectId, actorId: userId, action: comment.type ? 'annotation.create' : 'comment.create', targetName: comment.type ? undefined : comment.text.slice(0, 40) });
     return reply.code(201).send(payload);
   });
 
@@ -214,6 +216,7 @@ export default async function commentRoutes(fastify: FastifyInstance) {
     await prisma.comment.delete({ where: { id: commentId } });
 
     emitCommentChanged(fastify, projectId, { id: commentId, deleted: true });
+    logActivity(fastify, { projectId, actorId: userId, action: existing.type ? 'annotation.delete' : 'comment.delete', targetName: existing.type ? undefined : existing.text.slice(0, 40) });
     return reply.code(204).send();
   });
 }

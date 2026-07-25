@@ -62,6 +62,7 @@ model User {
   models       Model3D[]
   comments     Comment[]
   objects      SceneObject[]
+  activity     ActivityEvent[]
 
   @@map("users")
 }
@@ -89,6 +90,7 @@ model Project {
   comments    Comment[]
   presets     CameraPreset[]
   shareLinks  ShareLink[]
+  activity    ActivityEvent[]
 
   @@map("projects")
 }
@@ -248,4 +250,23 @@ model Comment {
   author      User      @relation(fields: [authorId], references: [id])
 
   @@map("comments")
+}
+
+// ═══════════════════════════════════════════════
+// Activity log (лента изменений проекта)
+// ═══════════════════════════════════════════════
+
+model ActivityEvent {
+  id         String   @id @default(cuid())
+  projectId  String
+  actorId    String
+  action     String   // 'object.create' | 'utility.delete' | 'member.invite' | ...
+  targetName String?  // человекочитаемая цель (имя объекта/сети/участника)
+  createdAt  DateTime @default(now())
+
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor      User     @relation(fields: [actorId], references: [id])
+
+  @@index([projectId, createdAt])
+  @@map("activity_events")
 }

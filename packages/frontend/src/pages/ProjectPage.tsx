@@ -7,8 +7,9 @@ import { ROLE_LABELS } from '@vovplan/shared';
 import { Viewer3D } from '../features/viewer3d';
 import MembersPanel from '../components/MembersPanel';
 import SharePanel from '../components/SharePanel';
+import ActivityPanel from '../components/ActivityPanel';
 
-type Tab = 'viewer' | 'members' | 'share' | 'settings';
+type Tab = 'viewer' | 'members' | 'activity' | 'share' | 'settings';
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -79,6 +80,14 @@ export default function ProjectPage() {
           >
             Участники
           </button>
+          <button
+            onClick={() => setTab('activity')}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              tab === 'activity' ? 'bg-vovplan-600 text-white' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Активность
+          </button>
           {isMaster && (
             <button
               onClick={() => setTab('share')}
@@ -108,6 +117,7 @@ export default function ProjectPage() {
           <Viewer3D projectId={project.id} role={project.myRole!} userId={user!.id} />
         )}
         {tab === 'members' && <MembersPanel projectId={project.id} isMaster={isMaster} />}
+        {tab === 'activity' && <ActivityPanel projectId={project.id} />}
         {tab === 'share' && isMaster && <SharePanel projectId={project.id} />}
         {tab === 'settings' && isMaster && (
           <ProjectSettings projectId={project.id} project={project} />

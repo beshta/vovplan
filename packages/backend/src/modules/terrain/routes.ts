@@ -7,6 +7,7 @@ import { z } from 'zod';
 import prisma from '../../db/prisma.js';
 import { requirePermission } from '../../utils/permissions.js';
 import { emitTerrainChanged } from '../../realtime/index.js';
+import { logActivity } from '../../utils/activity.js';
 import { importRealTerrain } from './importer.js';
 import { writeFileSync } from 'node:fs';
 
@@ -182,6 +183,7 @@ export default async function terrainRoutes(fastify: FastifyInstance) {
     request.log.info({ projectId, terrainUrl, spanKm }, 'Real terrain imported');
 
     emitTerrainChanged(fastify, projectId, { terrainUrl, terrainMeta });
+    logActivity(fastify, { projectId, actorId: request.user.userId, action: 'terrain.import', targetName: null });
 
     return reply.code(200).send({ terrainUrl, terrainMeta });
   });
@@ -213,6 +215,7 @@ export default async function terrainRoutes(fastify: FastifyInstance) {
       });
 
       emitTerrainChanged(fastify, projectId, { terrainUrl: null, terrainMeta: null });
+      logActivity(fastify, { projectId, actorId: request.user.userId, action: 'terrain.remove', targetName: null });
     }
 
     return reply.code(204).send();

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../../db/prisma.js';
 import { getUserRole, requirePermission } from '../../utils/permissions.js';
 import { emitUtilityChanged } from '../../realtime/index.js';
+import { logActivity } from '../../utils/activity.js';
 
 // Geometry: array of [x, y, z] points — a polyline in local scene coordinates
 const geometrySchema = z.array(z.array(z.number()).length(3)).min(2);
@@ -106,6 +107,7 @@ export default async function utilityRoutes(fastify: FastifyInstance) {
       color: util.color,
     };
     emitUtilityChanged(fastify, projectId, payload);
+    logActivity(fastify, { projectId, actorId: request.user.userId, action: 'utility.create', targetName: util.name });
     return reply.code(201).send(payload);
   });
 
@@ -166,6 +168,7 @@ export default async function utilityRoutes(fastify: FastifyInstance) {
 
     await prisma.utilityNetwork.delete({ where: { id } });
     emitUtilityChanged(fastify, projectId, { id, deleted: true });
+    logActivity(fastify, { projectId, actorId: request.user.userId, action: 'utility.delete', targetName: existing.name });
     return reply.code(204).send();
   });
 }

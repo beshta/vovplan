@@ -291,6 +291,21 @@ export const terrainApi = {
     apiFetch<void>(`/api/projects/${projectId}/terrain`, { method: 'DELETE' }),
 };
 
+// ── Activity API (лента изменений проекта) ────
+export interface ActivityEventPayload {
+  id: string;
+  action: string;
+  targetName: string | null;
+  actorId: string;
+  actorName: string;
+  createdAt: string;
+}
+
+export const activityApi = {
+  list: (projectId: string) =>
+    apiFetch<{ data: ActivityEventPayload[] }>(`/api/projects/${projectId}/activity`),
+};
+
 // ── Camera Presets API ────────────────────────
 export interface CameraPresetPayload {
   id: string;

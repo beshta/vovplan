@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { createProjectSchema, updateProjectSchema, inviteMemberSchema } from '@vovplan/shared';
 import { ProjectRole, ProjectStatus } from '@prisma/client';
 import prisma from '../../db/prisma.js';
+import { logActivity } from '../../utils/activity.js';
 import { getUserRole, requirePermission, requireMaster } from '../../utils/permissions.js';
 
 // Shape mapper: Prisma row → API response
@@ -204,6 +205,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
       },
     });
 
+    logActivity(fastify, { projectId: id, actorId: request.user.userId, action: 'member.invite', targetName: userToAdd.displayName });
     return reply.code(201).send(member);
   });
 
@@ -245,6 +247,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
 
     const member = await prisma.projectMember.findUnique({
       where: { projectId_userId: { projectId: id, userId } },
+      include: { user: { select: { displayName: true } } },
     });
 
     if (!member) {
@@ -265,6 +268,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
       where: { projectId_userId: { projectId: id, userId } },
     });
 
+    logActivity(fastify, { projectId: id, actorId: request.user.userId, action: 'member.remove', targetName: member.user.displayName });
     return reply.code(204).send();
   });
 }

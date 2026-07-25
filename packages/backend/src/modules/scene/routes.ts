@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../../db/prisma.js';
 import { getUserRole, requirePermission } from '../../utils/permissions.js';
 import { emitObjectChanged } from '../../realtime/index.js';
+import { logActivity } from '../../utils/activity.js';
 
 const createObjectSchema = z.object({
   name: z.string().min(1).max(200),
@@ -121,6 +122,7 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
       groundSnap: obj.groundSnap,
     };
     emitObjectChanged(fastify, projectId, payload);
+    logActivity(fastify, { projectId, actorId: request.user.userId, action: 'object.create', targetName: obj.name });
     return reply.code(201).send(payload);
   });
 
@@ -192,6 +194,7 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
       // Master hard-deletes already-hidden objects
       await prisma.sceneObject.delete({ where: { id } });
       emitObjectChanged(fastify, projectId, { id, deleted: true });
+      logActivity(fastify, { projectId, actorId: userId, action: 'object.delete', targetName: existing.name });
       return reply.code(204).send();
     }
 
@@ -202,6 +205,7 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
     });
 
     emitObjectChanged(fastify, projectId, { id: updated.id, hidden: true, visible: false });
+    logActivity(fastify, { projectId, actorId: userId, action: 'object.hide', targetName: existing.name });
     return reply.code(200).send({ id: updated.id, hidden: true });
   });
 
@@ -221,6 +225,7 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
     });
 
     emitObjectChanged(fastify, projectId, { id: updated.id, restored: true, visible: true });
+    logActivity(fastify, { projectId, actorId: request.user.userId, action: 'object.restore', targetName: updated.name });
     return reply.send({ id: updated.id, restored: true });
   });
 }

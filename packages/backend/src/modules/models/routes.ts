@@ -7,6 +7,7 @@ import { unlink } from 'node:fs/promises';
 import prisma from '../../db/prisma.js';
 import { getUserRole, requirePermission } from '../../utils/permissions.js';
 import { emitModelChanged } from '../../realtime/index.js';
+import { logActivity } from '../../utils/activity.js';
 
 const UPLOADS_ROOT = join(process.cwd(), 'uploads');
 
@@ -143,6 +144,7 @@ export default async function modelRoutes(fastify: FastifyInstance) {
       createdAt: model.createdAt.toISOString(),
     };
     emitModelChanged(fastify, projectId, payload);
+    logActivity(fastify, { projectId, actorId: request.user.userId, action: 'model.upload', targetName: model.name });
     return reply.code(201).send(payload);
   });
 
@@ -171,6 +173,7 @@ export default async function modelRoutes(fastify: FastifyInstance) {
 
     await prisma.model3D.delete({ where: { id } });
     emitModelChanged(fastify, projectId, { id, deleted: true });
+    logActivity(fastify, { projectId, actorId: request.user.userId, action: 'model.delete', targetName: existing.name });
     return reply.code(204).send();
   });
 }

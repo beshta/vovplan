@@ -85,6 +85,10 @@ export function useRealtime(projectId: string, userName: string) {
       queryClient.invalidateQueries({ queryKey: ['models', projectId] });
     });
 
+    socket.on('activity:new', () => {
+      queryClient.invalidateQueries({ queryKey: ['activity', projectId] });
+    });
+
     return () => {
       socket.emit('leave');
       socket.off('connect', join);
@@ -97,6 +101,7 @@ export function useRealtime(projectId: string, userName: string) {
       socket.off('utility:changed');
       socket.off('terrain:changed');
       socket.off('model:changed');
+      socket.off('activity:new');
       reset();
       disconnectSocket();
     };
