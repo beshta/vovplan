@@ -1,0 +1,18 @@
+# SITE_ADDRESS: "vovplan.com, www.vovplan.com" в проде (авто-TLS Let's Encrypt),
+# либо ":80" для локального теста без домена.
+{$SITE_ADDRESS} {
+	encode gzip zstd
+
+	# API, WebSocket и загруженные файлы — на backend (Caddy сам апгрейдит WS)
+	@backend path /api/* /socket.io/* /uploads/*
+	handle @backend {
+		reverse_proxy backend:4000
+	}
+
+	# Остальное — статика SPA (fallback на index.html для клиентского роутинга)
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

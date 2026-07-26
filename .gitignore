@@ -54,3 +54,6 @@ __pycache__/
 # Tile cache (terrain importer)
 packages/backend/.tilecache/
 .tilecache/
+
+# Prod backups
+backups/

@@ -1,6 +1,13 @@
-node_modules
-dist
-.turbo
+**/node_modules
+**/dist
+**/.turbo
+**/.vite
 .env
 .git
 coverage
+packages/backend/uploads
+packages/backend/.tilecache
+packages/backend/prisma/dev.db
+backups
+*.log
+LINKS.local.txt
