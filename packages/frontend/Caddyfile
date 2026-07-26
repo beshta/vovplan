@@ -1,6 +1,6 @@
-# SITE_ADDRESS: "vovplan.com, www.vovplan.com" в проде (авто-TLS Let's Encrypt),
-# либо ":80" для локального теста без домена.
-{$SITE_ADDRESS} {
+# Caddy слушает plain HTTP :80 внутри контейнера. TLS и домен — на системном
+# nginx перед контейнером (reverse proxy на 127.0.0.1:8080 + certbot).
+:80 {
 	encode gzip zstd
 
 	# API, WebSocket и загруженные файлы — на backend (Caddy сам апгрейдит WS)

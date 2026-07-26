@@ -43,18 +43,12 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
-    environment:
-      SITE_ADDRESS: ${SITE_ADDRESS}
+    # Только localhost:8080 — перед контейнером стоит системный nginx (TLS + домен).
+    # Он проксирует vovplan.com → 127.0.0.1:8080. Порты 80/443 держит nginx.
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - caddy_data:/data      # TLS-сертификаты Let's Encrypt (переживают рестарт!)
-      - caddy_config:/config
+      - "127.0.0.1:8080:80"
 
 volumes:
   postgres_data:
   uploads:
   tilecache:
-  caddy_data:
-  caddy_config:
