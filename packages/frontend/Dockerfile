@@ -11,6 +11,8 @@ RUN npm install --no-audit --no-fund
 COPY packages/shared ./packages/shared
 COPY packages/frontend ./packages/frontend
 # VITE_API_URL пуст → фронт ходит на /api и /socket.io same-origin (через Caddy)
+# three.js-бандл тяжёлый — поднимаем лимит кучи Node, иначе OOM (exit 134) на слабом VPS
+ENV NODE_OPTIONS=--max-old-space-size=2048
 RUN npm run build --workspace packages/frontend
 
 FROM caddy:2-alpine
