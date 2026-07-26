@@ -32,7 +32,7 @@ npm run dev          # backend :4000 (nodemon+tsx, SQLite) + frontend :5173 (vit
 
 Фазы 0–8 + правки: real-time (Socket.io), share-ссылки/External Spectator, PWA, импорт реального ландшафта (масштаб 1:1, 16-бит DEM, здания OSM, схема/спутник), редизайн (тёмная glass-тема, lucide-иконки, шрифты Manrope/Unbounded), first-person drag-look, редактирование сетей и аннотаций (текст/цвет/толщина/скрыть/удалить), метка-«V», привязка объектов к земле (галочка «стоит на земле»), экран доступа + матрица прав.
 
-**Не сделано:** Фаза 9 (прод-деплой на PostgreSQL — путь готов: `db:*:pg` скрипты, README «Продакшн»).
+**Фаза 9 (прод-деплой):** конфиги готовы и в репо — `packages/{backend,frontend}/Dockerfile`, `docker-compose.prod.yml`, `packages/frontend/Caddyfile` (авто-TLS), `.env.production.example`, `scripts/backup-db.sh`, `DEPLOY.md`. Домен vovplan.com → VPS 45.153.188.82 (Beget). **Осталось (действия пользователя на VPS):** установить Docker, `cp .env.production.example .env` + заполнить `JWT_SECRET`/`POSTGRES_PASSWORD`, `docker compose -f docker-compose.prod.yml --env-file .env up -d --build`, настроить cron-бэкап. Всё расписано в DEPLOY.md.
 
 ---
 
