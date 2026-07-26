@@ -6,10 +6,12 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends openssl \
  && rm -rf /var/lib/apt/lists/*
 
-# Зависимости монорепо (кэш-слой: сначала только манифесты)
+# Зависимости монорепо. npm ci сверяет lockfile со ВСЕМИ воркспейсами —
+# копируем все package.json, иначе «lockfile not in sync».
 COPY package*.json turbo.json tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/backend/package.json ./packages/backend/
+COPY packages/frontend/package.json ./packages/frontend/
 RUN npm ci
 
 # Исходники + сборка (prod-схема Postgres)

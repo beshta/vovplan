@@ -2,8 +2,10 @@
 # Сборка статики + Caddy (раздача + reverse proxy на backend + авто-TLS)
 FROM node:20-slim AS build
 WORKDIR /app
+# npm ci сверяет lockfile со ВСЕМИ воркспейсами — копируем все package.json
 COPY package*.json turbo.json tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/backend/package.json ./packages/backend/
 COPY packages/frontend/package.json ./packages/frontend/
 RUN npm ci
 COPY packages/shared ./packages/shared
