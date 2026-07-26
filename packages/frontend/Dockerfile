@@ -2,12 +2,12 @@
 # Сборка статики + Caddy (раздача + reverse proxy на backend + авто-TLS)
 FROM node:20-slim AS build
 WORKDIR /app
-# npm ci сверяет lockfile со ВСЕМИ воркспейсами — копируем все package.json
+# npm install (не ci): терпимее к платформенным бинарникам sharp; все манифесты воркспейсов
 COPY package*.json turbo.json tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/backend/package.json ./packages/backend/
 COPY packages/frontend/package.json ./packages/frontend/
-RUN npm ci
+RUN npm install --no-audit --no-fund
 COPY packages/shared ./packages/shared
 COPY packages/frontend ./packages/frontend
 # VITE_API_URL пуст → фронт ходит на /api и /socket.io same-origin (через Caddy)
