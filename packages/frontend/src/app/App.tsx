@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from '../shared/authStore';
+import LandingPage from '../pages/LandingPage';
 import LoginPage from '../pages/LoginPage';
 import RegisterPage from '../pages/RegisterPage';
 import DashboardPage from '../pages/DashboardPage';
@@ -32,6 +33,9 @@ export default function App() {
       {/* Auth routes — redirect to dashboard if already logged in */}
       <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <LoginPage />} />
       <Route path="/register" element={isAuthenticated ? <Navigate to="/" /> : <RegisterPage />} />
+
+      {/* Корень: залогиненным — дашборд, гостям — публичный лендинг */}
+      <Route path="/" element={isAuthenticated ? <DashboardPage /> : <LandingPage />} />
 
       {/* Protected routes */}
       <Route path="/projects/:id" element={isAuthenticated ? <ProjectPage /> : <Navigate to="/login" />} />
