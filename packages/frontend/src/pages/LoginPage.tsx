@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../shared/authStore';
+import AuthLayout, { authInput, authLabel } from './auth/AuthLayout';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -20,62 +21,57 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0b1020] bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(37,99,235,0.25),transparent)] px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="font-display text-4xl font-bold text-white tracking-wide">VOVPLAN</h1>
-          <p className="text-slate-400 mt-2">3D-платформа совместных проектов</p>
+    <AuthLayout
+      title="Вход в аккаунт"
+      subtitle="Введите email и пароль, чтобы продолжить работу над проектами."
+      footer={
+        <>
+          Нет аккаунта?{' '}
+          <Link to="/register" className="text-vovplan-600 font-medium hover:underline">
+            Зарегистрироваться
+          </Link>
+        </>
+      }
+    >
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="email" className={authLabel}>Email</label>
+          <input
+            id="email"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={authInput}
+            placeholder="you@example.com"
+            autoComplete="email"
+          />
         </div>
 
-        <div className="glass p-8">
-          <h2 className="text-2xl font-semibold text-white tracking-tight mb-6">Вход</h2>
-
-          {error && (
-            <div className="mb-4 p-3 bg-red-500/15 border border-red-500/20 text-red-300 rounded-xl text-sm">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="input-label">Email</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input-field"
-                placeholder="you@example.com"
-                autoComplete="email"
-              />
-            </div>
-
-            <div>
-              <label className="input-label">Пароль</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input-field"
-                placeholder="••••••••"
-                autoComplete="current-password"
-              />
-            </div>
-
-            <button type="submit" disabled={isLoading} className="btn-primary w-full">
-              {isLoading ? 'Вход...' : 'Войти'}
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-slate-400">
-            Нет аккаунта?{' '}
-            <Link to="/register" className="text-vovplan-600 font-medium hover:underline">
-              Зарегистрироваться
-            </Link>
-          </p>
+        <div>
+          <label htmlFor="password" className={authLabel}>Пароль</label>
+          <input
+            id="password"
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className={authInput}
+            placeholder="••••••••"
+            autoComplete="current-password"
+          />
         </div>
-      </div>
-    </div>
+
+        <button type="submit" disabled={isLoading} className="btn-primary w-full py-2.5">
+          {isLoading ? 'Вход...' : 'Войти'}
+        </button>
+      </form>
+    </AuthLayout>
   );
 }
