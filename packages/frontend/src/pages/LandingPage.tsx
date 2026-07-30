@@ -51,22 +51,24 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* ── Герой ── */}
-      <section className="relative overflow-hidden border-b border-slate-900/5">
-        <TopoBg />
-        <div className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(ellipse_60%_100%_at_70%_0%,rgba(99,102,241,0.12),transparent)] pointer-events-none" />
-        <div className="relative max-w-6xl mx-auto px-5 pt-16 pb-20 grid lg:grid-cols-[1.05fr_1fr] gap-12 items-center">
-          {/* Левая колонка — текст */}
-          <div>
-            <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-vovplan-700 bg-vovplan-500/10 border border-vovplan-500/20 rounded-full px-3 py-1.5 mb-6">
+      {/* ── Герой: полноэкранный split (тот же язык, что на экране входа) ── */}
+      <section className="relative grid lg:grid-cols-2 lg:min-h-[calc(100vh-4rem)] border-b border-slate-900/5">
+        {/* Левая половина — текст на светлом */}
+        <div className="relative flex items-center overflow-hidden px-5 sm:px-10 lg:px-14 py-16 lg:py-0">
+          <TopoBg />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_20%_0%,rgba(99,102,241,0.10),transparent)] pointer-events-none" />
+          <div className="relative w-full max-w-xl mx-auto lg:mx-0">
+            <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-vovplan-700 bg-vovplan-500/10 border border-vovplan-500/20 rounded-full px-3 py-1.5 mb-7">
               <span className="w-1.5 h-1.5 rounded-full bg-vovplan-500 animate-pulse" />
               3D-платформа для совместных проектов
             </span>
-            <h1 className="font-display text-[2.6rem] sm:text-6xl font-bold leading-[1.03] tracking-tight text-slate-900">
-              Местность.<br />Объекты.{' '}
-              <span className="bg-gradient-to-r from-vovplan-600 to-cyan-500 bg-clip-text text-transparent">Команда.</span>
+            <h1 className="font-display text-[2.75rem] sm:text-6xl xl:text-7xl font-bold leading-[1.02] tracking-tight text-slate-900">
+              Местность.<br />Объекты.<br />
+              <span className="bg-gradient-to-r from-vovplan-600 via-violet-500 to-cyan-500 bg-clip-text text-transparent">
+                Команда.
+              </span>
             </h1>
-            <p className="mt-6 text-lg text-slate-600 max-w-lg leading-relaxed">
+            <p className="mt-7 text-lg text-slate-600 max-w-lg leading-relaxed">
               Импортируйте настоящий рельеф, здания и спутник по координатам. Расставляйте объекты
               и инженерные сети, размечайте и обсуждайте — всей командой и в реальном времени.
             </p>
@@ -81,52 +83,41 @@ export default function LandingPage() {
                 Войти
               </Link>
             </div>
-            <p className="mt-6 text-sm text-slate-500">Масштаб 1:1 · реальные координаты · без установки</p>
+            <p className="mt-7 text-sm text-slate-500">Масштаб 1:1 · реальные координаты · без установки</p>
+          </div>
+        </div>
+
+        {/* Правая половина — 3D во всю высоту, без рамки */}
+        <div className="relative bg-[#0b1020] min-h-[420px] lg:min-h-0 overflow-hidden">
+          <Suspense fallback={<SceneFallback />}>
+            <LandingScene />
+          </Suspense>
+
+          {/* Подсказка «покрутите» */}
+          <div className="absolute top-5 right-5 flex items-center gap-1.5 text-[11px] text-slate-300 bg-white/5 backdrop-blur rounded-full px-2.5 py-1 border border-white/10 pointer-events-none">
+            <RotateCcw size={12} /> покрутите мышью
           </div>
 
-          {/* Правая колонка — продукт во «вьюпорте» */}
-          <div className="relative">
-            <div className="relative rounded-2xl bg-[#0b1020] ring-1 ring-slate-900/10 shadow-2xl shadow-slate-900/25 overflow-hidden h-[400px] sm:h-[480px]">
-              {/* Верхняя панель окна */}
-              <div className="absolute top-0 inset-x-0 z-10 h-10 flex items-center gap-2 px-3.5 border-b border-white/10 bg-white/[0.04] backdrop-blur">
-                <span className="flex gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-400/80" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400/80" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400/80" />
-                </span>
-                <span className="ml-1 text-xs text-slate-400 font-medium">Демо · площадка в 3D</span>
-                <span className="ml-auto text-[10px] font-bold tracking-widest text-cyan-300/90 border border-cyan-400/30 rounded px-1.5 py-0.5">
-                  LIVE 3D
-                </span>
-              </div>
+          {/* Координаты */}
+          <div className="absolute top-5 left-5 text-[11px] font-mono text-slate-500 pointer-events-none">
+            55.7558°N · 37.6173°E
+          </div>
 
-              {/* Канвас */}
-              <div className="absolute inset-0 pt-10">
-                <Suspense fallback={<SceneFallback />}>
-                  <LandingScene />
-                </Suspense>
-              </div>
+          {/* Масштабная линейка */}
+          <div className="absolute bottom-5 right-5 flex items-center gap-1.5 text-[10px] font-mono text-slate-500 pointer-events-none">
+            <span className="flex items-end h-2.5">
+              <span className="w-px h-2.5 bg-slate-500/70" />
+              <span className="w-14 h-px self-center bg-slate-500/70" />
+              <span className="w-px h-2.5 bg-slate-500/70" />
+            </span>
+            50&nbsp;м
+          </div>
 
-              {/* Подсказка «покрутите» */}
-              <div className="absolute top-14 right-3 z-10 flex items-center gap-1.5 text-[11px] text-slate-300 bg-black/30 backdrop-blur rounded-full px-2.5 py-1 border border-white/10">
-                <RotateCcw size={12} /> покрутите
-              </div>
-
-              {/* Координаты */}
-              <div className="absolute bottom-3 left-3 z-10 text-[11px] font-mono text-slate-300 bg-black/35 backdrop-blur rounded-md px-2 py-1 border border-white/10">
-                55.7558°N · 37.6173°E
-              </div>
-
-              {/* Масштабная линейка */}
-              <div className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5 text-[10px] font-mono text-slate-400">
-                <span className="flex items-end h-2.5">
-                  <span className="w-px h-2.5 bg-slate-400/70" />
-                  <span className="w-12 h-px self-center bg-slate-400/70" />
-                  <span className="w-px h-2.5 bg-slate-400/70" />
-                </span>
-                50&nbsp;м
-              </div>
-            </div>
+          {/* Подпись поверх сцены */}
+          <div className="absolute bottom-5 left-5 pointer-events-none">
+            <span className="text-[10px] font-bold tracking-widest text-cyan-300/90 border border-cyan-400/30 rounded px-1.5 py-0.5">
+              LIVE 3D
+            </span>
           </div>
         </div>
       </section>

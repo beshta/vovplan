@@ -51,13 +51,16 @@
   }
 
   /* ── Кнопки ── */
-  /* Primary: вертикальный градиент + световая кромка сверху + мягкое свечение */
+  /* Primary: диагональный градиент индиго→фиолет→циан. Фон шире кнопки
+     (bg-[length:200%] + сдвиг позиции на hover) — на наведении цвета
+     «переливаются» без перерисовки градиента. Читается и на светлом, и на тёмном. */
   .btn-primary {
     @apply px-4 py-2 text-white rounded-xl font-semibold
-      bg-gradient-to-b from-vovplan-500 to-vovplan-700
-      shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_8px_24px_-8px_rgba(99,102,241,0.55)]
-      hover:from-vovplan-400 hover:to-vovplan-600
-      active:scale-[0.98] transition
+      bg-gradient-to-r from-vovplan-600 via-violet-500 to-cyan-500
+      bg-[length:200%_auto] bg-[position:0%_center]
+      shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_8px_24px_-8px_rgba(99,102,241,0.6)]
+      hover:bg-[position:100%_center] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_10px_30px_-8px_rgba(139,92,246,0.7)]
+      active:scale-[0.98] transition-all duration-500
       disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
   }
   .btn-secondary {

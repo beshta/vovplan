@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { projectsApi } from '../shared/api';
@@ -26,7 +27,7 @@ export default function ProjectPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-screen bg-[#0b1020]">
         <div className="inline-block w-10 h-10 border-4 border-vovplan-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -34,90 +35,67 @@ export default function ProjectPage() {
 
   if (!project) {
     return (
-      <div className="flex items-center justify-center h-screen text-slate-500">
-        Проект не найден
+      <div className="flex flex-col items-center justify-center gap-4 h-screen bg-[#0b1020] text-slate-400">
+        <p>Проект не найден</p>
+        <button onClick={() => navigate('/')} className="btn-primary">
+          К проектам
+        </button>
       </div>
     );
   }
 
   const isMaster = project.myRole === 'MASTER';
 
+  // Вкладки списком — раньше шесть почти одинаковых блоков кнопок
+  const tabs: { id: Tab; label: string; masterOnly?: boolean }[] = [
+    { id: 'viewer', label: '3D-сцена' },
+    { id: 'members', label: 'Участники' },
+    { id: 'activity', label: 'Активность' },
+    { id: 'versions', label: 'Версии' },
+    { id: 'share', label: 'Доступ', masterOnly: true },
+    { id: 'settings', label: 'Настройки', masterOnly: true },
+  ];
+
   return (
-    <div className="h-screen flex flex-col bg-slate-900">
-      {/* Top bar */}
-      <header className="bg-slate-950 text-white px-4 py-2.5 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2 md:gap-4 min-w-0">
+    <div className="h-screen flex flex-col bg-[#0b1020]">
+      {/* Верхняя панель */}
+      <header className="bg-[#0b1020]/90 backdrop-blur-xl border-b border-white/10 text-white px-4 h-14 flex items-center justify-between gap-4 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => navigate('/')}
-            className="text-slate-400 hover:text-white transition-colors shrink-0"
+            className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors shrink-0"
             title="К проектам"
           >
-            <span className="hidden md:inline">← Проекты</span>
-            <span className="md:hidden">←</span>
+            <ArrowLeft size={16} />
+            <span className="hidden md:inline">Проекты</span>
           </button>
-          <div className="h-5 w-px bg-slate-700 shrink-0" />
-          <h1 className="text-base md:text-lg font-semibold truncate">{project.name}</h1>
+          <div className="h-5 w-px bg-white/10 shrink-0" />
+          <h1 className="text-base font-semibold tracking-tight truncate">{project.name}</h1>
           {project.myRole && (
-            <span className="hidden md:inline text-xs px-2 py-0.5 bg-vovplan-600/30 text-vovplan-200 rounded-full shrink-0">
+            <span className="hidden md:inline text-xs px-2 py-0.5 bg-vovplan-500/15 text-vovplan-200 border border-vovplan-500/25 rounded-full shrink-0">
               {ROLE_LABELS[project.myRole]}
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-1 overflow-x-auto shrink-0 max-w-[60vw]">
-          <button
-            onClick={() => setTab('viewer')}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              tab === 'viewer' ? 'bg-vovplan-600 text-white' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            3D-сцена
-          </button>
-          <button
-            onClick={() => setTab('members')}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              tab === 'members' ? 'bg-vovplan-600 text-white' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Участники
-          </button>
-          <button
-            onClick={() => setTab('activity')}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              tab === 'activity' ? 'bg-vovplan-600 text-white' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Активность
-          </button>
-          <button
-            onClick={() => setTab('versions')}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              tab === 'versions' ? 'bg-vovplan-600 text-white' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Версии
-          </button>
-          {isMaster && (
-            <button
-              onClick={() => setTab('share')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                tab === 'share' ? 'bg-vovplan-600 text-white' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Доступ
-            </button>
-          )}
-          {isMaster && (
-            <button
-              onClick={() => setTab('settings')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                tab === 'settings' ? 'bg-vovplan-600 text-white' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Настройки
-            </button>
-          )}
-        </div>
+        {/* Сегментированный переключатель */}
+        <nav className="flex items-center gap-0.5 p-1 rounded-xl bg-white/5 border border-white/10 overflow-x-auto shrink-0">
+          {tabs
+            .filter((t) => !t.masterOnly || isMaster)
+            .map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                  tab === t.id
+                    ? 'bg-gradient-to-r from-vovplan-600 via-violet-500 to-cyan-500 text-white shadow-[0_4px_14px_-4px_rgba(99,102,241,0.6)]'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+        </nav>
       </header>
 
       {/* Content */}
@@ -139,19 +117,21 @@ export default function ProjectPage() {
 
 // ── Settings sub-component ────────────────────
 function ProjectSettings({ projectId, project }: { projectId: string; project: any }) {
+  const rows: [string, string][] = [
+    ['ID проекта', projectId],
+    ['Координаты центра', `${project.centerLat}, ${project.centerLng}`],
+    ['Статус', project.status],
+  ];
   return (
-    <div className="p-6 max-w-2xl mx-auto text-slate-200">
-      <h2 className="text-xl font-semibold mb-4">Настройки проекта</h2>
-      <div className="bg-slate-800 rounded-xl p-4 space-y-3 text-sm">
-        <div>
-          <span className="text-slate-400">ID:</span> {projectId}
-        </div>
-        <div>
-          <span className="text-slate-400">Координаты центра:</span> {project.centerLat}, {project.centerLng}
-        </div>
-        <div>
-          <span className="text-slate-400">Статус:</span> {project.status}
-        </div>
+    <div className="p-6 max-w-2xl mx-auto text-slate-200 overflow-y-auto h-full">
+      <h2 className="font-display text-xl font-bold tracking-tight mb-5">Настройки проекта</h2>
+      <div className="glass divide-y divide-white/5">
+        {rows.map(([k, v]) => (
+          <div key={k} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+            <span className="text-slate-400">{k}</span>
+            <span className="font-mono text-slate-200 truncate">{v}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
