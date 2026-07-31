@@ -5,10 +5,12 @@ import LandingPage from '../pages/LandingPage';
 import LoginPage from '../pages/LoginPage';
 import RegisterPage from '../pages/RegisterPage';
 import DashboardPage from '../pages/DashboardPage';
+import AccountPage from '../pages/AccountPage';
 import ProjectPage from '../pages/ProjectPage';
 import SharedViewerPage from '../pages/SharedViewerPage';
 import InvitePage from '../pages/InvitePage';
 import LoadingScreen from '../components/LoadingScreen';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function App() {
   const { init, isAuthenticated, isLoading, user } = useAuthStore();
@@ -23,23 +25,28 @@ export default function App() {
   }
 
   return (
-    <Routes>
-      {/* Public share link — no registration required */}
-      <Route path="/share/:token" element={<SharedViewerPage />} />
+    <>
+      {/* Переключатель темы — поверх всех страниц */}
+      <ThemeToggle />
+      <Routes>
+        {/* Public share link — no registration required */}
+        <Route path="/share/:token" element={<SharedViewerPage />} />
 
-      {/* Invite link — регистрация/вход прямо на странице приглашения */}
-      <Route path="/invite/:token" element={<InvitePage />} />
+        {/* Invite link — регистрация/вход прямо на странице приглашения */}
+        <Route path="/invite/:token" element={<InvitePage />} />
 
-      {/* Auth routes — redirect to dashboard if already logged in */}
-      <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <LoginPage />} />
-      <Route path="/register" element={isAuthenticated ? <Navigate to="/" /> : <RegisterPage />} />
+        {/* Auth routes — redirect to dashboard if already logged in */}
+        <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <LoginPage />} />
+        <Route path="/register" element={isAuthenticated ? <Navigate to="/" /> : <RegisterPage />} />
 
-      {/* Корень: залогиненным — дашборд, гостям — публичный лендинг */}
-      <Route path="/" element={isAuthenticated ? <DashboardPage /> : <LandingPage />} />
+        {/* Корень: залогиненным — дашборд, гостям — публичный лендинг */}
+        <Route path="/" element={isAuthenticated ? <DashboardPage /> : <LandingPage />} />
 
-      {/* Protected routes */}
-      <Route path="/projects/:id" element={isAuthenticated ? <ProjectPage /> : <Navigate to="/login" />} />
-      <Route path="/*" element={isAuthenticated ? <DashboardPage /> : <Navigate to="/login" />} />
-    </Routes>
+        {/* Protected routes */}
+        <Route path="/account" element={isAuthenticated ? <AccountPage /> : <Navigate to="/login" />} />
+        <Route path="/projects/:id" element={isAuthenticated ? <ProjectPage /> : <Navigate to="/login" />} />
+        <Route path="/*" element={isAuthenticated ? <DashboardPage /> : <Navigate to="/login" />} />
+      </Routes>
+    </>
   );
 }

@@ -61,37 +61,37 @@ export default function SharePanel({ projectId }: SharePanelProps) {
   const presets = presetsData?.data ?? [];
 
   return (
-    <div className="p-6 max-w-3xl mx-auto text-slate-200">
+    <div className="p-6 max-w-3xl mx-auto text-slate-700 dark:text-slate-200">
       <h2 className="text-xl font-semibold mb-1">Публичный доступ</h2>
-      <p className="text-sm text-slate-400 mb-5">
+      <p className="text-sm text-muted mb-5">
         Ссылки для внешних наблюдателей — без регистрации. Виден только внешний вид сцены:
         без инженерных сетей, комментариев и возможности редактирования.
       </p>
 
       {/* Создание ссылки */}
       <form
-        className="bg-slate-800 rounded-xl p-4 mb-6 flex flex-wrap items-end gap-3"
+        className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 mb-6 flex flex-wrap items-end gap-3"
         onSubmit={(e) => {
           e.preventDefault();
           if (name.trim()) createMutation.mutate();
         }}
       >
-        <label className="flex-1 min-w-40 text-xs text-slate-400">
+        <label className="flex-1 min-w-40 text-xs text-muted">
           Название
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Например: Для подрядчика"
-            className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-900 text-sm text-white border border-slate-700 focus:border-vovplan-500 outline-none"
+            className="mt-1 w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-900 text-sm text-strong border border-slate-200 dark:border-slate-700 focus:border-vovplan-500 outline-none"
           />
         </label>
 
-        <label className="text-xs text-slate-400">
+        <label className="text-xs text-muted">
           Стартовый вид
           <select
             value={presetId}
             onChange={(e) => setPresetId(e.target.value)}
-            className="mt-1 block px-3 py-2 rounded-lg bg-slate-900 text-sm text-white border border-slate-700 outline-none"
+            className="mt-1 block px-3 py-2 rounded-lg bg-white dark:bg-slate-900 text-sm text-strong border border-slate-200 dark:border-slate-700 outline-none"
           >
             <option value="">По умолчанию</option>
             {presets.map((p) => (
@@ -100,7 +100,7 @@ export default function SharePanel({ projectId }: SharePanelProps) {
           </select>
         </label>
 
-        <label className="text-xs text-slate-400">
+        <label className="text-xs text-muted">
           Срок (дней)
           <input
             type="number"
@@ -109,7 +109,7 @@ export default function SharePanel({ projectId }: SharePanelProps) {
             value={expiresDays}
             onChange={(e) => setExpiresDays(e.target.value)}
             placeholder="∞"
-            className="mt-1 block w-24 px-3 py-2 rounded-lg bg-slate-900 text-sm text-white border border-slate-700 outline-none"
+            className="mt-1 block w-24 px-3 py-2 rounded-lg bg-white dark:bg-slate-900 text-sm text-strong border border-slate-200 dark:border-slate-700 outline-none"
           />
         </label>
 
@@ -124,19 +124,19 @@ export default function SharePanel({ projectId }: SharePanelProps) {
 
       {/* Список ссылок */}
       {links.length === 0 ? (
-        <p className="text-sm text-slate-500 text-center py-6">Ссылок пока нет</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-6">Ссылок пока нет</p>
       ) : (
         <ul className="space-y-2">
           {links.map((l) => {
             const expired = l.expiresAt && new Date(l.expiresAt) < new Date();
             return (
-              <li key={l.id} className="bg-slate-800 rounded-xl px-4 py-3 flex items-center gap-3">
+              <li key={l.id} className="bg-slate-100 dark:bg-slate-800 rounded-xl px-4 py-3 flex items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium flex items-center gap-2">
                     {l.name}
                     {expired && <span className="text-[10px] px-1.5 py-0.5 bg-red-900/60 text-red-300 rounded-full">истекла</span>}
                   </div>
-                  <div className="text-xs text-slate-500 truncate">{shareUrl(l.token)}</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 truncate">{shareUrl(l.token)}</div>
                   <div className="text-[11px] text-slate-600 mt-0.5">
                     {l.presetId
                       ? `Вид: ${presets.find((p) => p.id === l.presetId)?.name ?? '—'}`
@@ -147,7 +147,7 @@ export default function SharePanel({ projectId }: SharePanelProps) {
                 </div>
                 <button
                   onClick={() => copy(l)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs text-white shrink-0"
+                  className="px-3 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-600 text-xs text-strong shrink-0"
                 >
                   {copiedId === l.id ? '✓ Скопировано' : 'Копировать'}
                 </button>

@@ -54,11 +54,11 @@ export default function NavigationHelp() {
         </button>
 
         {/* Permanent hint */}
-        <div className="glass rounded-xl text-slate-400 text-[11px] px-3 py-1.5 pointer-events-none">
+        <div className="glass rounded-xl text-muted text-[11px] px-3 py-1.5 pointer-events-none">
           <div className="flex items-center gap-3 flex-wrap">
-            <span><b className="text-slate-200">ЛКМ</b> — вращать</span>
-            <span><b className="text-slate-200">ПКМ</b> — двигать</span>
-            <span><b className="text-slate-200">Колесо</b> — зум</span>
+            <span><b className="text-slate-700 dark:text-slate-200">ЛКМ</b> — вращать</span>
+            <span><b className="text-slate-700 dark:text-slate-200">ПКМ</b> — двигать</span>
+            <span><b className="text-slate-700 dark:text-slate-200">Колесо</b> — зум</span>
           </div>
         </div>
       </div>
@@ -68,8 +68,8 @@ export default function NavigationHelp() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass max-w-md w-full mx-4 overflow-hidden">
             <div className="px-6 py-4 border-b border-white/10">
-              <h2 className="text-white font-semibold text-lg tracking-tight font-display">Добро пожаловать в VOVPLAN</h2>
-              <p className="text-slate-400 text-sm mt-1">Управление в 3D-сцене</p>
+              <h2 className="text-strong font-semibold text-lg tracking-tight font-display">Добро пожаловать в VOVPLAN</h2>
+              <p className="text-muted text-sm mt-1">Управление в 3D-сцене</p>
             </div>
             <div className="p-6 space-y-4">
               <TutorialRow icon={<Mouse size={22} />} title="Левая кнопка мыши (ЛКМ)" desc="Вращение камеры вокруг сцены. Клик по объекту — выбор." />
@@ -98,7 +98,7 @@ function TutorialRow({ icon, title, desc }: { icon: React.ReactNode; title: stri
       <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-vovplan-300">{icon}</div>
       <div>
         <p className="text-slate-100 text-sm font-medium">{title}</p>
-        <p className="text-slate-400 text-xs mt-0.5">{desc}</p>
+        <p className="text-muted text-xs mt-0.5">{desc}</p>
       </div>
     </div>
   );

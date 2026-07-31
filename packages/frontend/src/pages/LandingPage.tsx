@@ -37,13 +37,13 @@ const FEATURES = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#f7f8fc] text-slate-900 antialiased">
+    <div className="min-h-screen surface-page antialiased">
       {/* ── Навигация ── */}
-      <header className="sticky top-0 z-30 backdrop-blur-xl bg-white/70 border-b border-slate-900/5">
+      <header className="sticky top-0 z-30 border-b surface-bar">
         <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
-          <span className="font-display text-xl font-bold tracking-wide text-slate-900">VOVPLAN</span>
+          <span className="font-display text-xl font-bold tracking-wide text-strong">VOVPLAN</span>
           <nav className="flex items-center gap-1.5">
-            <Link to="/login" className="px-3.5 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 rounded-lg transition-colors">
+            <Link to="/login" className="btn-ghost">
               Войти
             </Link>
             <Link to="/register" className="btn-primary text-sm">Регистрация</Link>
@@ -58,17 +58,17 @@ export default function LandingPage() {
           <TopoBg />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_20%_0%,rgba(99,102,241,0.10),transparent)] pointer-events-none" />
           <div className="relative w-full max-w-xl mx-auto lg:mx-0">
-            <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-vovplan-700 bg-vovplan-500/10 border border-vovplan-500/20 rounded-full px-3 py-1.5 mb-7">
+            <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-vovplan-700 dark:text-vovplan-300 bg-vovplan-500/10 border border-vovplan-500/20 rounded-full px-3 py-1.5 mb-7">
               <span className="w-1.5 h-1.5 rounded-full bg-vovplan-500 animate-pulse" />
               3D-платформа для совместных проектов
             </span>
-            <h1 className="font-display text-[2.75rem] sm:text-6xl xl:text-7xl font-bold leading-[1.02] tracking-tight text-slate-900">
+            <h1 className="font-display text-[2.75rem] sm:text-6xl xl:text-7xl font-bold leading-[1.02] tracking-tight text-strong">
               Местность.<br />Объекты.<br />
               <span className="bg-gradient-to-r from-vovplan-600 via-violet-500 to-cyan-500 bg-clip-text text-transparent">
                 Команда.
               </span>
             </h1>
-            <p className="mt-7 text-lg text-slate-600 max-w-lg leading-relaxed">
+            <p className="mt-7 text-lg text-muted max-w-lg leading-relaxed">
               Импортируйте настоящий рельеф, здания и спутник по координатам. Расставляйте объекты
               и инженерные сети, размечайте и обсуждайте — всей командой и в реальном времени.
             </p>
@@ -78,12 +78,12 @@ export default function LandingPage() {
               </Link>
               <Link
                 to="/login"
-                className="text-base px-6 py-3 rounded-xl font-medium bg-white text-slate-800 border border-slate-300 hover:bg-slate-50 shadow-sm transition-colors"
+                className="btn-secondary text-base px-6 py-3"
               >
                 Войти
               </Link>
             </div>
-            <p className="mt-7 text-sm text-slate-500">Масштаб 1:1 · реальные координаты · без установки</p>
+            <p className="mt-7 text-sm text-muted">Масштаб 1:1 · реальные координаты · без установки</p>
           </div>
         </div>
 
@@ -125,19 +125,19 @@ export default function LandingPage() {
       {/* ── Как это работает ── */}
       <section className="max-w-6xl mx-auto px-5 py-20">
         <div className="max-w-2xl">
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">Как это работает</h2>
-          <p className="text-slate-600 mt-3 text-lg">От координат до готового 3D-проекта на реальной местности — за четыре шага.</p>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-strong tracking-tight">Как это работает</h2>
+          <p className="text-muted mt-3 text-lg">От координат до готового 3D-проекта на реальной местности — за четыре шага.</p>
         </div>
         <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {STEPS.map((s, i) => (
             <div key={s.title} className="relative">
-              <div className="text-5xl font-display font-bold text-slate-900/[0.06] leading-none select-none">0{i + 1}</div>
+              <div className="text-5xl font-display font-bold text-slate-900/[0.06] dark:text-white/[0.07] leading-none select-none">0{i + 1}</div>
               <div className="-mt-6 relative">
                 <div className="w-11 h-11 rounded-xl bg-vovplan-500/10 border border-vovplan-500/20 flex items-center justify-center mb-4">
                   <s.icon size={22} className="text-vovplan-600" />
                 </div>
-                <h3 className="font-semibold text-slate-900 mb-1.5">{s.title}</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">{s.text}</p>
+                <h3 className="font-semibold text-strong mb-1.5">{s.title}</h3>
+                <p className="text-sm text-muted leading-relaxed">{s.text}</p>
               </div>
             </div>
           ))}
@@ -145,20 +145,20 @@ export default function LandingPage() {
       </section>
 
       {/* ── Возможности ── */}
-      <section className="border-y border-slate-900/5 bg-white">
+      <section className="border-y border-slate-900/5 dark:border-white/10 bg-white dark:bg-slate-900/40">
         <div className="max-w-6xl mx-auto px-5 py-20">
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight text-center">Всё для работы с местностью</h2>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-strong tracking-tight text-center">Всё для работы с местностью</h2>
           <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {FEATURES.map((f) => (
               <div
                 key={f.title}
-                className="group rounded-2xl border border-slate-200 bg-white p-5 hover:border-vovplan-300 hover:shadow-lg hover:shadow-vovplan-500/5 hover:-translate-y-0.5 transition-all"
+                className="group surface-card p-5 hover:border-vovplan-300 dark:hover:border-vovplan-500/40 hover:shadow-lg hover:shadow-vovplan-500/5 hover:-translate-y-0.5 transition-all"
               >
-                <div className="w-11 h-11 rounded-xl bg-slate-100 group-hover:bg-vovplan-500/10 flex items-center justify-center mb-4 transition-colors">
-                  <f.icon size={20} className="text-slate-500 group-hover:text-vovplan-600 transition-colors" />
+                <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-white/5 group-hover:bg-vovplan-500/10 flex items-center justify-center mb-4 transition-colors">
+                  <f.icon size={20} className="text-slate-500 dark:text-slate-400 group-hover:text-vovplan-600 dark:group-hover:text-vovplan-300 transition-colors" />
                 </div>
-                <h3 className="font-semibold text-slate-900 mb-1.5">{f.title}</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">{f.text}</p>
+                <h3 className="font-semibold text-strong mb-1.5">{f.title}</h3>
+                <p className="text-sm text-muted leading-relaxed">{f.text}</p>
               </div>
             ))}
           </div>
@@ -181,9 +181,9 @@ export default function LandingPage() {
       </section>
 
       {/* ── Подвал ── */}
-      <footer className="border-t border-slate-900/5">
-        <div className="max-w-6xl mx-auto px-5 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-slate-500">
-          <span className="font-display font-bold text-slate-700">VOVPLAN</span>
+      <footer className="border-t border-slate-900/5 dark:border-white/10">
+        <div className="max-w-6xl mx-auto px-5 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted">
+          <span className="font-display font-bold text-slate-700 dark:text-slate-300">VOVPLAN</span>
           <span>© 2026 · vovplan.com</span>
         </div>
       </footer>

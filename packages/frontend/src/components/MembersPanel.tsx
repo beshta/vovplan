@@ -89,11 +89,11 @@ export default function MembersPanel({ projectId, isMaster }: { projectId: strin
   const members = membersData?.data ?? [];
 
   return (
-    <div className="p-6 max-w-3xl mx-auto text-slate-200 h-full overflow-y-auto">
-      <h2 className="text-xl font-semibold text-white tracking-tight mb-1 flex items-center gap-2">
+    <div className="p-6 max-w-3xl mx-auto text-slate-700 dark:text-slate-200 h-full overflow-y-auto">
+      <h2 className="text-xl font-semibold text-strong tracking-tight mb-1 flex items-center gap-2">
         <ShieldCheck size={20} className="text-vovplan-400" /> Доступ к проекту
       </h2>
-      <p className="text-sm text-slate-400 mb-5">Приглашайте участников и назначайте роли. Права каждой роли — в таблице ниже.</p>
+      <p className="text-sm text-muted mb-5">Приглашайте участников и назначайте роли. Права каждой роли — в таблице ниже.</p>
 
       {/* Invite form */}
       {isMaster && (
@@ -119,7 +119,7 @@ export default function MembersPanel({ projectId, isMaster }: { projectId: strin
               Пригласить
             </button>
           </div>
-          <p className="text-[11px] text-slate-500 mt-2 flex items-center gap-1">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1">
             <Info size={12} /> Пользователь должен быть зарегистрирован в VOVPLAN под этим email.
           </p>
         </div>
@@ -137,7 +137,7 @@ export default function MembersPanel({ projectId, isMaster }: { projectId: strin
               Создать ссылку
             </button>
           </div>
-          <p className="text-[11px] text-slate-500 mt-2 flex items-center gap-1">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1">
             <Info size={12} /> По ссылке можно зарегистрироваться и сразу войти в проект с выбранной ролью.
           </p>
 
@@ -150,12 +150,12 @@ export default function MembersPanel({ projectId, isMaster }: { projectId: strin
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: `${roleColor(inv.role)}33`, color: roleColor(inv.role) }}>
                       {ROLE_LABELS[inv.role as ProjectRole]}
                     </span>
-                    <span className="text-xs text-slate-500 truncate flex-1 min-w-0">{inviteUrl(inv.token)}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 truncate flex-1 min-w-0">{inviteUrl(inv.token)}</span>
                     {expired && <span className="text-[10px] text-red-300 shrink-0">истекла</span>}
-                    <button onClick={() => copyLink(inv)} className="shrink-0 text-slate-400 hover:text-white transition-colors flex items-center gap-1 text-xs" title="Копировать">
+                    <button onClick={() => copyLink(inv)} className="shrink-0 text-muted hover:text-strong transition-colors flex items-center gap-1 text-xs" title="Копировать">
                       {copiedId === inv.id ? <><Check size={13} className="text-emerald-400" /> ок</> : <Copy size={14} />}
                     </button>
-                    <button onClick={() => removeInvite.mutate(inv.id)} className="shrink-0 text-slate-500 hover:text-red-400 transition-colors" title="Отозвать">
+                    <button onClick={() => removeInvite.mutate(inv.id)} className="shrink-0 text-slate-500 dark:text-slate-400 hover:text-red-400 transition-colors" title="Отозвать">
                       <X size={15} />
                     </button>
                   </li>
@@ -168,21 +168,21 @@ export default function MembersPanel({ projectId, isMaster }: { projectId: strin
 
       {/* Members list */}
       {isLoading ? (
-        <div className="text-slate-400 text-sm py-4">Загрузка...</div>
+        <div className="text-muted text-sm py-4">Загрузка...</div>
       ) : (
         <div className="space-y-2 mb-6">
           {members.map((m) => (
             <div key={m.id} className="glass px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-3 min-w-0">
                 <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-strong shrink-0"
                   style={{ background: roleColor(m.role) }}
                 >
                   {m.user.displayName.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <div className="font-medium text-white truncate">{m.user.displayName}</div>
-                  <div className="text-xs text-slate-500">{ROLE_LABELS[m.role as ProjectRole]}</div>
+                  <div className="font-medium text-strong truncate">{m.user.displayName}</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">{ROLE_LABELS[m.role as ProjectRole]}</div>
                 </div>
               </div>
 
@@ -198,7 +198,7 @@ export default function MembersPanel({ projectId, isMaster }: { projectId: strin
                     </select>
                     <button
                       onClick={() => removeMutation.mutate(m.userId)}
-                      className="text-slate-500 hover:text-red-400 transition-colors p-1"
+                      className="text-slate-500 dark:text-slate-400 hover:text-red-400 transition-colors p-1"
                       title="Удалить из проекта"
                     >
                       <X size={16} />
@@ -222,7 +222,7 @@ export default function MembersPanel({ projectId, isMaster }: { projectId: strin
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr>
-                <th className="text-left font-normal text-slate-500 pb-2 pr-2">Возможность</th>
+                <th className="text-left font-normal text-slate-500 dark:text-slate-400 pb-2 pr-2">Возможность</th>
                 {ROLE_COLS.map((r) => (
                   <th key={r} className="pb-2 px-1.5 font-medium" title={ROLE_LABELS[r]}>
                     <span style={{ color: roleColor(r) }}>{ROLE_SHORT[r]}</span>
@@ -233,7 +233,7 @@ export default function MembersPanel({ projectId, isMaster }: { projectId: strin
             <tbody>
               {CAPS.map((cap) => (
                 <tr key={cap.key} className="border-t border-white/5">
-                  <td className="py-1.5 pr-2 text-slate-300">{cap.key}</td>
+                  <td className="py-1.5 pr-2 text-slate-600 dark:text-slate-300">{cap.key}</td>
                   {ROLE_COLS.map((r) => (
                     <td key={r} className="text-center py-1.5 px-1.5">
                       {(cap.roles as readonly string[]).includes(r)
@@ -246,7 +246,7 @@ export default function MembersPanel({ projectId, isMaster }: { projectId: strin
             </tbody>
           </table>
         </div>
-        <p className="text-[11px] text-slate-500 mt-3">
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-3">
           Мст — Мастер, Прж — Проектировщик, С-зр — Супер-зритель, Зр — Зритель, Вн — Внешний зритель.
         </p>
       </div>

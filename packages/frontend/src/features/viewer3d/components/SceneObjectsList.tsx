@@ -24,7 +24,7 @@ export default function SceneObjectsList() {
       >
         <Boxes size={16} />
         <span className="text-xs font-medium">Объекты на сцене</span>
-        <span className="text-slate-500 text-xs">{objects.length}</span>
+        <span className="text-slate-500 dark:text-slate-400 text-xs">{objects.length}</span>
       </button>
     );
   }
@@ -34,7 +34,7 @@ export default function SceneObjectsList() {
       {/* Header */}
       <div className="px-3.5 py-2.5 border-b border-white/10 flex items-center justify-between shrink-0">
         <h3 className="hud-title flex items-center gap-1.5"><Boxes size={14} /> Объекты · {objects.length}</h3>
-        <button onClick={() => setCollapsed(true)} className="text-slate-500 text-xs hover:text-white transition-colors" title="Свернуть">▾</button>
+        <button onClick={() => setCollapsed(true)} className="text-slate-500 dark:text-slate-400 text-xs hover:text-strong transition-colors" title="Свернуть">▾</button>
       </div>
 
       {/* List */}
@@ -50,18 +50,18 @@ export default function SceneObjectsList() {
                   ? 'hud-row-active'
                   : obj.hidden
                     ? 'text-amber-300/80'
-                    : 'text-slate-300'
+                    : 'text-slate-600 dark:text-slate-300'
               }`}
             >
               {/* Icon: скрытый объект — перечёркнутый глаз, обычный — куб */}
-              <span className="flex-shrink-0 text-slate-500">
+              <span className="flex-shrink-0 text-slate-500 dark:text-slate-400">
                 {obj.hidden ? <EyeOff size={16} className="text-amber-400/80" /> : <Box size={16} />}
               </span>
 
               {/* Name + author */}
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium truncate">{obj.name}</p>
-                <p className="text-[10px] text-slate-500 truncate">
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
                   {obj.authorName}
                   {obj.hidden && ' · скрыт'}
                 </p>

@@ -87,7 +87,7 @@ export default function UtilityEditPanel({ projectId }: { projectId: string }) {
       {/* Header */}
       <div className="px-3.5 py-2.5 border-b border-white/10 flex items-center justify-between">
         <span className="hud-title flex items-center gap-1.5"><Wrench size={14} /> Сеть</span>
-        <button onClick={() => selectUtility(null)} className="text-slate-500 hover:text-white transition-colors" title="Закрыть">
+        <button onClick={() => selectUtility(null)} className="text-slate-500 dark:text-slate-400 hover:text-strong transition-colors" title="Закрыть">
           <X size={15} />
         </button>
       </div>
@@ -128,7 +128,7 @@ export default function UtilityEditPanel({ projectId }: { projectId: string }) {
               key={loc}
               onClick={() => { setLocation(loc); applyLocal({ location: loc }); save({ location: loc }); }}
               className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                location === loc ? 'bg-vovplan-600 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                location === loc ? 'bg-vovplan-600 text-white' : 'bg-white/5 text-muted hover:bg-white/10'
               }`}
             >
               {loc === 'UNDERGROUND' ? 'Подземная' : 'Надземная'}
@@ -138,8 +138,8 @@ export default function UtilityEditPanel({ projectId }: { projectId: string }) {
 
         {/* Глубина (подземные) */}
         {location === 'UNDERGROUND' && (
-          <label className="block text-xs text-slate-400">
-            Глубина: <span className="text-slate-200">{depth}м</span>
+          <label className="block text-xs text-muted">
+            Глубина: <span className="text-slate-700 dark:text-slate-200">{depth}м</span>
             <input
               type="range" min="0.5" max="5" step="0.5" value={depth}
               onChange={(e) => { const v = parseFloat(e.target.value); setDepth(v); applyLocal({ depth: v }); }}
@@ -150,8 +150,8 @@ export default function UtilityEditPanel({ projectId }: { projectId: string }) {
         )}
 
         {/* Диаметр */}
-        <label className="block text-xs text-slate-400">
-          Диаметр: <span className="text-slate-200">{diameter}мм</span>
+        <label className="block text-xs text-muted">
+          Диаметр: <span className="text-slate-700 dark:text-slate-200">{diameter}мм</span>
           <input
             type="range" min="50" max="1000" step="50" value={diameter}
             onChange={(e) => { const v = parseInt(e.target.value); setDiameter(v); applyLocal({ diameter: v }); }}
@@ -172,7 +172,7 @@ export default function UtilityEditPanel({ projectId }: { projectId: string }) {
         </div>
 
         {/* Инфо */}
-        <div className="text-[11px] text-slate-500">
+        <div className="text-[11px] text-slate-500 dark:text-slate-400">
           Точек: {util.geometry.length} · Автосохранение{saving ? ' …' : ''}
         </div>
 

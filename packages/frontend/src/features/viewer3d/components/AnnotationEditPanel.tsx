@@ -69,7 +69,7 @@ export default function AnnotationEditPanel({ projectId }: { projectId: string }
         <span className="hud-title flex items-center gap-1.5">
           <MessageSquareText size={14} /> {TYPE_LABELS[ann.type] ?? 'Аннотация'}
         </span>
-        <button onClick={() => selectAnnotation(null)} className="text-slate-500 hover:text-white transition-colors" title="Закрыть">
+        <button onClick={() => selectAnnotation(null)} className="text-slate-500 dark:text-slate-400 hover:text-strong transition-colors" title="Закрыть">
           <X size={15} />
         </button>
       </div>
@@ -106,8 +106,8 @@ export default function AnnotationEditPanel({ projectId }: { projectId: string }
 
         {/* Толщина (не для pin) */}
         {!isPin && (
-          <label className="block text-xs text-slate-400">
-            Толщина: <span className="text-slate-200">{width.toFixed(2)}м</span>
+          <label className="block text-xs text-muted">
+            Толщина: <span className="text-slate-700 dark:text-slate-200">{width.toFixed(2)}м</span>
             <input
               type="range" min="0.1" max="2" step="0.1" value={width}
               onChange={(e) => { const v = parseFloat(e.target.value); setWidth(v); updateAnnotation(ann.id, { width: v }); }}
@@ -121,7 +121,7 @@ export default function AnnotationEditPanel({ projectId }: { projectId: string }
         <button
           onClick={toggleHidden}
           className={`w-full px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            ann.resolved ? 'bg-vovplan-600/20 text-vovplan-200 ring-1 ring-vovplan-500/30' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+            ann.resolved ? 'bg-vovplan-600/20 text-vovplan-200 ring-1 ring-vovplan-500/30' : 'bg-white/5 text-muted hover:bg-white/10'
           }`}
         >
           <span className="flex items-center justify-center gap-1.5">
@@ -134,7 +134,7 @@ export default function AnnotationEditPanel({ projectId }: { projectId: string }
           <span className="flex items-center justify-center gap-1.5"><Trash2 size={14} /> Удалить аннотацию</span>
         </button>
 
-        <div className="text-[11px] text-slate-500">Автор: {ann.authorName}</div>
+        <div className="text-[11px] text-slate-500 dark:text-slate-400">Автор: {ann.authorName}</div>
       </div>
     </div>
   );

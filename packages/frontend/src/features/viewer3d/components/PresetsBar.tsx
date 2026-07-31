@@ -53,13 +53,13 @@ export default function PresetsBar({ projectId, canEdit }: PresetsBarProps) {
 
   return (
     <div className="glass rounded-full flex items-center gap-1.5 px-2 py-1.5 max-w-[70vw] overflow-x-auto">
-      <span className="text-[10px] uppercase tracking-wider text-slate-500 px-1 shrink-0 flex items-center gap-1"><Bookmark size={12} /> Виды</span>
+      <span className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1 shrink-0 flex items-center gap-1"><Bookmark size={12} /> Виды</span>
 
       {presets.map((p: CameraPresetPayload) => (
         <span key={p.id} className="group relative shrink-0">
           <button
             onClick={() => flyTo({ position: p.position, target: p.target })}
-            className="px-3 py-1 rounded-full text-xs bg-slate-800 text-slate-200 hover:bg-vovplan-600 hover:text-white transition-colors"
+            className="px-3 py-1 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-vovplan-600 hover:text-white transition-colors"
             title={`Перейти к виду «${p.name}»`}
           >
             {p.name}
@@ -79,7 +79,7 @@ export default function PresetsBar({ projectId, canEdit }: PresetsBarProps) {
       {canEdit && !saving && (
         <button
           onClick={() => setSaving(true)}
-          className="px-3 py-1 rounded-full text-xs bg-slate-800 text-slate-400 hover:text-white border border-dashed border-slate-600 shrink-0"
+          className="px-3 py-1 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-muted hover:text-strong border border-dashed border-slate-600 shrink-0"
           title="Сохранить текущий вид как пресет"
         >
           <span className="flex items-center gap-1"><Plus size={13} /> Вид</span>
@@ -100,12 +100,12 @@ export default function PresetsBar({ projectId, canEdit }: PresetsBarProps) {
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === 'Escape' && setSaving(false)}
             placeholder="Название вида"
-            className="w-32 px-2 py-1 rounded-full text-xs bg-slate-800 text-white border border-slate-600 focus:border-vovplan-500 outline-none"
+            className="w-32 px-2 py-1 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-strong border border-slate-600 focus:border-vovplan-500 outline-none"
           />
           <button type="submit" title="Сохранить" className="px-2 py-1 rounded-full text-xs bg-vovplan-600 text-white">
             <Check size={13} />
           </button>
-          <button type="button" title="Отмена" onClick={() => setSaving(false)} className="px-2 py-1 rounded-full text-xs bg-slate-700 text-slate-300">
+          <button type="button" title="Отмена" onClick={() => setSaving(false)} className="px-2 py-1 rounded-full text-xs bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
             <X size={13} />
           </button>
         </form>

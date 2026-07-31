@@ -106,7 +106,7 @@ export default function AnnotationsList({ projectId }: { projectId: string }) {
               {unresolvedCount}
             </span>
           )}
-          <span className="text-slate-500 text-xs">{collapsed ? '▾' : '▴'}</span>
+          <span className="text-slate-500 dark:text-slate-400 text-xs">{collapsed ? '▾' : '▴'}</span>
         </div>
       </button>
 
@@ -125,29 +125,29 @@ export default function AnnotationsList({ projectId }: { projectId: string }) {
               }`}
             >
               {/* Type icon */}
-              <span className="flex-shrink-0 text-slate-400 mt-0.5">{TYPE_ICONS[ann.type] ?? <MessageCircle size={14} />}</span>
+              <span className="flex-shrink-0 text-muted mt-0.5">{TYPE_ICONS[ann.type] ?? <MessageCircle size={14} />}</span>
 
               {/* Content */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1">
-                  <span className="font-medium text-slate-200 truncate">{ann.authorName}</span>
+                  <span className="font-medium text-slate-700 dark:text-slate-200 truncate">{ann.authorName}</span>
                   {ann.resolved && <span className="text-emerald-400 text-[10px]">✓</span>}
                 </div>
-                <p className="text-slate-400 truncate">{ann.text}</p>
+                <p className="text-muted truncate">{ann.text}</p>
               </div>
 
               {/* Actions */}
               <div className="flex flex-col gap-1 flex-shrink-0">
                 <button
                   onClick={(e) => { e.stopPropagation(); handleResolve(ann.id, ann.resolved); }}
-                  className="text-[10px] text-slate-500 hover:text-emerald-400 transition-colors"
+                  className="text-[10px] text-slate-500 dark:text-slate-400 hover:text-emerald-400 transition-colors"
                   title={ann.resolved ? 'Показать' : 'Скрыть (приглушить)'}
                 >
                   {ann.resolved ? '↺' : '✓'}
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(ann.id); }}
-                  className="text-[10px] text-slate-500 hover:text-red-400 transition-colors"
+                  className="text-[10px] text-slate-500 dark:text-slate-400 hover:text-red-400 transition-colors"
                   title="Удалить"
                 >
                   ✕

@@ -44,7 +44,7 @@ export default function UtilityLayersPanel() {
         className="glass-chip pointer-events-auto"
         title="Инженерные сети"
       >
-        <Wrench size={16} /> <span className="text-slate-500 text-xs">{utilities.length}</span>
+        <Wrench size={16} /> <span className="text-slate-500 dark:text-slate-400 text-xs">{utilities.length}</span>
       </button>
     );
   }
@@ -54,7 +54,7 @@ export default function UtilityLayersPanel() {
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <h3 className="hud-title flex items-center gap-1.5"><Wrench size={14} /> Инженерные сети</h3>
-        <button onClick={() => setCollapsed(true)} className="text-slate-500 text-xs hover:text-white transition-colors" title="Свернуть">▴</button>
+        <button onClick={() => setCollapsed(true)} className="text-slate-500 dark:text-slate-400 text-xs hover:text-strong transition-colors" title="Свернуть">▴</button>
       </div>
 
       {/* X-Ray toggle */}
@@ -63,7 +63,7 @@ export default function UtilityLayersPanel() {
         className={`w-full mb-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 ${
           xrayMode
             ? 'bg-vovplan-600 text-white hover:bg-vovplan-500 shadow-lg shadow-vovplan-600/30'
-            : 'bg-white/5 text-slate-300 hover:bg-white/10'
+            : 'bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-white/10'
         }`}
       >
         <ScanEye size={16} />
@@ -89,8 +89,8 @@ export default function UtilityLayersPanel() {
                 className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                 style={{ backgroundColor: meta.color }}
               />
-              <span className="flex-1 text-left text-slate-300">{meta.label}</span>
-              <span className="text-slate-500">{count}</span>
+              <span className="flex-1 text-left text-slate-600 dark:text-slate-300">{meta.label}</span>
+              <span className="text-slate-500 dark:text-slate-400">{count}</span>
             </button>
           );
         })}

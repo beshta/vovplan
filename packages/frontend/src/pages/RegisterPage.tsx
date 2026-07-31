@@ -35,7 +35,7 @@ export default function RegisterPage() {
       }
     >
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 dark:bg-red-500/15 dark:border-red-500/25 dark:text-red-300 rounded-xl text-sm">
           {error}
         </div>
       )}
@@ -83,7 +83,7 @@ export default function RegisterPage() {
             placeholder="Минимум 8 символов"
             autoComplete="new-password"
           />
-          <p className="mt-1.5 text-xs text-slate-500">Минимум 8 символов</p>
+          <p className="mt-1.5 text-xs text-muted">Минимум 8 символов</p>
         </div>
 
         <button type="submit" disabled={isLoading} className="btn-primary w-full py-2.5">

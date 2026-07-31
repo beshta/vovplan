@@ -13,6 +13,8 @@ interface AuthState {
   register: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => void;
   clearError: () => void;
+  /** Обновить пользователя в сторе после правок профиля (имя, аватар) */
+  setUser: (user: User) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -67,4 +69,6 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   clearError: () => set({ error: null }),
+
+  setUser: (user) => set({ user }),
 }));

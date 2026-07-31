@@ -3,9 +3,11 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════
-   VOVPLAN Design System — тёмная glass-тема
-   Один акцент (brand blue), стеклянные панели,
-   Inter Variable, единые радиусы и тени.
+   VOVPLAN Design System
+   Светлая тема — по умолчанию, тёмная — по классу
+   `dark` на <html> (ставит themeStore).
+   Один акцент (brand iris), стеклянные панели,
+   Manrope / Unbounded, единые радиусы и тени.
    ═══════════════════════════════════════════════ */
 
 @layer base {
@@ -16,44 +18,50 @@
   body {
     font-family: 'Manrope Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
-    background: #0b1020;
-    color: #e2e8f0;
+    @apply bg-[#f7f8fc] text-slate-900 dark:bg-[#0b1020] dark:text-slate-200;
   }
   ::selection {
-    background: rgba(59, 130, 246, 0.35);
+    background: rgba(99, 102, 241, 0.25);
   }
-  /* Тонкие тёмные скроллбары */
+  /* Тонкие скроллбары под обе темы */
   * {
     scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+  }
+  .dark * {
     scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
   }
   *::-webkit-scrollbar { width: 6px; height: 6px; }
-  *::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.25); border-radius: 3px; }
+  *::-webkit-scrollbar-thumb {
+    @apply bg-slate-400/40 dark:bg-slate-400/25 rounded-full;
+  }
   *::-webkit-scrollbar-track { background: transparent; }
 }
 
 @layer components {
-  /* ── Стеклянная панель (базовый строительный блок HUD) ── */
+  /* ── Стеклянная панель (базовый блок HUD и карточек) ── */
   .glass {
-    @apply bg-slate-900/75 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl shadow-black/30 text-slate-200;
+    @apply bg-white/85 backdrop-blur-xl border border-slate-900/10 rounded-2xl shadow-xl shadow-slate-900/10 text-slate-700
+      dark:bg-slate-900/75 dark:border-white/10 dark:shadow-black/30 dark:text-slate-200;
   }
   /* Компактный чип (свёрнутая панель / бейдж) */
   .glass-chip {
-    @apply glass rounded-full px-3 py-2 text-sm font-medium flex items-center gap-1.5 hover:bg-slate-800/80 transition-colors;
+    @apply glass rounded-full px-3 py-2 text-sm font-medium flex items-center gap-1.5
+      hover:bg-white dark:hover:bg-slate-800/80 transition-colors;
   }
   /* Заголовок панели HUD */
   .hud-title {
-    @apply text-[11px] font-semibold uppercase tracking-widest text-slate-400 select-none;
+    @apply text-[11px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 select-none;
   }
   /* Разделитель внутри панелей */
   .hud-divider {
-    @apply h-px bg-white/10 my-1.5;
+    @apply h-px bg-slate-900/10 dark:bg-white/10 my-1.5;
   }
 
   /* ── Кнопки ── */
   /* Primary: диагональный градиент индиго→фиолет→циан. Фон шире кнопки
      (bg-[length:200%] + сдвиг позиции на hover) — на наведении цвета
-     «переливаются» без перерисовки градиента. Читается и на светлом, и на тёмном. */
+     «переливаются». Одинаково читается в обеих темах. */
   .btn-primary {
     @apply px-4 py-2 text-white rounded-xl font-semibold
       bg-gradient-to-r from-vovplan-600 via-violet-500 to-cyan-500
@@ -64,38 +72,72 @@
       disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
   }
   .btn-secondary {
-    @apply px-4 py-2 bg-white/5 text-slate-200 border border-white/10 rounded-xl font-medium hover:bg-white/10 active:scale-[0.98] transition;
+    @apply px-4 py-2 rounded-xl font-medium transition active:scale-[0.98]
+      bg-white text-slate-700 border border-slate-300 shadow-sm hover:bg-slate-50
+      dark:bg-white/5 dark:text-slate-200 dark:border-white/10 dark:shadow-none dark:hover:bg-white/10;
   }
   .btn-ghost {
-    @apply px-3 py-1.5 text-slate-400 rounded-lg text-sm font-medium hover:text-white hover:bg-white/5 transition-colors;
+    @apply px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+      text-slate-600 hover:text-slate-900 hover:bg-slate-900/5
+      dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5;
   }
   .btn-danger {
-    @apply px-3 py-1.5 bg-red-500/15 text-red-300 border border-red-500/20 rounded-xl text-sm font-medium hover:bg-red-500/25 transition-colors;
+    @apply px-3 py-1.5 rounded-xl text-sm font-medium transition-colors
+      bg-red-50 text-red-700 border border-red-200 hover:bg-red-100
+      dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/20 dark:hover:bg-red-500/25;
   }
 
   /* ── Поля ввода ── */
   .input-field {
-    @apply w-full px-3.5 py-2.5 bg-white/5 border border-white/10 text-slate-100 placeholder-slate-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-vovplan-500/60 focus:border-vovplan-500/40 transition-shadow;
+    @apply w-full px-3.5 py-2.5 rounded-xl transition-shadow focus:outline-none focus:ring-2
+      bg-white border border-slate-300 text-slate-900 placeholder-slate-400 shadow-sm
+      focus:ring-vovplan-500/40 focus:border-vovplan-500
+      dark:bg-white/5 dark:border-white/10 dark:text-slate-100 dark:placeholder-slate-500 dark:shadow-none
+      dark:focus:ring-vovplan-500/60 dark:focus:border-vovplan-500/40;
   }
   .input-label {
-    @apply block text-xs font-medium text-slate-400 mb-1.5;
+    @apply block text-sm font-medium text-slate-700 dark:text-slate-400 mb-1.5;
   }
 
   /* ── Кнопка тулбара 3D-вьюера ── */
   .tool-btn {
-    @apply w-10 h-10 flex items-center justify-center rounded-xl text-base transition-all text-slate-400 hover:bg-white/10 hover:text-white;
+    @apply w-10 h-10 flex items-center justify-center rounded-xl text-base transition-all
+      text-slate-500 hover:bg-slate-900/5 hover:text-slate-900
+      dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white;
   }
   .tool-btn-active {
-    @apply text-white bg-gradient-to-b from-vovplan-500 to-vovplan-700
-      shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_6px_18px_-6px_rgba(99,102,241,0.6)]
-      hover:from-vovplan-400 hover:to-vovplan-600;
+    @apply text-white bg-gradient-to-r from-vovplan-600 via-violet-500 to-cyan-500
+      bg-[length:200%_auto] hover:bg-[position:100%_center]
+      shadow-[0_6px_18px_-6px_rgba(99,102,241,0.6)]
+      hover:text-white dark:hover:text-white;
   }
 
   /* ── Строка списка в панелях ── */
   .hud-row {
-    @apply w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-left transition-colors text-sm hover:bg-white/5;
+    @apply w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-left transition-colors text-sm
+      hover:bg-slate-900/5 dark:hover:bg-white/5;
   }
   .hud-row-active {
-    @apply bg-vovplan-600/20 text-vovplan-200 ring-1 ring-vovplan-500/30;
+    @apply bg-vovplan-500/10 text-vovplan-700 ring-1 ring-vovplan-500/25
+      dark:bg-vovplan-600/20 dark:text-vovplan-200 dark:ring-vovplan-500/30;
+  }
+
+  /* ── Семантические поверхности (для страниц и модалок) ── */
+  .surface-page {
+    @apply bg-[#f7f8fc] text-slate-900 dark:bg-[#0b1020] dark:text-slate-200;
+  }
+  .surface-card {
+    @apply bg-white border border-slate-200 rounded-2xl
+      dark:bg-slate-900/60 dark:border-white/10;
+  }
+  .surface-bar {
+    @apply backdrop-blur-xl bg-white/70 border-slate-900/5
+      dark:bg-[#0b1020]/80 dark:border-white/10;
+  }
+  .text-muted {
+    @apply text-slate-600 dark:text-slate-400;
+  }
+  .text-strong {
+    @apply text-slate-900 dark:text-white;
   }
 }

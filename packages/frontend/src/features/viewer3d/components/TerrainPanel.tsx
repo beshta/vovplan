@@ -69,15 +69,15 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
         className="w-full flex items-center justify-between px-3.5 py-2.5"
       >
         <span className="hud-title flex items-center gap-1.5"><Mountain size={14} /> Ландшафт</span>
-        <span className="text-slate-500 text-xs">{collapsed ? '▾' : '▴'}</span>
+        <span className="text-slate-500 dark:text-slate-400 text-xs">{collapsed ? '▾' : '▴'}</span>
       </button>
 
       {!collapsed && (
         <div className="px-3 pb-3 space-y-2 border-t border-white/10 pt-2.5">
           {/* Current mode badge */}
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-500">Режим:</span>
-            <span className="px-2 py-0.5 rounded-full bg-white/10 text-slate-300 font-medium">
+            <span className="text-slate-500 dark:text-slate-400">Режим:</span>
+            <span className="px-2 py-0.5 rounded-full bg-white/10 text-slate-600 dark:text-slate-300 font-medium">
               {terrainUrl ? 'DEM heightmap' : proceduralTerrain ? 'Процедурный' : 'Плоский'}
             </span>
           </div>
@@ -85,12 +85,12 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
           {/* Переключатель подложки для реального ландшафта: схема / спутник */}
           {terrainMeta && (
             <div>
-              <span className="text-[11px] text-slate-500">Подложка</span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">Подложка</span>
               <div className="flex gap-1 mt-1">
                 <button
                   onClick={() => setBasemap('scheme')}
                   className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    basemap === 'scheme' ? 'bg-vovplan-600 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                    basemap === 'scheme' ? 'bg-vovplan-600 text-white' : 'bg-white/5 text-muted hover:bg-white/10'
                   }`}
                 >
                   Схема
@@ -100,7 +100,7 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
                   disabled={!terrainMeta.satelliteUrl}
                   title={terrainMeta.satelliteUrl ? 'Спутниковый снимок' : 'Спутник недоступен для этой площадки'}
                   className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 ${
-                    basemap === 'satellite' ? 'bg-vovplan-600 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                    basemap === 'satellite' ? 'bg-vovplan-600 text-white' : 'bg-white/5 text-muted hover:bg-white/10'
                   }`}
                 >
                   Спутник
@@ -154,7 +154,7 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
             className={`w-full px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               proceduralTerrain && !terrainUrl
                 ? 'bg-vovplan-600/20 text-vovplan-200 ring-1 ring-vovplan-500/30'
-                : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                : 'bg-white/5 text-muted hover:bg-white/10'
             }`}
           >
             <span className="flex items-center justify-center gap-1.5"><Dices size={14} /> Процедурный рельеф</span>
@@ -166,7 +166,7 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
             className={`w-full px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               wireframe
                 ? 'bg-vovplan-600/20 text-vovplan-200 ring-1 ring-vovplan-500/30'
-                : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                : 'bg-white/5 text-muted hover:bg-white/10'
             }`}
           >
             <span className="flex items-center justify-center gap-1.5"><Grid3x3 size={14} /> Каркас</span>
@@ -179,7 +179,7 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
               className={`w-full px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 showBuildings
                   ? 'bg-vovplan-600/20 text-vovplan-200 ring-1 ring-vovplan-500/30'
-                  : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                  : 'bg-white/5 text-muted hover:bg-white/10'
               }`}
             >
               <span className="flex items-center justify-center gap-1.5">
@@ -196,7 +196,7 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
           )}
 
           {/* Hint */}
-          <p className="text-[10px] text-slate-400 leading-relaxed">
+          <p className="text-[10px] text-muted leading-relaxed">
             Heightmap PNG: чёрно-белое изображение, где яркость = высота. Рекомендуется 256×256 или 512×512.
           </p>
         </div>

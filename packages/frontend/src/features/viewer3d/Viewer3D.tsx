@@ -266,7 +266,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
 
             {/* Empty state */}
             {sceneData?.data.length === 0 && (
-              <div className="text-center text-slate-400 select-none">
+              <div className="text-center text-muted select-none">
                 <div className="flex justify-center mb-3 text-slate-600"><Construction size={48} strokeWidth={1.5} /></div>
                 <p className="text-sm">Сцена пуста. Загрузите GLB-модель справа и разместите её.</p>
               </div>
@@ -322,7 +322,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
             <div className="relative h-full">
               <button
                 onClick={() => setLibraryOpen(false)}
-                className="absolute -left-3 top-3 z-50 w-7 h-7 rounded-full bg-slate-800 text-white text-sm shadow-lg border border-white/10"
+                className="absolute -left-3 top-3 z-50 w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 text-strong text-sm shadow-lg border border-white/10"
                 title="Закрыть"
               >
                 <X size={14} className="mx-auto" />

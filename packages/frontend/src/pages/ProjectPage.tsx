@@ -27,7 +27,7 @@ export default function ProjectPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#0b1020]">
+      <div className="flex items-center justify-center h-screen surface-page">
         <div className="inline-block w-10 h-10 border-4 border-vovplan-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -35,7 +35,7 @@ export default function ProjectPage() {
 
   if (!project) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 h-screen bg-[#0b1020] text-slate-400">
+      <div className="flex flex-col items-center justify-center gap-4 h-screen surface-page text-muted">
         <p>Проект не найден</p>
         <button onClick={() => navigate('/')} className="btn-primary">
           К проектам
@@ -57,29 +57,29 @@ export default function ProjectPage() {
   ];
 
   return (
-    <div className="h-screen flex flex-col bg-[#0b1020]">
+    <div className="h-screen flex flex-col surface-page">
       {/* Верхняя панель */}
-      <header className="bg-[#0b1020]/90 backdrop-blur-xl border-b border-white/10 text-white px-4 h-14 flex items-center justify-between gap-4 shrink-0">
+      <header className="border-b surface-bar px-4 h-14 flex items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors shrink-0"
+            className="flex items-center gap-1.5 text-sm text-muted hover:text-strong transition-colors shrink-0"
             title="К проектам"
           >
             <ArrowLeft size={16} />
             <span className="hidden md:inline">Проекты</span>
           </button>
-          <div className="h-5 w-px bg-white/10 shrink-0" />
-          <h1 className="text-base font-semibold tracking-tight truncate">{project.name}</h1>
+          <div className="h-5 w-px bg-slate-900/10 dark:bg-white/10 shrink-0" />
+          <h1 className="text-base font-semibold tracking-tight truncate text-strong">{project.name}</h1>
           {project.myRole && (
-            <span className="hidden md:inline text-xs px-2 py-0.5 bg-vovplan-500/15 text-vovplan-200 border border-vovplan-500/25 rounded-full shrink-0">
+            <span className="hidden md:inline text-xs px-2 py-0.5 bg-vovplan-500/10 text-vovplan-700 border border-vovplan-500/20 dark:bg-vovplan-500/15 dark:text-vovplan-200 dark:border-vovplan-500/25 rounded-full shrink-0">
               {ROLE_LABELS[project.myRole]}
             </span>
           )}
         </div>
 
         {/* Сегментированный переключатель */}
-        <nav className="flex items-center gap-0.5 p-1 rounded-xl bg-white/5 border border-white/10 overflow-x-auto shrink-0">
+        <nav className="flex items-center gap-0.5 p-1 rounded-xl bg-slate-900/5 border border-slate-900/10 dark:bg-white/5 dark:border-white/10 overflow-x-auto shrink-0">
           {tabs
             .filter((t) => !t.masterOnly || isMaster)
             .map((t) => (
@@ -89,7 +89,7 @@ export default function ProjectPage() {
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
                   tab === t.id
                     ? 'bg-gradient-to-r from-vovplan-600 via-violet-500 to-cyan-500 text-white shadow-[0_4px_14px_-4px_rgba(99,102,241,0.6)]'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    : 'text-muted hover:text-strong hover:bg-slate-900/5 dark:hover:bg-white/5'
                 }`}
               >
                 {t.label}
@@ -123,13 +123,13 @@ function ProjectSettings({ projectId, project }: { projectId: string; project: a
     ['Статус', project.status],
   ];
   return (
-    <div className="p-6 max-w-2xl mx-auto text-slate-200 overflow-y-auto h-full">
-      <h2 className="font-display text-xl font-bold tracking-tight mb-5">Настройки проекта</h2>
-      <div className="glass divide-y divide-white/5">
+    <div className="p-6 max-w-2xl mx-auto overflow-y-auto h-full">
+      <h2 className="font-display text-xl font-bold tracking-tight mb-5 text-strong">Настройки проекта</h2>
+      <div className="glass divide-y divide-slate-900/5 dark:divide-white/5">
         {rows.map(([k, v]) => (
           <div key={k} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
-            <span className="text-slate-400">{k}</span>
-            <span className="font-mono text-slate-200 truncate">{v}</span>
+            <span className="text-muted">{k}</span>
+            <span className="font-mono text-strong truncate">{v}</span>
           </div>
         ))}
       </div>

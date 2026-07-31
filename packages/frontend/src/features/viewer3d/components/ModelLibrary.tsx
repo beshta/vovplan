@@ -90,10 +90,10 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
       {/* Models list */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {isLoading && (
-          <p className="text-sm text-slate-500 text-center py-4">Загрузка...</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">Загрузка...</p>
         )}
         {models.length === 0 && !isLoading && (
-          <div className="text-center py-8 text-slate-500">
+          <div className="text-center py-8 text-slate-500 dark:text-slate-400">
             <div className="flex justify-center mb-2 text-slate-600"><Package size={32} /></div>
             <p className="text-sm">Пока нет моделей</p>
             <p className="text-xs mt-1">Загрузите GLB-файл выше</p>
@@ -106,8 +106,8 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-200 truncate">{model.name}</p>
-                <p className="text-xs text-slate-500">
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{model.name}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   {(model.fileSize / 1024).toFixed(0)} KB · {model.format.toUpperCase()}
                 </p>
                 <p className="text-xs text-slate-600 mt-0.5">by {model.uploadedBy}</p>

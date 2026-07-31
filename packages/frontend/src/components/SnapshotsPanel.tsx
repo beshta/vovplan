@@ -46,11 +46,11 @@ export default function SnapshotsPanel({ projectId, isMaster, canEdit }: { proje
   const snaps = data?.data ?? [];
 
   return (
-    <div className="p-6 max-w-3xl mx-auto text-slate-200 h-full overflow-y-auto">
-      <h2 className="text-xl font-semibold text-white tracking-tight mb-1 flex items-center gap-2">
+    <div className="p-6 max-w-3xl mx-auto text-slate-700 dark:text-slate-200 h-full overflow-y-auto">
+      <h2 className="text-xl font-semibold text-strong tracking-tight mb-1 flex items-center gap-2">
         <History size={20} className="text-vovplan-400" /> Версии сцены
       </h2>
-      <p className="text-sm text-slate-400 mb-5">Сохраняйте снимки состояния сцены для согласований и возвращайтесь к любой версии.</p>
+      <p className="text-sm text-muted mb-5">Сохраняйте снимки состояния сцены для согласований и возвращайтесь к любой версии.</p>
 
       {notice && <div className="mb-4 p-3 bg-vovplan-600/20 text-vovplan-200 rounded-xl text-sm">{notice}</div>}
 
@@ -71,9 +71,9 @@ export default function SnapshotsPanel({ projectId, isMaster, canEdit }: { proje
 
       {/* Список версий */}
       {isLoading ? (
-        <p className="text-sm text-slate-500 py-4">Загрузка...</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 py-4">Загрузка...</p>
       ) : snaps.length === 0 ? (
-        <div className="glass p-8 text-center text-slate-500">
+        <div className="glass p-8 text-center text-slate-500 dark:text-slate-400">
           <History size={40} className="mx-auto mb-3 opacity-40" />
           <p className="text-sm">Версий пока нет. Сохраните первую — и сможете вернуться к ней в любой момент.</p>
         </div>
@@ -83,11 +83,11 @@ export default function SnapshotsPanel({ projectId, isMaster, canEdit }: { proje
             <li key={s.id} className="glass p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="font-medium text-white truncate">{s.name}</div>
-                  <div className="text-xs text-slate-500 mt-0.5">
+                  <div className="font-medium text-strong truncate">{s.name}</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {s.authorName} · {new Date(s.createdAt).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                   </div>
-                  <div className="flex gap-3 mt-2 text-[11px] text-slate-400">
+                  <div className="flex gap-3 mt-2 text-[11px] text-muted">
                     <span className="flex items-center gap-1"><Box size={12} /> {s.counts.objects}</span>
                     <span className="flex items-center gap-1"><Wrench size={12} /> {s.counts.utilities}</span>
                     <span className="flex items-center gap-1"><MapPin size={12} /> {s.counts.annotations}</span>
@@ -107,7 +107,7 @@ export default function SnapshotsPanel({ projectId, isMaster, canEdit }: { proje
                         <button onClick={() => setConfirmRestore(s.id)} className="btn-secondary text-xs py-1.5" title="Восстановить эту версию">
                           <span className="flex items-center gap-1"><RotateCcw size={13} /> Восстановить</span>
                         </button>
-                        <button onClick={() => remove.mutate(s.id)} className="text-slate-500 hover:text-red-400 transition-colors p-1" title="Удалить версию">
+                        <button onClick={() => remove.mutate(s.id)} className="text-slate-500 dark:text-slate-400 hover:text-red-400 transition-colors p-1" title="Удалить версию">
                           <Trash2 size={15} />
                         </button>
                       </>

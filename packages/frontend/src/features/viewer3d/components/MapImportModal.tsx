@@ -104,7 +104,7 @@ export default function MapImportModal({
           <h2 className="hud-title flex items-center gap-2 text-sm">
             <Globe size={16} /> Импорт реального ландшафта
           </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors" title="Закрыть">
+          <button onClick={onClose} className="text-muted hover:text-strong transition-colors" title="Закрыть">
             <X size={18} />
           </button>
         </div>
@@ -114,7 +114,7 @@ export default function MapImportModal({
           <div ref={mapRef} className="absolute inset-0" />
 
           {/* Подсказка */}
-          <div className="absolute left-1/2 top-3 -translate-x-1/2 z-[1000] glass rounded-full px-4 py-1.5 text-xs text-slate-300 pointer-events-none whitespace-nowrap">
+          <div className="absolute left-1/2 top-3 -translate-x-1/2 z-[1000] glass rounded-full px-4 py-1.5 text-xs text-slate-600 dark:text-slate-300 pointer-events-none whitespace-nowrap">
             {points.length < 3
               ? `Кликайте по карте — обведите нужную область (точек: ${points.length}, нужно ≥ 3)`
               : `Периметр из ${points.length} точек готов — жмите «Импортировать»`}
@@ -124,7 +124,7 @@ export default function MapImportModal({
             <div className="absolute inset-0 z-[1100] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center gap-3 text-slate-200">
               <Loader2 size={36} className="animate-spin text-vovplan-400" />
               <p className="text-sm">Скачиваем рельеф и спутниковые снимки…</p>
-              <p className="text-xs text-slate-500">Обычно 5–20 секунд</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Обычно 5–20 секунд</p>
             </div>
           )}
         </div>

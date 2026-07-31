@@ -3,10 +3,14 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './app/App';
+import { initTheme } from './shared/themeStore';
 import '@fontsource-variable/manrope';
 import '@fontsource/unbounded/500.css';
 import '@fontsource/unbounded/700.css';
 import './index.css';
+
+// До первого рендера — иначе тёмная тема мигает светлой при загрузке
+initTheme();
 
 const queryClient = new QueryClient({
   defaultOptions: {

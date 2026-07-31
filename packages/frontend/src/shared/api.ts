@@ -24,8 +24,9 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   };
 
   // Content-Type только когда есть тело: fastify отклоняет DELETE/GET с
-  // content-type=json и пустым телом (400 «Body cannot be empty»)
-  if (options.body != null) {
+  // content-type=json и пустым телом (400 «Body cannot be empty»).
+  // FormData — исключение: boundary проставляет браузер, свой заголовок ломает разбор.
+  if (options.body != null && !(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
 
@@ -53,6 +54,18 @@ export const authApi = {
     apiFetch<AuthResponse>('/api/auth/login', { method: 'POST', body: JSON.stringify(data) }),
 
   me: () => apiFetch<User>('/api/auth/me'),
+
+  updateProfile: (data: { displayName?: string }) =>
+    apiFetch<User>('/api/auth/me', { method: 'PATCH', body: JSON.stringify(data) }),
+
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    apiFetch<{ ok: true }>('/api/auth/password', { method: 'POST', body: JSON.stringify(data) }),
+
+  uploadAvatar: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return apiFetch<User>('/api/auth/avatar', { method: 'POST', body: form });
+  },
 };
 
 // ── Projects API ──────────────────────────────

@@ -6,11 +6,8 @@ const LandingScene = lazy(() => import('../landing/LandingScene'));
 
 /**
  * Split-раскладка для экранов входа/регистрации (паттерн shadcn login-02):
- * слева — форма на светлом фоне (в тон лендингу), справа — тёмная панель
- * с живой 3D-сценой вместо статичной картинки.
- *
- * Светлые классы полей заданы здесь локально: глобальные .input-field/.glass
- * рассчитаны на тёмный HUD вьюера и на светлом фоне нечитаемы.
+ * слева — форма, справа — панель с живой 3D-сценой вместо статичной картинки.
+ * Панель со сценой всегда тёмная — сцена рассчитана на тёмный фон.
  */
 export default function AuthLayout({
   title,
@@ -24,27 +21,27 @@ export default function AuthLayout({
   footer: ReactNode;
 }) {
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-[#f7f8fc] text-slate-900">
+    <div className="min-h-screen grid lg:grid-cols-2 surface-page">
       {/* ── Левая колонка: форма ── */}
       <div className="flex flex-col gap-6 p-6 md:p-10">
         <div className="flex justify-center lg:justify-start">
-          <Link to="/" className="font-display text-xl font-bold tracking-wide text-slate-900">
+          <Link to="/" className="font-display text-xl font-bold tracking-wide text-strong">
             VOVPLAN
           </Link>
         </div>
 
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-sm">
-            <h1 className="font-display text-3xl font-bold tracking-tight text-slate-900">{title}</h1>
-            <p className="mt-2 text-slate-600">{subtitle}</p>
+            <h1 className="font-display text-3xl font-bold tracking-tight text-strong">{title}</h1>
+            <p className="mt-2 text-muted">{subtitle}</p>
 
             <div className="mt-8">{children}</div>
 
-            <div className="mt-6 text-center text-sm text-slate-600">{footer}</div>
+            <div className="mt-6 text-center text-sm text-muted">{footer}</div>
           </div>
         </div>
 
-        <p className="text-center lg:text-left text-xs text-slate-400">© 2026 VOVPLAN · vovplan.com</p>
+        <p className="text-center lg:text-left text-xs text-slate-400 dark:text-slate-500">© 2026 VOVPLAN · vovplan.com</p>
       </div>
 
       {/* ── Правая колонка: живое 3D (скрыта на мобильных) ── */}
@@ -71,9 +68,7 @@ export default function AuthLayout({
   );
 }
 
-/** Светлые классы полей — общие для входа и регистрации */
-export const authInput =
-  'w-full px-3.5 py-2.5 bg-white border border-slate-300 text-slate-900 placeholder-slate-400 rounded-xl ' +
-  'shadow-sm focus:outline-none focus:ring-2 focus:ring-vovplan-500/40 focus:border-vovplan-500 transition';
+/** Классы полей — общие для входа и регистрации (темозависимые) */
+export const authInput = 'input-field';
 
-export const authLabel = 'block text-sm font-medium text-slate-700 mb-1.5';
+export const authLabel = 'input-label';

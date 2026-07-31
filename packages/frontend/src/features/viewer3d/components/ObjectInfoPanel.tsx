@@ -197,14 +197,14 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
   return (
     <div className="glass w-72 max-w-[80vw] max-h-full overflow-y-auto overflow-x-hidden">
       {/* Header */}
-      <div className="px-4 py-3 bg-slate-800 flex items-center justify-between sticky top-0 z-10">
+      <div className="px-4 py-3 bg-slate-100 dark:bg-slate-800 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-2 min-w-0">
           {isLocked && <span className="text-amber-400 flex-shrink-0"><Lock size={14} /></span>}
-          <h3 className="text-white font-semibold text-sm truncate">{obj.name}</h3>
+          <h3 className="text-strong font-semibold text-sm truncate">{obj.name}</h3>
         </div>
         <button
           onClick={() => selectObject(null)}
-          className="text-slate-400 hover:text-white text-lg leading-none flex-shrink-0 ml-2"
+          className="text-muted hover:text-strong text-lg leading-none flex-shrink-0 ml-2"
         >×</button>
       </div>
 
@@ -227,18 +227,18 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
         <button
           onClick={handleToggleGroundSnap}
           disabled={!canEdit || isLocked}
-          className="w-full flex items-center gap-2 text-xs text-slate-300 disabled:opacity-50"
+          className="w-full flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 disabled:opacity-50"
           title="Низ объекта автоматически ложится на рельеф. Снимите — чтобы задавать высоту вручную."
         >
           <span className={`w-4 h-4 rounded flex items-center justify-center border ${
             obj.groundSnap !== false ? 'bg-vovplan-600 border-vovplan-500' : 'bg-white/5 border-white/20'
           }`}>
-            {obj.groundSnap !== false && <Check size={12} className="text-white" />}
+            {obj.groundSnap !== false && <Check size={12} className="text-strong" />}
           </span>
           Стоит на земле
         </button>
 
-        <label className="text-xs text-slate-400 block">Позиция (X, Y, Z)</label>
+        <label className="text-xs text-muted block">Позиция (X, Y, Z)</label>
         <div className="flex gap-1">
           <input type="number" step="0.1" value={posDraft[0].toFixed(1)}
             onChange={(e) => setPosDraft([parseFloat(e.target.value) || 0, posDraft[1], posDraft[2]])}
@@ -255,7 +255,7 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           />
         </div>
 
-        <label className="text-xs text-slate-400 block">Поворот (°)</label>
+        <label className="text-xs text-muted block">Поворот (°)</label>
         <div className="flex gap-1">
           <input type="number" step="1" value={Math.round(rotDraft[0] * 180 / Math.PI)}
             onChange={(e) => setRotDraft([parseFloat(e.target.value) || 0, rotDraft[1], rotDraft[2]])}
@@ -271,7 +271,7 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           />
         </div>
 
-        <label className="text-xs text-slate-400 block">Масштаб</label>
+        <label className="text-xs text-muted block">Масштаб</label>
         <input type="number" step="0.1" value={sclDraft.toFixed(2)}
           onChange={(e) => setSclDraft(parseFloat(e.target.value) || 1)}
           className={inputClass + " w-full"} disabled={isLocked || !canEdit}
@@ -290,23 +290,23 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
         {editMeta ? (
           <>
             <div>
-              <label className="text-xs text-slate-400 block mb-1">Описание</label>
+              <label className="text-xs text-muted block mb-1">Описание</label>
               <textarea
                 value={descDraft}
                 onChange={(e) => setDescDraft(e.target.value)}
                 rows={2}
                 placeholder="Информация об объекте..."
-                className="w-full px-2 py-1.5 text-sm bg-slate-800 text-slate-100 rounded-lg border border-slate-600 focus:ring-2 focus:ring-vovplan-500 resize-none"
+                className="w-full px-2 py-1.5 text-sm bg-slate-100 dark:bg-slate-800 text-slate-100 rounded-lg border border-slate-600 focus:ring-2 focus:ring-vovplan-500 resize-none"
               />
             </div>
             <div>
-              <label className="text-xs text-slate-400 block mb-1">URL документации</label>
+              <label className="text-xs text-muted block mb-1">URL документации</label>
               <input
                 type="url"
                 value={urlDraft}
                 onChange={(e) => setUrlDraft(e.target.value)}
                 placeholder="https://..."
-                className="w-full px-2 py-1.5 text-sm bg-slate-800 text-slate-100 rounded-lg border border-slate-600 focus:ring-2 focus:ring-vovplan-500"
+                className="w-full px-2 py-1.5 text-sm bg-slate-100 dark:bg-slate-800 text-slate-100 rounded-lg border border-slate-600 focus:ring-2 focus:ring-vovplan-500"
               />
             </div>
             <div className="flex gap-2">
@@ -314,7 +314,7 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
                 className="flex-1 px-3 py-1.5 bg-vovplan-600 text-white rounded-lg text-xs font-medium hover:bg-vovplan-700"
               >✓ Сохранить</button>
               <button onClick={() => { setEditMeta(false); setDescDraft(obj.description ?? ''); setUrlDraft(obj.docUrl ?? ''); }}
-                className="flex-1 px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs font-medium hover:bg-slate-600"
+                className="flex-1 px-3 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-medium hover:bg-slate-600"
               >Отмена</button>
             </div>
           </>
@@ -322,23 +322,23 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           <>
             <div>
               <div className="flex items-center justify-between">
-                <label className="text-xs text-slate-400">Описание</label>
+                <label className="text-xs text-muted">Описание</label>
                 {canEdit && !isHidden && (
                   <button onClick={() => setEditMeta(true)} className="text-vovplan-400 hover:text-vovplan-300" title="Редактировать"><Pencil size={13} /></button>
                 )}
               </div>
-              <p className="text-sm text-slate-200 mt-0.5">
-                {obj.description || <span className="text-slate-500 italic">Нет описания</span>}
+              <p className="text-sm text-slate-700 dark:text-slate-200 mt-0.5">
+                {obj.description || <span className="text-slate-500 dark:text-slate-400 italic">Нет описания</span>}
               </p>
             </div>
             <div>
-              <label className="text-xs text-slate-400">Документация</label>
+              <label className="text-xs text-muted">Документация</label>
               {obj.docUrl ? (
                 <a href={obj.docUrl} target="_blank" rel="noopener noreferrer"
                   className="text-sm text-vovplan-400 hover:text-vovplan-300 underline truncate block mt-0.5"
                 >{obj.docUrl}</a>
               ) : (
-                <p className="text-sm text-slate-500 italic mt-0.5">Нет ссылки</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 italic mt-0.5">Нет ссылки</p>
               )}
             </div>
           </>
@@ -379,15 +379,15 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
         {canEdit && !isHidden && !isLocked && isEditing && (
           <div className="flex gap-2">
             <button onClick={handleReset} disabled={!canEdit}
-              className="flex-1 px-2 py-2 bg-slate-700 text-slate-200 rounded-lg text-xs font-medium hover:bg-slate-600"
+              className="flex-1 px-2 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium hover:bg-slate-600"
               title="Вернуть исходные параметры"
             >↺ Исходные</button>
             <button onClick={undo} disabled={!canUndo}
-              className="flex-1 px-2 py-2 bg-slate-700 text-slate-200 rounded-lg text-xs font-medium hover:bg-slate-600 disabled:opacity-30"
+              className="flex-1 px-2 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium hover:bg-slate-600 disabled:opacity-30"
               title="Шаг назад (Ctrl+Z)"
             >↩</button>
             <button onClick={redo} disabled={!canRedo}
-              className="flex-1 px-2 py-2 bg-slate-700 text-slate-200 rounded-lg text-xs font-medium hover:bg-slate-600 disabled:opacity-30"
+              className="flex-1 px-2 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium hover:bg-slate-600 disabled:opacity-30"
               title="Шаг вперёд (Ctrl+Shift+Z)"
             >↪</button>
           </div>
@@ -397,7 +397,7 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
         {role === 'MASTER' && (
           isHidden ? (
             <button onClick={handleRestore}
-              className="w-full px-4 py-2 bg-slate-700 text-slate-200 rounded-lg text-sm font-medium hover:bg-slate-600"
+              className="w-full px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium hover:bg-slate-600"
             >↺ Восстановить</button>
           ) : (
             <button onClick={handleHide}
@@ -413,8 +413,8 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-2">
-      <span className="text-slate-400">{label}</span>
-      <span className="text-slate-200 text-right">{value}</span>
+      <span className="text-muted">{label}</span>
+      <span className="text-slate-700 dark:text-slate-200 text-right">{value}</span>
     </div>
   );
 }

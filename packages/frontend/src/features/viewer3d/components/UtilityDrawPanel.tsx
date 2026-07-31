@@ -65,7 +65,7 @@ export default function UtilityDrawPanel({ projectId }: { projectId: string }) {
     <div className="glass w-64 pointer-events-auto p-3.5">
       <div className="flex items-center justify-between mb-2.5">
         <span className="hud-title flex items-center gap-1.5"><Wrench size={14} /> Рисование сети</span>
-        <button onClick={close} className="text-slate-500 hover:text-white transition-colors" title="Закрыть режим"><X size={15} /></button>
+        <button onClick={close} className="text-slate-500 dark:text-slate-400 hover:text-strong transition-colors" title="Закрыть режим"><X size={15} /></button>
       </div>
 
       {/* Тип */}
@@ -75,7 +75,7 @@ export default function UtilityDrawPanel({ projectId }: { projectId: string }) {
             key={v}
             onClick={() => setDraftField({ type: v })}
             className={`px-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
-              draft.type === v ? 'text-white ring-2 ring-white/40' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+              draft.type === v ? 'text-strong ring-2 ring-white/40' : 'bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-white/10'
             }`}
             style={draft.type === v ? { backgroundColor: UTILITY_COLORS[v] } : {}}
           >
@@ -91,7 +91,7 @@ export default function UtilityDrawPanel({ projectId }: { projectId: string }) {
             key={loc}
             onClick={() => setDraftField({ location: loc })}
             className={`flex-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
-              draft.location === loc ? 'bg-vovplan-600 text-white' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+              draft.location === loc ? 'bg-vovplan-600 text-white' : 'bg-white/5 text-muted hover:bg-white/10'
             }`}
           >
             {loc === 'UNDERGROUND' ? 'Подземная' : 'Надземная'}
@@ -101,34 +101,34 @@ export default function UtilityDrawPanel({ projectId }: { projectId: string }) {
 
       {/* Глубина */}
       {draft.location === 'UNDERGROUND' && (
-        <label className="block mb-1.5 text-xs text-slate-400">
-          Глубина: <span className="text-slate-200">{draft.depth}м</span>
+        <label className="block mb-1.5 text-xs text-muted">
+          Глубина: <span className="text-slate-700 dark:text-slate-200">{draft.depth}м</span>
           <input type="range" min="0.5" max="5" step="0.5" value={draft.depth}
             onChange={(e) => setDraftField({ depth: parseFloat(e.target.value) })} className="w-full" />
         </label>
       )}
 
       {/* Диаметр */}
-      <label className="block mb-2 text-xs text-slate-400">
-        Диаметр: <span className="text-slate-200">{draft.diameter}мм</span>
+      <label className="block mb-2 text-xs text-muted">
+        Диаметр: <span className="text-slate-700 dark:text-slate-200">{draft.diameter}мм</span>
         <input type="range" min="50" max="1000" step="50" value={draft.diameter}
           onChange={(e) => setDraftField({ diameter: parseInt(e.target.value) })} className="w-full" />
       </label>
 
       {/* Инфо */}
-      <div className="text-xs text-slate-400 mb-2">
-        Точек: <span className="text-slate-200">{draft.points.length}</span> · Длина: <span className="text-slate-200">{totalLength.toFixed(1)}м</span>
+      <div className="text-xs text-muted mb-2">
+        Точек: <span className="text-slate-700 dark:text-slate-200">{draft.points.length}</span> · Длина: <span className="text-slate-700 dark:text-slate-200">{totalLength.toFixed(1)}м</span>
         {draft.points.length < 2 && <div className="text-[11px] text-vovplan-300 mt-0.5">Кликайте по сцене — минимум 2 точки</div>}
       </div>
 
       {/* Кнопки */}
       <div className="flex gap-1">
         <button onClick={undoDraftPoint} disabled={draft.points.length === 0}
-          className="flex-1 px-2 py-1.5 bg-white/5 text-slate-300 rounded-lg text-xs font-medium hover:bg-white/10 disabled:opacity-40 transition-colors">
+          className="flex-1 px-2 py-1.5 bg-white/5 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-medium hover:bg-white/10 disabled:opacity-40 transition-colors">
           <span className="flex items-center justify-center gap-1"><Undo2 size={13} /> Назад</span>
         </button>
         <button onClick={clearDraftPoints} disabled={draft.points.length === 0}
-          className="flex-1 px-2 py-1.5 bg-white/5 text-slate-300 rounded-lg text-xs font-medium hover:bg-white/10 disabled:opacity-40 transition-colors">
+          className="flex-1 px-2 py-1.5 bg-white/5 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-medium hover:bg-white/10 disabled:opacity-40 transition-colors">
           <span className="flex items-center justify-center gap-1"><Trash2 size={13} /> Очистить</span>
         </button>
         <button onClick={handleCreate} disabled={draft.points.length < 2}
