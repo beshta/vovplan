@@ -35,10 +35,28 @@ const OSM_URL = (z: number, x: number, y: number) =>
   `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
 
 const TILE = 256;
-/** Максимум тайлов на запрос (защита от гигантских областей) */
-// Лимит тайлов на запрос. Выше = детальнее для больших площадок (держат
-// более высокий зум), ценой большего времени/памяти при склейке.
-const MAX_TILES = 120;
+/**
+ * Лимиты тайлов на запрос (защита от гигантских областей).
+ * Выше лимит = детальнее для больших площадок (держат более высокий зум),
+ * ценой времени скачивания и памяти при склейке.
+ *
+ * У рельефа и текстуры бюджеты разные: terrarium выше z15 новых данных не
+ * даёт, а тайлы карты полезны до z19 — там прирост детализации реальный,
+ * поэтому текстуре бюджет заметно больше.
+ */
+const MAX_TILES_DEM = 120;
+const MAX_TILES_TEX = 420;
+/** Потолок зума источников: terrarium — z15, OSM/Esri — z19 */
+const MAX_ZOOM_DEM = 15;
+const MAX_ZOOM_TEX = 19;
+/** Предел стороны итоговой текстуры в пикселях (GPU + вес JPEG) */
+const MAX_TEX_PX = 8192;
+/**
+ * Одновременных загрузок тайлов. Держим низким осознанно: политика OSM
+ * разрешает не больше пары параллельных соединений, а импорт качает сотни
+ * тайлов. Кэш (.tilecache) делает повторный импорт быстрым и без сети.
+ */
+const TILE_CONCURRENCY = 4;
 
 export interface LatLng { lat: number; lng: number }
 
@@ -86,15 +104,19 @@ export function latToTileY(lat: number, z: number): number {
  */
 export function pickZoom(
   bbox: { west: number; east: number; north: number; south: number },
-  maxZoom = 15,
+  maxZoom = MAX_ZOOM_DEM,
+  maxTiles = MAX_TILES_DEM,
 ): number {
-  for (let z = Math.min(maxZoom, 15); z >= 1; z--) {
+  // Потолок задаёт вызывающий (у рельефа и текстуры он разный) — раньше здесь
+  // стоял жёсткий Math.min(maxZoom, 15), из-за чего текстура никогда не
+  // поднималась выше z15, сколько бы ни просили.
+  for (let z = maxZoom; z >= 1; z--) {
     const x0 = Math.floor(lngToTileX(bbox.west, z));
     const x1 = Math.floor(lngToTileX(bbox.east, z));
     const y0 = Math.floor(latToTileY(bbox.north, z));
     const y1 = Math.floor(latToTileY(bbox.south, z));
     const tiles = (x1 - x0 + 1) * (y1 - y0 + 1);
-    if (tiles <= MAX_TILES) return z;
+    if (tiles <= maxTiles) return z;
   }
   return 1;
 }
@@ -211,23 +233,31 @@ async function buildMosaic(
   const height = rows * TILE;
   const data = Buffer.alloc(width * height * 4);
 
-  const jobs: Promise<void>[] = [];
+  // Список тайлов + пул воркеров. Одним Promise.all нельзя: на высоких зумах
+  // это сотни одновременных запросов, а тайл-серверы (в частности OSM) такое
+  // считают злоупотреблением и блокируют IP.
+  const coords: [number, number][] = [];
   for (let ty = y0; ty <= y1; ty++) {
-    for (let tx = x0; tx <= x1; tx++) {
-      jobs.push(
-        fetchTileRgba(urlOf(z, tx, ty)).then((rgba) => {
-          const offX = (tx - x0) * TILE;
-          const offY = (ty - y0) * TILE;
-          for (let row = 0; row < TILE; row++) {
-            const src = row * TILE * 4;
-            const dst = ((offY + row) * width + offX) * 4;
-            rgba.copy(data, dst, src, src + TILE * 4);
-          }
-        }),
-      );
-    }
+    for (let tx = x0; tx <= x1; tx++) coords.push([tx, ty]);
   }
-  await Promise.all(jobs);
+
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      const i = next++;
+      if (i >= coords.length) return;
+      const [tx, ty] = coords[i];
+      const rgba = await fetchTileRgba(urlOf(z, tx, ty));
+      const offX = (tx - x0) * TILE;
+      const offY = (ty - y0) * TILE;
+      for (let row = 0; row < TILE; row++) {
+        const src = row * TILE * 4;
+        const dst = ((offY + row) * width + offX) * 4;
+        rgba.copy(data, dst, src, src + TILE * 4);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(TILE_CONCURRENCY, coords.length) }, worker));
 
   return { data, width, height, originX: x0, originY: y0, zoom: z };
 }
@@ -369,7 +399,7 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
   // ── DEM ──
   // Максимальная детальность: на z15 terrarium даёт ~2.7м/пиксель на 55°
   // широты — перепады набережная/река становятся различимы
-  const zDem = pickZoom(bbox, 15);
+  const zDem = pickZoom(bbox, MAX_ZOOM_DEM, MAX_TILES_DEM);
   const demMosaic = await buildMosaic(TERRARIUM_URL, bbox, zDem);
   const dem = cropMosaic(demMosaic, bbox);
   if (dem.width < 2 || dem.height < 2) {
@@ -411,9 +441,10 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
     .toBuffer();
 
   // ── Две текстуры: схема (OSM) по умолчанию + спутник (Esri) ──
-  // Зум чуть выше рельефа для чёткости, в пределах лимита тайлов.
-  const zTex = pickZoom(bbox, zDem + 2);
-  const zFinal = Math.max(zTex, zDem);
+  // Максимальная детальность карты: тянем до z19 (предел OSM/Esri) в рамках
+  // тайлового бюджета текстуры. Рельеф ограничен z15 (выше terrarium данных
+  // не добавляет), поэтому текстура почти всегда детальнее рельефа.
+  const zFinal = Math.max(pickZoom(bbox, MAX_ZOOM_TEX, MAX_TILES_TEX), zDem);
 
   // Маска полигона + JPEG. Затемняем всё вне периметра («вырез» участка).
   const maskAndEncode = async (urlOf: (z: number, x: number, y: number) => string): Promise<Buffer> => {
@@ -433,9 +464,14 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
         }
       }
     }
-    return sharp(tex.data, { raw: { width: tex.width, height: tex.height, channels: 4 } })
-      .jpeg({ quality: 88 })
-      .toBuffer();
+    let img = sharp(tex.data, { raw: { width: tex.width, height: tex.height, channels: 4 } });
+    // На высоких зумах вырезка может превысить лимит текстуры GPU — ужимаем
+    // только в этом случае, обычная детализация не страдает.
+    if (Math.max(tex.width, tex.height) > MAX_TEX_PX) {
+      img = img.resize(MAX_TEX_PX, MAX_TEX_PX, { fit: 'inside' });
+    }
+    // mozjpeg + q95: заметно чище на мелких деталях (подписи, разметка)
+    return img.jpeg({ quality: 95, mozjpeg: true, chromaSubsampling: '4:4:4' }).toBuffer();
   };
 
   // Схема — дефолт (чёткая, читаемая); спутник — по желанию через переключатель.

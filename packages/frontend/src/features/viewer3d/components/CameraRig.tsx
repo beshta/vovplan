@@ -112,7 +112,9 @@ export default function CameraRig() {
       minAzimuthAngle={-Infinity}
       maxAzimuthAngle={Infinity}
       minDistance={2}
-      maxDistance={sceneSize * 1.6}
+      // Отдалиться можно сильно дальше площадки: прежний предел 1.6× упирался
+      // в край сцены и мешал осмотреть её целиком
+      maxDistance={sceneSize * 8}
       enablePan
       screenSpacePanning={false}
       touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}

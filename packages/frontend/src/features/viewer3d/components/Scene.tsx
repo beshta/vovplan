@@ -52,7 +52,7 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
         toneMapping: ACESFilmicToneMapping,
         toneMappingExposure: 1.8,
       }}
-      camera={{ fov: 50, near: 0.1, far: Math.max(1000, sceneSize * 6), position: [50, 55, 50] }}
+      camera={{ fov: 50, near: 0.5, far: Math.max(100_000, sceneSize * 50), position: [50, 55, 50] }}
       onPointerMissed={() => {
         selectObject(null);
         useViewerStore.getState().selectUtility(null);
@@ -61,9 +61,9 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
     >
       {/* Sky background color */}
       <color attach="background" args={['#a8c8e8']} />
-      {/* Дымка только у горизонта: ближе 300 юнитов сцена полностью чистая
-          (при 120 туман съедал дальний край 200-юнитного ландшафта) */}
-      <fog attach="fog" args={['#a8c8e8', sceneSize * 1.5, sceneSize * 4.5]} />
+      {/* Тумана нет: он «съедал» дальний край площадки и читался как обрезка
+          сцены по дальности. Дальняя плоскость отодвинута — ландшафт виден
+          целиком с любой дистанции. */}
 
       <Suspense fallback={null}>
         <Lighting shadowMapSize={quality.shadowMapSize} sceneSize={sceneSize} />

@@ -1,6 +1,6 @@
 import { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
-import { useLoader } from '@react-three/fiber';
+import { useLoader, useThree } from '@react-three/fiber';
 import { fbm, ridged } from '../utils/noise';
 import { detectQuality } from '../utils/deviceProfiler';
 import { useViewerStore } from '../stores/viewerStore';
@@ -85,10 +85,18 @@ function RealTerrain({
   const surfaceUrl = basemap === 'satellite' && meta.satelliteUrl ? meta.satelliteUrl : meta.textureUrl;
   const surfaceTex = useLoader(THREE.TextureLoader, surfaceUrl);
 
+  const maxAnisotropy = useThree((s) => s.gl.capabilities.getMaxAnisotropy());
+
   useEffect(() => {
     surfaceTex.colorSpace = THREE.SRGBColorSpace;
-    surfaceTex.anisotropy = 8;
-  }, [surfaceTex]);
+    // Максимум, который тянет видеокарта (обычно 16): карта рассматривается
+    // под очень пологими углами, и именно анизотропия убирает «мыло» вдали.
+    surfaceTex.anisotropy = maxAnisotropy;
+    surfaceTex.minFilter = THREE.LinearMipmapLinearFilter;
+    surfaceTex.magFilter = THREE.LinearFilter;
+    surfaceTex.generateMipmaps = true;
+    surfaceTex.needsUpdate = true;
+  }, [surfaceTex, maxAnisotropy]);
 
   const { geometry } = useMemo(() => {
     // Масштаб 1:1 — один юнит сцены = один метр. Сетка, объекты,
