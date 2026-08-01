@@ -401,14 +401,74 @@ interface OverpassWay {
  * членов. Крупные водоёмы и лесные массивы в OSM размечены именно
  * отношениями, и без этого Москва-река не находилась вовсе.
  */
+/**
+ * Сборка колец мультиполигона из кусков.
+ *
+ * Внешняя граница отношения в OSM разрезана на несколько незамкнутых way, и
+ * каждый кусок по отдельности — не полигон, а обрывок границы. Замыкать их
+ * поодиночке нельзя: получаются огромные ложные многоугольники (на Москве-реке
+ * это «затапливало» половину площадки). Склеиваем куски по совпадающим концам,
+ * пока кольцо не замкнётся.
+ */
+export function stitchRings(parts: LatLng[][]): LatLng[][] {
+  const EPS = 1e-7;
+  const same = (a: LatLng, b: LatLng) => Math.abs(a.lat - b.lat) < EPS && Math.abs(a.lng - b.lng) < EPS;
+  const pool = parts.filter((p) => p.length >= 2).map((p) => [...p]);
+  const rings: LatLng[][] = [];
+
+  while (pool.length > 0) {
+    let ring = pool.shift()!;
+    let extended = true;
+    while (extended && !same(ring[0], ring[ring.length - 1])) {
+      extended = false;
+      for (let i = 0; i < pool.length; i++) {
+        const cand = pool[i];
+        const end = ring[ring.length - 1];
+        if (same(end, cand[0])) {
+          ring = ring.concat(cand.slice(1));
+        } else if (same(end, cand[cand.length - 1])) {
+          ring = ring.concat([...cand].reverse().slice(1));
+        } else if (same(ring[0], cand[cand.length - 1])) {
+          ring = cand.slice(0, -1).concat(ring);
+        } else if (same(ring[0], cand[0])) {
+          ring = [...cand].reverse().slice(0, -1).concat(ring);
+        } else {
+          continue;
+        }
+        pool.splice(i, 1);
+        extended = true;
+        break;
+      }
+    }
+    // Незамкнутые остатки отбрасываем: замкнуть обрывок — как раз и значит
+    // получить ложный полигон
+    if (ring.length >= 4 && same(ring[0], ring[ring.length - 1])) {
+      rings.push(ring.slice(0, -1));
+    }
+  }
+  return rings;
+}
+
+/** Контуры элемента: у way — свой, у relation — собранные внешние кольца */
 function ringsOf(el: OverpassWay): LatLng[][] {
   const toLL = (g: { lat: number; lon: number }[]) => g.map((p) => ({ lat: p.lat, lng: p.lon }));
+  // Замкнутый way в OSM повторяет первую точку последней. Дубль вершины даёт
+  // вырожденный треугольник, и экструзия здания на нём падала — снимаем.
+  const dropClosing = (r: LatLng[]): LatLng[] => {
+    if (r.length > 1) {
+      const a = r[0];
+      const b = r[r.length - 1];
+      if (Math.abs(a.lat - b.lat) < 1e-9 && Math.abs(a.lng - b.lng) < 1e-9) return r.slice(0, -1);
+    }
+    return r;
+  };
   if (el.type === 'relation') {
-    return (el.members ?? [])
-      .filter((m) => m.type === 'way' && m.role !== 'inner' && (m.geometry?.length ?? 0) >= 3)
+    const outer = (el.members ?? [])
+      .filter((m) => m.type === 'way' && m.role !== 'inner' && (m.geometry?.length ?? 0) >= 2)
       .map((m) => toLL(m.geometry!));
+    return stitchRings(outer);
   }
-  return el.geometry && el.geometry.length >= 2 ? [toLL(el.geometry)] : [];
+  return el.geometry && el.geometry.length >= 2 ? [dropClosing(toLL(el.geometry))] : [];
 }
 
 /**
@@ -464,15 +524,17 @@ function polyFilter(polygon: LatLng[]): string {
 /** Контуры зданий внутри периметра. Ошибки не валят импорт — вернём []. */
 async function fetchBuildings(polygon: LatLng[]): Promise<{ latlngs: LatLng[]; height: number }[]> {
   const f = polyFilter(polygon);
-  const query = `[out:json][timeout:90];way["building"]${f};out geom ${MAX_BUILDINGS};`;
+  // nwr, а не way: часть домов (особенно со двором-колодцем) размечена
+  // отношениями — из-за этого они не поднимались коробками вовсе
+  const query = `[out:json][timeout:90];nwr["building"]${f};out geom ${MAX_BUILDINGS};`;
   const elements = await overpassQuery(query, 'здания');
   const out: { latlngs: LatLng[]; height: number }[] = [];
   for (const el of elements ?? []) {
-    if (el.type !== 'way' || !el.geometry || el.geometry.length < 3) continue;
-    out.push({
-      latlngs: el.geometry.map((g) => ({ lat: g.lat, lng: g.lon })),
-      height: buildingHeight(el.tags),
-    });
+    const height = buildingHeight(el.tags);
+    for (const latlngs of ringsOf(el)) {
+      if (latlngs.length < 3) continue;
+      out.push({ latlngs, height });
+    }
   }
   return out;
 }

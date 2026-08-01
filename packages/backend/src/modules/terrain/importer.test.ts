@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { lngToTileX, latToTileY, pickZoom, pointInPolygon, buildingHeight, clipToRect, leafKind } from './importer.js';
+import { lngToTileX, latToTileY, pickZoom, pointInPolygon, buildingHeight, clipToRect, leafKind, stitchRings } from './importer.js';
 
 describe('terrain importer: тайловая математика', () => {
   it('lng/lat → тайловые координаты (Москва, z=10)', () => {
@@ -102,5 +102,43 @@ describe('terrain importer: тип листвы', () => {
     expect(leafKind({ leaf_type: 'broadleaved' })).toBe('broad');
     expect(leafKind({ wood: 'coniferous' })).toBe('needle');
     expect(leafKind(undefined)).toBe('mixed');
+  });
+});
+
+describe('terrain importer: сборка колец мультиполигона', () => {
+  const ll = (lat: number, lng: number) => ({ lat, lng });
+
+  it('куски границы склеиваются в замкнутое кольцо', () => {
+    // Квадрат, разрезанный на три незамкнутых куска — как в OSM
+    const parts = [
+      [ll(0, 0), ll(0, 10)],
+      [ll(0, 10), ll(10, 10)],
+      [ll(10, 10), ll(10, 0), ll(0, 0)],
+    ];
+    const rings = stitchRings(parts);
+    expect(rings).toHaveLength(1);
+    expect(rings[0]).toHaveLength(4); // замыкающая вершина снята
+  });
+
+  it('кусок с обратным направлением разворачивается', () => {
+    const parts = [
+      [ll(0, 0), ll(0, 10)],
+      [ll(10, 10), ll(0, 10)],        // задом наперёд
+      [ll(10, 10), ll(10, 0), ll(0, 0)],
+    ];
+    expect(stitchRings(parts)).toHaveLength(1);
+  });
+
+  it('незамкнутый обрывок отбрасывается, а не превращается в полигон', () => {
+    // Раньше такой обрывок замыкался сам на себя и «затапливал» карту
+    expect(stitchRings([[ll(0, 0), ll(0, 10), ll(5, 20)]])).toHaveLength(0);
+  });
+
+  it('несколько независимых колец собираются раздельно', () => {
+    const parts = [
+      [ll(0, 0), ll(0, 1), ll(1, 1), ll(1, 0), ll(0, 0)],
+      [ll(5, 5), ll(5, 6), ll(6, 6), ll(6, 5), ll(5, 5)],
+    ];
+    expect(stitchRings(parts)).toHaveLength(2);
   });
 });
