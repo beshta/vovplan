@@ -182,8 +182,9 @@ export default function NatureLayer({
       try {
         const geo = new THREE.ShapeGeometry(shape);
         geo.rotateX(-Math.PI / 2);
-        // +0.15 м — чтобы вода не «мерцала» с рельефом (z-fighting) в русле
-        geo.translate(0, w.level + 0.15, 0);
+        // Ровно на реальной отметке: русло вырезано импортёром ниже уровня
+        // воды, поэтому запас против z-fighting уже не нужен.
+        geo.translate(0, w.level, 0);
         parts.push(geo);
       } catch {
         /* редкие самопересекающиеся контуры OSM — пропускаем */

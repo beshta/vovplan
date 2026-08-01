@@ -128,7 +128,7 @@ export default function UtilityEditPanel({ projectId }: { projectId: string }) {
               key={loc}
               onClick={() => { setLocation(loc); applyLocal({ location: loc }); save({ location: loc }); }}
               className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                location === loc ? 'bg-vovplan-600 text-white' : 'bg-white/5 text-muted hover:bg-white/10'
+                location === loc ? 'bg-vovplan-600 text-white' : 'bg-slate-900/5 text-muted hover:bg-slate-900/10 dark:bg-white/5 dark:hover:bg-white/10'
               }`}
             >
               {loc === 'UNDERGROUND' ? 'Подземная' : 'Надземная'}

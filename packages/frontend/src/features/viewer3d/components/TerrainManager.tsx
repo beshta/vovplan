@@ -5,9 +5,12 @@ import DemTerrain from './DemTerrain';
  * Terrain manager — picks the right terrain renderer based on available data.
  *
  * Priority:
- * 1. heightmapUrl (uploaded DEM PNG) → DemTerrain with real elevation data
- * 2. procedural=true (no PNG yet) → DemTerrain with procedural fBm noise
- * 3. procedural=false (flat fallback) → old flat Terrain
+ * 1. heightmapUrl и процедурный выключен → DemTerrain с реальными высотами
+ * 2. procedural=true → DemTerrain с процедурным fBm-шумом
+ * 3. иначе → плоский Terrain
+ *
+ * Важно: процедурный режим лишь перекрывает загруженный рельеф, но не стирает
+ * его — выключив тумблер, пользователь возвращается к импортированной карте.
  *
  * The Scene component passes terrainUrl (from project API) + procedural flag
  * (from viewerStore) here.
@@ -34,7 +37,7 @@ export default function TerrainManager({
   xray = false,
 }: TerrainManagerProps) {
   // Mode 1: Real heightmap PNG from backend (+meta = реальный рельеф с текстурой)
-  if (heightmapUrl) {
+  if (heightmapUrl && !procedural) {
     return <DemTerrain size={size} heightmapUrl={heightmapUrl} meta={meta} xray={xray} />;
   }
 

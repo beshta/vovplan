@@ -91,7 +91,7 @@ export default function UtilityDrawPanel({ projectId }: { projectId: string }) {
             key={loc}
             onClick={() => setDraftField({ location: loc })}
             className={`flex-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
-              draft.location === loc ? 'bg-vovplan-600 text-white' : 'bg-white/5 text-muted hover:bg-white/10'
+              draft.location === loc ? 'bg-vovplan-600 text-white' : 'bg-slate-900/5 text-muted hover:bg-slate-900/10 dark:bg-white/5 dark:hover:bg-white/10'
             }`}
           >
             {loc === 'UNDERGROUND' ? 'Подземная' : 'Надземная'}

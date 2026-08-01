@@ -312,6 +312,12 @@ const OVERPASS_MIRRORS = [
 const MAX_BUILDINGS = 4000;
 /** Максимум природных контуров (лес + вода) на импорт */
 const MAX_NATURE = 1200;
+/**
+ * На сколько метров русло опускается ниже уровня воды. DEM слишком грубый,
+ * чтобы показать русло сам, — вырезаем его явно, иначе плоскость воды
+ * утапливается в рельеф и не видна.
+ */
+const WATER_CARVE_DEPTH = 2.5;
 const FLOOR_HEIGHT_M = 3;
 const DEFAULT_BUILDING_H = 9; // 3 этажа, если OSM не знает высоту
 
@@ -491,17 +497,78 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
   const sorted = Float32Array.from(elev).sort();
   const minElev = sorted[Math.floor(sorted.length * 0.005)];
   const maxElev = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.995))];
-  const range = Math.max(maxElev - minElev, 1);
   for (let i = 0; i < elev.length; i++) {
     if (elev[i] < minElev) elev[i] = minElev;
     else if (elev[i] > maxElev) elev[i] = maxElev;
+  }
+
+  const round1 = (v: number) => Math.round(v * 10) / 10;
+
+  // ── Природа (лес + вода) ──
+  // Грузим до кодирования heightmap: русло вырезается прямо в рельефе.
+  // Иначе вода не видна: terrarium на z15 даёт ~30 м на пиксель, и река
+  // шириной в десятки метров вообще не образует впадину — плоскость воды
+  // оказывалась на уровне земли или под ней.
+  const rawNature = await fetchNature(bbox);
+
+  /** lat/lng → пиксель вырезки DEM */
+  const demPx = (ll: LatLng): [number, number] => [
+    ((ll.lng - bbox.west) / (bbox.east - bbox.west)) * (dem.width - 1),
+    ((bbox.north - ll.lat) / (bbox.north - bbox.south)) * (dem.height - 1),
+  ];
+
+  // Уровень каждого водоёма + пиксельный контур для вырезания
+  const waterPx = rawNature.water
+    .map((w) => {
+      const poly = w.latlngs.map(demPx);
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (const [x, y] of poly) {
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+      }
+      // Высоты по контуру: нижний квартиль — устойчив и к выбросам DEM,
+      // и к берегам (среднее задирало бы уровень над руслом).
+      const samples = poly
+        .map(([x, y]) => {
+          const cx = Math.min(dem.width - 1, Math.max(0, Math.round(x)));
+          const cy = Math.min(dem.height - 1, Math.max(0, Math.round(y)));
+          return elev[cy * dem.width + cx];
+        })
+        .sort((a, b2) => a - b2);
+      if (samples.length === 0) return null;
+      const level = samples[Math.floor(samples.length * 0.25)];
+      return { latlngs: w.latlngs, poly, level, minX, maxX, minY, maxY };
+    })
+    .filter((w): w is NonNullable<typeof w> => w !== null);
+
+  // Русло опускаем ниже уровня воды — плоскость воды гарантированно видна.
+  // Если получается ниже minElev, сдвигаем minElev: все выходные отметки
+  // (вода, основания зданий, рельеф) считаются относительно него.
+  let minElevAdj = minElev;
+  for (const w of waterPx) {
+    minElevAdj = Math.min(minElevAdj, w.level - WATER_CARVE_DEPTH);
+  }
+  const rangeAdj = Math.max(maxElev - minElevAdj, 1);
+
+  // Вырезаем русло: внутри контура рельеф = уровень воды минус глубина
+  for (const w of waterPx) {
+    const x0 = Math.max(0, Math.floor(w.minX));
+    const x1 = Math.min(dem.width - 1, Math.ceil(w.maxX));
+    const y0 = Math.max(0, Math.floor(w.minY));
+    const y1 = Math.min(dem.height - 1, Math.ceil(w.maxY));
+    const bed = w.level - WATER_CARVE_DEPTH;
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        if (pointInPolygon(x + 0.5, y + 0.5, w.poly)) elev[y * dem.width + x] = bed;
+      }
+    }
   }
 
   // Heightmap PNG, 16-бит кодирование: R — старший байт, G — младший.
   // 8-бит квантование давало «терраски» ~0.4м; 16 бит — шаг ~1.4мм.
   const hmRaw = Buffer.alloc(dem.width * dem.height * 4);
   for (let i = 0; i < elev.length; i++) {
-    const v16 = Math.round(((elev[i] - minElev) / range) * 65535);
+    const v16 = Math.round(((elev[i] - minElevAdj) / rangeAdj) * 65535);
     hmRaw[i * 4] = v16 >> 8;
     hmRaw[i * 4 + 1] = v16 & 0xff;
     hmRaw[i * 4 + 2] = 0;
@@ -595,38 +662,32 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
     return {
       p: p.map(([x, z]) => [Math.round(x * 10) / 10, Math.round(z * 10) / 10] as [number, number]),
       h: b.height,
-      base: Math.round((base - minElev) * 10) / 10,
+      base: Math.round((base - minElevAdj) * 10) / 10,
     };
   });
 
-  // ── Природа (лес + вода) ──
-  const round1 = (v: number) => Math.round(v * 10) / 10;
+  // ── Природа в локальных координатах сцены ──
+  // Уровни воды уже посчитаны выше (по исходному DEM, до вырезания русла) —
+  // здесь только перевод контуров в метры относительно центра.
   const toLocalRounded = (ll: LatLng): [number, number] => {
     const [x, z] = toLocal(ll);
     return [round1(x), round1(z)];
   };
 
-  const rawNature = await fetchNature(bbox);
-
   const forests: ForestArea[] = rawNature.forests
     .map((f) => ({ p: f.latlngs.map(toLocalRounded), leaf: f.leaf }))
     .filter((f) => f.p.length >= 3);
 
-  const water: WaterArea[] = rawNature.water
-    .map((w) => {
-      const p = w.latlngs.map(toLocalRounded);
-      if (p.length < 3) return null;
-      // Поверхность воды горизонтальна. Берём нижний квартиль высот по контуру:
-      // минимум ловил бы одиночный выброс DEM, среднее — задирало бы уровень
-      // на берега, и вода «висела» бы над руслом.
-      const elevs = p.map(([x, z]) => elevAtLocal(x, z)).sort((a, b2) => a - b2);
-      const q = elevs[Math.floor(elevs.length * 0.25)];
-      return { p, level: round1(q - minElev) };
-    })
-    .filter((w): w is WaterArea => w !== null);
+  const water: WaterArea[] = waterPx
+    .map((w) => ({
+      p: w.latlngs.map(toLocalRounded),
+      level: round1(w.level - minElevAdj),
+    }))
+    .filter((w) => w.p.length >= 3);
 
   return {
-    heightmap, texture, satellite, widthM, heightM, minElev, maxElev,
+    heightmap, texture, satellite, widthM, heightM,
+    minElev: minElevAdj, maxElev,
     polygonLocal, origin, buildings, forests, water,
   };
 }

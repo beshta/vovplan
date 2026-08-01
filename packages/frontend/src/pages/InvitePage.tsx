@@ -87,7 +87,7 @@ export default function InvitePage() {
         <div className="glass p-8">
           <p className="text-sm text-slate-400">Вас приглашают в проект</p>
           <h2 className="text-xl font-semibold text-white tracking-tight mt-1">{info.projectName}</h2>
-          <span className="inline-block mt-2 text-xs px-2.5 py-1 bg-vovplan-600/20 text-vovplan-200 rounded-full font-medium">
+          <span className="inline-block mt-2 text-xs px-2.5 py-1 bg-vovplan-500/10 text-vovplan-700 dark:bg-vovplan-600/20 dark:text-vovplan-200 rounded-full font-medium">
             роль: {ROLE_LABELS[info.role as ProjectRole]}
           </span>
 

@@ -52,7 +52,7 @@ export default function SnapshotsPanel({ projectId, isMaster, canEdit }: { proje
       </h2>
       <p className="text-sm text-muted mb-5">Сохраняйте снимки состояния сцены для согласований и возвращайтесь к любой версии.</p>
 
-      {notice && <div className="mb-4 p-3 bg-vovplan-600/20 text-vovplan-200 rounded-xl text-sm">{notice}</div>}
+      {notice && <div className="mb-4 p-3 bg-vovplan-500/10 text-vovplan-700 dark:bg-vovplan-600/20 dark:text-vovplan-200 rounded-xl text-sm">{notice}</div>}
 
       {/* Сохранить текущую версию */}
       {canEdit && (

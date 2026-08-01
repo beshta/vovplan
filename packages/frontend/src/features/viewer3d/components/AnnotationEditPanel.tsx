@@ -121,7 +121,7 @@ export default function AnnotationEditPanel({ projectId }: { projectId: string }
         <button
           onClick={toggleHidden}
           className={`w-full px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            ann.resolved ? 'bg-vovplan-600/20 text-vovplan-200 ring-1 ring-vovplan-500/30' : 'bg-white/5 text-muted hover:bg-white/10'
+            ann.resolved ? 'bg-vovplan-500/10 text-vovplan-700 ring-1 ring-vovplan-500/25 dark:bg-vovplan-600/20 dark:text-vovplan-200 dark:ring-vovplan-500/30' : 'bg-white/5 text-muted hover:bg-white/10'
           }`}
         >
           <span className="flex items-center justify-center gap-1.5">

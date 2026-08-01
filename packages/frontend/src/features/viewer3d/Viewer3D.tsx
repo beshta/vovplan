@@ -154,6 +154,8 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
     if (!projectData) return;
     setTerrainUrl(projectData.terrainUrl ?? null);
     setTerrainMeta((projectData as any).terrainMeta ?? null);
+    // Есть загруженный рельеф — показываем именно его, а не процедурный шум
+    if (projectData.terrainUrl) useViewerStore.getState().setProceduralTerrain(false);
   }, [projectData, setTerrainUrl, setTerrainMeta]);
 
   // ── При появлении реального ландшафта — обзорный вид на всю площадку ──

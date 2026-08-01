@@ -121,7 +121,7 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
             {onPlaceObject && (
               <button
                 onClick={() => onPlaceObject(model)}
-                className="mt-2 w-full px-3 py-1.5 bg-vovplan-600/20 text-vovplan-200 rounded-lg text-xs font-medium hover:bg-vovplan-600/35 transition-colors"
+                className="mt-2 w-full px-3 py-1.5 bg-vovplan-500/10 text-vovplan-700 dark:bg-vovplan-600/20 dark:text-vovplan-200 rounded-lg text-xs font-medium hover:bg-vovplan-600/35 transition-colors"
               ><span className="flex items-center justify-center gap-1"><Plus size={13} /> Разместить на сцене</span></button>
             )}
           </div>

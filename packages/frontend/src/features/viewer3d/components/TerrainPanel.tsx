@@ -79,8 +79,8 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
           {/* Current mode badge */}
           <div className="flex items-center gap-2 text-xs">
             <span className="text-slate-500 dark:text-slate-400">Режим:</span>
-            <span className="px-2 py-0.5 rounded-full bg-white/10 text-slate-600 dark:text-slate-300 font-medium">
-              {terrainUrl ? 'DEM heightmap' : proceduralTerrain ? 'Процедурный' : 'Плоский'}
+            <span className="px-2 py-0.5 rounded-full bg-slate-900/5 text-slate-600 dark:bg-white/10 dark:text-slate-300 font-medium">
+              {proceduralTerrain ? 'Процедурный' : terrainUrl ? 'Карта (DEM)' : 'Плоский'}
             </span>
           </div>
 
@@ -92,7 +92,7 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
                 <button
                   onClick={() => setBasemap('scheme')}
                   className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    basemap === 'scheme' ? 'bg-vovplan-600 text-white' : 'bg-white/5 text-muted hover:bg-white/10'
+                    basemap === 'scheme' ? 'bg-vovplan-600 text-white' : 'bg-slate-900/5 text-muted hover:bg-slate-900/10 dark:bg-white/5 dark:hover:bg-white/10'
                   }`}
                 >
                   Схема
@@ -102,7 +102,7 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
                   disabled={!terrainMeta.satelliteUrl}
                   title={terrainMeta.satelliteUrl ? 'Спутниковый снимок' : 'Спутник недоступен для этой площадки'}
                   className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 ${
-                    basemap === 'satellite' ? 'bg-vovplan-600 text-white' : 'bg-white/5 text-muted hover:bg-white/10'
+                    basemap === 'satellite' ? 'bg-vovplan-600 text-white' : 'bg-slate-900/5 text-muted hover:bg-slate-900/10 dark:bg-white/5 dark:hover:bg-white/10'
                   }`}
                 >
                   Спутник
@@ -148,15 +148,15 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
           )}
 
           {/* Procedural toggle */}
+          {/* Процедурный рельеф лишь перекрывает загруженный, не стирая его:
+              раньше здесь был setTerrainUrl(null) и вернуться к импортированной
+              карте было уже нельзя. */}
           <button
-            onClick={() => {
-              setProceduralTerrain(!proceduralTerrain);
-              if (!proceduralTerrain) setTerrainUrl(null);
-            }}
+            onClick={() => setProceduralTerrain(!proceduralTerrain)}
             className={`w-full px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              proceduralTerrain && !terrainUrl
-                ? 'bg-vovplan-600/20 text-vovplan-200 ring-1 ring-vovplan-500/30'
-                : 'bg-white/5 text-muted hover:bg-white/10'
+              proceduralTerrain
+                ? 'bg-vovplan-500/10 text-vovplan-700 ring-1 ring-vovplan-500/25 dark:bg-vovplan-600/20 dark:text-vovplan-200 dark:ring-vovplan-500/30'
+                : 'bg-slate-900/5 text-muted hover:bg-slate-900/10 dark:bg-white/5 dark:hover:bg-white/10'
             }`}
           >
             <span className="flex items-center justify-center gap-1.5"><Dices size={14} /> Процедурный рельеф</span>
@@ -167,8 +167,8 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
             onClick={() => setWireframe(!wireframe)}
             className={`w-full px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               wireframe
-                ? 'bg-vovplan-600/20 text-vovplan-200 ring-1 ring-vovplan-500/30'
-                : 'bg-white/5 text-muted hover:bg-white/10'
+                ? 'bg-vovplan-500/10 text-vovplan-700 ring-1 ring-vovplan-500/25 dark:bg-vovplan-600/20 dark:text-vovplan-200 dark:ring-vovplan-500/30'
+                : 'bg-slate-900/5 text-muted hover:bg-slate-900/10 dark:bg-white/5 dark:hover:bg-white/10'
             }`}
           >
             <span className="flex items-center justify-center gap-1.5"><Grid3x3 size={14} /> Каркас</span>
@@ -180,8 +180,8 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
               onClick={() => setShowBuildings(!showBuildings)}
               className={`w-full px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 showBuildings
-                  ? 'bg-vovplan-600/20 text-vovplan-200 ring-1 ring-vovplan-500/30'
-                  : 'bg-white/5 text-muted hover:bg-white/10'
+                  ? 'bg-vovplan-500/10 text-vovplan-700 ring-1 ring-vovplan-500/25 dark:bg-vovplan-600/20 dark:text-vovplan-200 dark:ring-vovplan-500/30'
+                  : 'bg-slate-900/5 text-muted hover:bg-slate-900/10 dark:bg-white/5 dark:hover:bg-white/10'
               }`}
             >
               <span className="flex items-center justify-center gap-1.5">
@@ -196,8 +196,8 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
               onClick={() => setShowNature(!showNature)}
               className={`w-full px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 showNature
-                  ? 'bg-vovplan-600/20 text-vovplan-200 ring-1 ring-vovplan-500/30'
-                  : 'bg-white/5 text-muted hover:bg-white/10'
+                  ? 'bg-vovplan-500/10 text-vovplan-700 ring-1 ring-vovplan-500/25 dark:bg-vovplan-600/20 dark:text-vovplan-200 dark:ring-vovplan-500/30'
+                  : 'bg-slate-900/5 text-muted hover:bg-slate-900/10 dark:bg-white/5 dark:hover:bg-white/10'
               }`}
             >
               <span className="flex items-center justify-center gap-1.5">
