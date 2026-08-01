@@ -81,7 +81,14 @@ export interface ForestArea {
 /** Водоём: контур в локальных метрах + уровень воды над minElev, м */
 export interface WaterArea {
   p: [number, number][];
+  /** Уровень поверхности (для стоячей воды — единый на весь контур) */
   level: number;
+  /**
+   * Отметка на каждой вершине контура. Есть только у сегментов рек: река
+   * течёт под уклон, и одинаковый level на соседних сегментах давал видимые
+   * ступеньки на стыках. С отметками по вершинам полотно непрерывное.
+   */
+  levels?: number[];
 }
 
 export interface ImportResult {
@@ -138,6 +145,42 @@ export function pickZoom(
     if (tiles <= maxTiles) return z;
   }
   return 1;
+}
+
+/**
+ * Обрезка полигона прямоугольником (Сазерленд — Ходжман). Нужна воде:
+ * ринг Москвы-реки из OSM в разы больше площадки, и без обрезки полотно
+ * висело бы далеко за краем рельефа.
+ */
+export function clipToRect(
+  poly: [number, number][],
+  minX: number, maxX: number, minZ: number, maxZ: number,
+): [number, number][] {
+  const edges: [(p: [number, number]) => boolean, (a: [number, number], b: [number, number]) => [number, number]][] = [
+    [(p) => p[0] >= minX, (a, b) => [minX, a[1] + ((b[1] - a[1]) * (minX - a[0])) / (b[0] - a[0])]],
+    [(p) => p[0] <= maxX, (a, b) => [maxX, a[1] + ((b[1] - a[1]) * (maxX - a[0])) / (b[0] - a[0])]],
+    [(p) => p[1] >= minZ, (a, b) => [a[0] + ((b[0] - a[0]) * (minZ - a[1])) / (b[1] - a[1]), minZ]],
+    [(p) => p[1] <= maxZ, (a, b) => [a[0] + ((b[0] - a[0]) * (maxZ - a[1])) / (b[1] - a[1]), maxZ]],
+  ];
+  let out = poly;
+  for (const [inside, intersect] of edges) {
+    if (out.length === 0) return [];
+    const next: [number, number][] = [];
+    for (let i = 0; i < out.length; i++) {
+      const cur = out[i];
+      const prev = out[(i + out.length - 1) % out.length];
+      const curIn = inside(cur);
+      const prevIn = inside(prev);
+      if (curIn) {
+        if (!prevIn) next.push(intersect(prev, cur));
+        next.push(cur);
+      } else if (prevIn) {
+        next.push(intersect(prev, cur));
+      }
+    }
+    out = next;
+  }
+  return out;
 }
 
 // ── Point-in-polygon (ray casting) ──────────────
@@ -349,6 +392,23 @@ interface OverpassWay {
   type: string;
   tags?: Record<string, string>;
   geometry?: { lat: number; lon: number }[];
+  /** У relation (мультиполигон) геометрия лежит в членах */
+  members?: { type: string; role?: string; geometry?: { lat: number; lon: number }[] }[];
+}
+
+/**
+ * Контуры элемента: у way — своя геометрия, у relation — внешние кольца
+ * членов. Крупные водоёмы и лесные массивы в OSM размечены именно
+ * отношениями, и без этого Москва-река не находилась вовсе.
+ */
+function ringsOf(el: OverpassWay): LatLng[][] {
+  const toLL = (g: { lat: number; lon: number }[]) => g.map((p) => ({ lat: p.lat, lng: p.lon }));
+  if (el.type === 'relation') {
+    return (el.members ?? [])
+      .filter((m) => m.type === 'way' && m.role !== 'inner' && (m.geometry?.length ?? 0) >= 3)
+      .map((m) => toLL(m.geometry!));
+  }
+  return el.geometry && el.geometry.length >= 2 ? [toLL(el.geometry)] : [];
 }
 
 /**
@@ -391,11 +451,20 @@ async function overpassQuery(query: string, what: string): Promise<OverpassWay[]
   return null;
 }
 
-/** Контуры зданий bbox из Overpass. Ошибки не валят импорт — вернём []. */
-async function fetchBuildings(
-  bbox: { west: number; east: number; north: number; south: number },
-): Promise<{ latlngs: LatLng[]; height: number }[]> {
-  const query = `[out:json][timeout:25];way["building"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});out geom ${MAX_BUILDINGS};`;
+/**
+ * Фильтр Overpass по самому периметру, а не по bbox. В плотной застройке
+ * (центр города) запрос по bbox возвращал на порядок больше объектов и
+ * упирался в таймаут — здания не приходили вовсе.
+ */
+function polyFilter(polygon: LatLng[]): string {
+  const coords = polygon.map((p) => `${p.lat.toFixed(6)} ${p.lng.toFixed(6)}`).join(' ');
+  return `(poly:"${coords}")`;
+}
+
+/** Контуры зданий внутри периметра. Ошибки не валят импорт — вернём []. */
+async function fetchBuildings(polygon: LatLng[]): Promise<{ latlngs: LatLng[]; height: number }[]> {
+  const f = polyFilter(polygon);
+  const query = `[out:json][timeout:90];way["building"]${f};out geom ${MAX_BUILDINGS};`;
   const elements = await overpassQuery(query, 'здания');
   const out: { latlngs: LatLng[]; height: number }[] = [];
   for (const el of elements ?? []) {
@@ -426,22 +495,22 @@ export function leafKind(tags: Record<string, string> | undefined): LeafKind {
  * Лес — landuse=forest / natural=wood, вода — natural=water,
  * waterway=riverbank, landuse=reservoir (реки, озёра, пруды, болота, море).
  */
-async function fetchNature(
-  bbox: { west: number; east: number; north: number; south: number },
-): Promise<{
+async function fetchNature(polygon: LatLng[]): Promise<{
   forests: { latlngs: LatLng[]; leaf: LeafKind }[];
   water: { latlngs: LatLng[] }[];
   streams: { latlngs: LatLng[]; width: number }[];
 }> {
-  const b = `${bbox.south},${bbox.west},${bbox.north},${bbox.east}`;
+  const b = polyFilter(polygon);
+  // nwr = way + relation: крупные реки, озёра и лесные массивы размечены
+  // мультиполигонами-отношениями, только way их не находит
   const query =
-    `[out:json][timeout:30];(` +
-    `way["landuse"="forest"](${b});way["natural"="wood"](${b});` +
-    `way["natural"="water"](${b});way["natural"="wetland"](${b});` +
-    `way["waterway"="riverbank"](${b});way["landuse"="reservoir"](${b});` +
+    `[out:json][timeout:90];(` +
+    `nwr["landuse"="forest"]${b};nwr["natural"="wood"]${b};` +
+    `nwr["natural"="water"]${b};nwr["natural"="wetland"]${b};` +
+    `nwr["waterway"="riverbank"]${b};nwr["landuse"="reservoir"]${b};` +
     // Узкие реки и ручьи в OSM размечены линией, а не полигоном — без них
     // река шириной 5–10 м вообще не считалась водоёмом
-    `way["waterway"~"^(river|stream|canal|ditch|drain)$"](${b});` +
+    `way["waterway"~"^(river|stream|canal|ditch|drain)$"]${b};` +
     `);out geom ${MAX_NATURE};`;
 
   const elements = await overpassQuery(query, 'природные объекты');
@@ -450,26 +519,29 @@ async function fetchNature(
   const streams: { latlngs: LatLng[]; width: number }[] = [];
 
   for (const el of elements ?? []) {
-    if (el.type !== 'way' || !el.geometry) continue;
-    const latlngs = el.geometry.map((g) => ({ lat: g.lat, lng: g.lon }));
     const tags = el.tags ?? {};
 
+    // Линейный водоток (только way): осевая линия реки/ручья
     const wayType = tags.waterway ?? '';
-    if (WATERWAY_WIDTH[wayType] !== undefined) {
+    if (el.type === 'way' && WATERWAY_WIDTH[wayType] !== undefined) {
+      const latlngs = (el.geometry ?? []).map((g) => ({ lat: g.lat, lng: g.lon }));
       if (latlngs.length < 2) continue;
-      const tagged = parseFloat(tags.width ?? '');
+      const tagged = parseFloat(tags.width ?? tags.est_width ?? '');
       const width = Number.isFinite(tagged) && tagged > 0 ? tagged : WATERWAY_WIDTH[wayType];
       streams.push({ latlngs, width });
       continue;
     }
 
-    if (latlngs.length < 3) continue;
     const isWater =
       tags.natural === 'water' || tags.natural === 'wetland' ||
       tags.waterway === 'riverbank' || tags.landuse === 'reservoir';
-    if (isWater) water.push({ latlngs });
-    else if (tags.landuse === 'forest' || tags.natural === 'wood') {
-      forests.push({ latlngs, leaf: leafKind(tags) });
+    const isForest = tags.landuse === 'forest' || tags.natural === 'wood';
+    if (!isWater && !isForest) continue;
+
+    for (const latlngs of ringsOf(el)) {
+      if (latlngs.length < 3) continue;
+      if (isWater) water.push({ latlngs });
+      else forests.push({ latlngs, leaf: leafKind(tags) });
     }
   }
   return { forests, water, streams };
@@ -575,7 +647,7 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
   // Иначе вода не видна: terrarium на z15 даёт ~30 м на пиксель, и река
   // шириной в десятки метров вообще не образует впадину — плоскость воды
   // оказывалась на уровне земли или под ней.
-  const rawNature = await fetchNature(bbox);
+  const rawNature = await fetchNature(polygon);
 
   /** lat/lng → пиксель сетки рельефа */
   const gridPx = (ll: LatLng): [number, number] => [
@@ -602,24 +674,64 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
     return s[Math.floor(s.length * 0.25)];
   };
 
-  type WaterPatch = { latlngs: LatLng[]; poly: [number, number][]; level: number };
+  type WaterPatch = {
+    latlngs: LatLng[];
+    poly: [number, number][];
+    level: number;
+    /** Отметки по вершинам — только у сегментов рек (уклон вдоль русла) */
+    vertexLevels?: number[];
+  };
 
   // Водоёмы-полигоны (озёра, пруды, широкие реки, болота)
-  const waterPatches: WaterPatch[] = rawNature.water
+  const waterPolys: WaterPatch[] = rawNature.water
     .map((w) => {
       const poly = w.latlngs.map(gridPx);
       if (poly.length < 3) return null;
       return { latlngs: w.latlngs, poly, level: waterLevelOf(poly) };
     })
     .filter((w): w is WaterPatch => w !== null);
+  const waterPatches: WaterPatch[] = [...waterPolys];
 
-  // Водотоки-линии → полигоны. Каждый сегмент буферизуется на свою ширину и
-  // получает собственный уровень: река течёт под уклон, одна плоскость на всё
-  // русло висела бы над водой в низовье.
+  const toLL = (px: number, py: number): LatLng => ({
+    lng: bbox.west + (px / (gridW - 1)) * (bbox.east - bbox.west),
+    lat: bbox.north - (py / (gridH - 1)) * (bbox.north - bbox.south),
+  });
+
+  // Водотоки-линии → полотно по руслу.
   const mPerPxLng = widthM / Math.max(gridW - 1, 1);
   const mPerPxLat = heightM / Math.max(gridH - 1, 1);
+
   for (const s of rawNature.streams) {
     const pts = s.latlngs.map(gridPx);
+    if (pts.length < 2) continue;
+
+    // У широкой реки в OSM есть и полигон берегов, и осевая линия. Раньше
+    // линия буферизовалась поверх полигона фиксированной шириной — оттого все
+    // реки выглядели одинаково узкими. Осевую внутри полигона пропускаем:
+    // настоящую ширину задаёт сам полигон.
+    const covered = pts.filter(([x, y]) =>
+      waterPolys.some((w) => pointInPolygon(x, y, w.poly)),
+    ).length;
+    if (covered > pts.length * 0.6) continue;
+
+    // Сырые отметки по вершинам, затем сглаживание: DEM шумит, и от этого
+    // соседние сегменты прыгали по высоте — русло шло «лесенкой».
+    const raw = pts.map(([x, y]) => sampleGrid(x, y));
+    const smooth = raw.map((_, i) => {
+      let sum = 0, n = 0;
+      for (let k = Math.max(0, i - 2); k <= Math.min(raw.length - 1, i + 2); k++) {
+        sum += raw[k]; n++;
+      }
+      return sum / n;
+    });
+    // Река не течёт вверх: делаем профиль монотонным по направлению стока
+    const downhill = smooth[smooth.length - 1] <= smooth[0];
+    if (downhill) {
+      for (let i = 1; i < smooth.length; i++) smooth[i] = Math.min(smooth[i], smooth[i - 1]);
+    } else {
+      for (let i = smooth.length - 2; i >= 0; i--) smooth[i] = Math.min(smooth[i], smooth[i + 1]);
+    }
+
     for (let i = 0; i + 1 < pts.length; i++) {
       const [x1, y1] = pts[i];
       const [x2, y2] = pts[i + 1];
@@ -635,13 +747,16 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
         [x1 + nxPx, y1 + nyPx], [x2 + nxPx, y2 + nyPx],
         [x2 - nxPx, y2 - nyPx], [x1 - nxPx, y1 - nyPx],
       ];
-      // Уровень — по середине сегмента: концы могут попасть на берег
-      const level = sampleGrid((x1 + x2) / 2, (y1 + y2) / 2);
-      const toLL = (px: number, py: number): LatLng => ({
-        lng: bbox.west + (px / (gridW - 1)) * (bbox.east - bbox.west),
-        lat: bbox.north - (py / (gridH - 1)) * (bbox.north - bbox.south),
+      // Порядок отметок повторяет порядок вершин квада: смежные сегменты
+      // делят вершину и её высоту, поэтому полотно стыкуется без ступеньки.
+      const a = smooth[i];
+      const b2 = smooth[i + 1];
+      waterPatches.push({
+        latlngs: poly.map(([px, py]) => toLL(px, py)),
+        poly,
+        level: Math.min(a, b2),
+        vertexLevels: [a, b2, b2, a],
       });
-      waterPatches.push({ latlngs: poly.map(([px, py]) => toLL(px, py)), poly, level });
     }
   }
 
@@ -764,7 +879,7 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
     return pointInPolygon(cx / p.length, cz / p.length, polygonLocal);
   };
 
-  const rawBuildings = await fetchBuildings(bbox);
+  const rawBuildings = await fetchBuildings(polygon);
   const buildings: BuildingBox[] = rawBuildings
     .map((b) => {
       const p = b.latlngs.map(toLocal);
@@ -799,11 +914,21 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
     // целиком снаружи: рисовать по ним нечего.
     .filter((f) => f.p.length >= 3 && (insidePerimeter(f.p) || f.p.some(([x, z]) => pointInPolygon(x, z, polygonLocal))));
 
+  // Полигоны воды из OSM бывают в разы больше площадки (ринг реки тянется на
+  // километры) — обрезаем по краю рельефа, иначе полотно висит в пустоте.
+  // Сегменты рек уже внутри и режутся по вершинам, поэтому их не трогаем:
+  // обрезка сломала бы соответствие вершин их отметкам.
+  const halfW = widthM / 2;
+  const halfH = heightM / 2;
   const water: WaterArea[] = waterPatches
-    .map((w) => ({
-      p: w.latlngs.map(toLocalRounded),
-      level: round1(w.level - minElevAdj),
-    }))
+    .map((w) => {
+      const p = w.latlngs.map(toLocalRounded);
+      const level = round1(w.level - minElevAdj);
+      if (w.vertexLevels) {
+        return { p, level, levels: w.vertexLevels.map((v) => round1(v - minElevAdj)) };
+      }
+      return { p: clipToRect(p, -halfW, halfW, -halfH, halfH).map(([x, z]) => [round1(x), round1(z)] as [number, number]), level };
+    })
     .filter((w) => w.p.length >= 3);
 
   return {

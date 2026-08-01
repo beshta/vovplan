@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { lngToTileX, latToTileY, pickZoom, pointInPolygon, buildingHeight } from './importer.js';
+import { lngToTileX, latToTileY, pickZoom, pointInPolygon, buildingHeight, clipToRect, leafKind } from './importer.js';
 
 describe('terrain importer: тайловая математика', () => {
   it('lng/lat → тайловые координаты (Москва, z=10)', () => {
@@ -67,5 +67,40 @@ describe('terrain importer: высота зданий из OSM-тегов', () =
     expect(buildingHeight({ height: 'высокое' })).toBe(9);
     expect(buildingHeight({ height: '-5' })).toBe(9);
     expect(buildingHeight({ 'building:levels': '9999' })).toBe(9);
+  });
+});
+
+describe('terrain importer: обрезка воды по краю площадки', () => {
+  const rect = [-100, 100, -100, 100] as const;
+
+  it('полигон целиком внутри — не меняется', () => {
+    const p: [number, number][] = [[-10, -10], [10, -10], [10, 10], [-10, 10]];
+    expect(clipToRect(p, ...rect)).toEqual(p);
+  });
+
+  it('полигон больше площадки — обрезается по границам', () => {
+    const huge: [number, number][] = [[-500, -500], [500, -500], [500, 500], [-500, 500]];
+    const out = clipToRect(huge, ...rect);
+    expect(out.length).toBeGreaterThanOrEqual(4);
+    for (const [x, z] of out) {
+      expect(x).toBeGreaterThanOrEqual(-100);
+      expect(x).toBeLessThanOrEqual(100);
+      expect(z).toBeGreaterThanOrEqual(-100);
+      expect(z).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it('полигон целиком снаружи — пусто', () => {
+    const away: [number, number][] = [[200, 200], [300, 200], [300, 300], [200, 300]];
+    expect(clipToRect(away, ...rect)).toHaveLength(0);
+  });
+});
+
+describe('terrain importer: тип листвы', () => {
+  it('leaf_type определяет форму дерева', () => {
+    expect(leafKind({ leaf_type: 'needleleaved' })).toBe('needle');
+    expect(leafKind({ leaf_type: 'broadleaved' })).toBe('broad');
+    expect(leafKind({ wood: 'coniferous' })).toBe('needle');
+    expect(leafKind(undefined)).toBe('mixed');
   });
 });

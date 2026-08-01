@@ -15,7 +15,9 @@ interface ForestArea {
 }
 interface WaterArea {
   p: [number, number][];
-  level: number;         // уровень воды над minElev, м
+  level: number;          // уровень воды над minElev, м
+  /** Отметки по вершинам — у сегментов рек (уклон вдоль русла) */
+  levels?: number[];
 }
 
 /** Одно дерево на N м² леса. Реже — пусто, чаще — просадка FPS на больших массивах */
@@ -178,6 +180,26 @@ export default function NatureLayer({
     const parts: THREE.BufferGeometry[] = [];
     for (const w of nature.water) {
       if (w.p.length < 3) continue;
+
+      // Сегмент реки: четырёхугольник с отметкой на каждой вершине. Плоскость
+      // с единым level давала ступеньку на стыке с соседним сегментом —
+      // здесь смежные вершины совпадают по высоте, и полотно непрерывно.
+      if (w.levels && w.levels.length === w.p.length && w.p.length === 4) {
+        const geo = new THREE.BufferGeometry();
+        const v: number[] = [];
+        for (let i = 0; i < 4; i++) v.push(w.p[i][0], w.levels[i], w.p[i][1]);
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+        // UV обязателен: mergeGeometries требует одинаковый набор атрибутов,
+        // а ShapeGeometry (стоячая вода) его добавляет — иначе слияние
+        // вернёт null и вода пропадёт целиком
+        geo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2));
+        geo.setIndex([0, 2, 1, 0, 3, 2]);
+        geo.computeVertexNormals();
+        parts.push(geo);
+        continue;
+      }
+
+      // Стоячая вода — горизонтальный контур.
       // Shape в плоскости XY; y = -z, чтобы после rotateX(-90°) знак Z сошёлся
       const shape = new THREE.Shape();
       shape.moveTo(w.p[0][0], -w.p[0][1]);
