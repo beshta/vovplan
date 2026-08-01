@@ -120,6 +120,8 @@ export default function NatureLayer({
   }, [heightTex, meta]);
 
   // ── Деревья: детерминированная расстановка внутри контуров леса ──
+  const perimeter = meta.polygon && meta.polygon.length >= 3 ? meta.polygon : null;
+
   const trees = useMemo(() => {
     if (!nature || nature.forests.length === 0) return null;
     const cap = detectQuality().isMobile ? MAX_TREES_LOW : MAX_TREES;
@@ -152,6 +154,8 @@ export default function NatureLayer({
         const x = minX + rnd() * (maxX - minX);
         const z = minZ + rnd() * (maxZ - minZ);
         if (!pointInPolygon(x, z, f.p)) continue;
+        // Лес может выходить за рабочий периметр — деревья снаружи не нужны
+        if (perimeter && !pointInPolygon(x, z, perimeter)) continue;
 
         const h = 6 + rnd() * 7;                // высота дерева 6–13 м
         const y = elevAt(x, z);
@@ -166,7 +170,7 @@ export default function NatureLayer({
       }
     }
     return { needle, broad };
-  }, [nature, elevAt]);
+  }, [nature, elevAt, perimeter]);
 
   // ── Вода: горизонтальная плоскость по контуру на отметке уровня ──
   const waterGeometry = useMemo(() => {

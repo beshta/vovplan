@@ -53,7 +53,7 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
   const models = modelsData?.data ?? [];
 
   return (
-    <div className="w-72 bg-slate-950/95 backdrop-blur-xl border-l border-white/10 flex flex-col overflow-hidden text-slate-200">
+    <div className="w-72 bg-white/95 border-l border-slate-900/10 text-slate-700 dark:bg-slate-950/95 dark:border-white/10 dark:text-slate-200 backdrop-blur-xl flex flex-col overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3.5 border-b border-white/10">
         <h3 className="hud-title flex items-center gap-1.5"><Package size={14} /> Библиотека моделей</h3>
@@ -102,7 +102,7 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
         {models.map((model: Model3DPayload) => (
           <div
             key={model.id}
-            className="group bg-white/5 rounded-xl p-3 hover:bg-white/10 transition-colors"
+            className="group bg-slate-900/5 hover:bg-slate-900/10 dark:bg-white/5 dark:hover:bg-white/10 rounded-xl p-3 transition-colors"
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">

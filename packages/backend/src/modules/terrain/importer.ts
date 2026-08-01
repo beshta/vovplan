@@ -318,6 +318,18 @@ const MAX_NATURE = 1200;
  * утапливается в рельеф и не видна.
  */
 const WATER_CARVE_DEPTH = 2.5;
+/**
+ * Целевой размер пикселя рельефа, м. Тайлы terrarium дают ~2.7 м/пиксель на
+ * 55° широты — для реки шириной 5 м это меньше двух пикселей, русло выходит
+ * рваным. Перед вырезанием сетку интерполируем до этого шага.
+ */
+const TARGET_DEM_PX_M = 1.0;
+/** Потолок стороны сетки рельефа (память: сторона² × 4 байта) */
+const MAX_DEM_PX = 2048;
+/** Ширина водотока по типу, если нет тега width (м) */
+const WATERWAY_WIDTH: Record<string, number> = {
+  river: 12, canal: 8, stream: 3, ditch: 2, drain: 2,
+};
 const FLOOR_HEIGHT_M = 3;
 const DEFAULT_BUILDING_H = 9; // 3 этажа, если OSM не знает высоту
 
@@ -416,23 +428,42 @@ export function leafKind(tags: Record<string, string> | undefined): LeafKind {
  */
 async function fetchNature(
   bbox: { west: number; east: number; north: number; south: number },
-): Promise<{ forests: { latlngs: LatLng[]; leaf: LeafKind }[]; water: { latlngs: LatLng[] }[] }> {
+): Promise<{
+  forests: { latlngs: LatLng[]; leaf: LeafKind }[];
+  water: { latlngs: LatLng[] }[];
+  streams: { latlngs: LatLng[]; width: number }[];
+}> {
   const b = `${bbox.south},${bbox.west},${bbox.north},${bbox.east}`;
   const query =
     `[out:json][timeout:30];(` +
     `way["landuse"="forest"](${b});way["natural"="wood"](${b});` +
     `way["natural"="water"](${b});way["natural"="wetland"](${b});` +
     `way["waterway"="riverbank"](${b});way["landuse"="reservoir"](${b});` +
+    // Узкие реки и ручьи в OSM размечены линией, а не полигоном — без них
+    // река шириной 5–10 м вообще не считалась водоёмом
+    `way["waterway"~"^(river|stream|canal|ditch|drain)$"](${b});` +
     `);out geom ${MAX_NATURE};`;
 
   const elements = await overpassQuery(query, 'природные объекты');
   const forests: { latlngs: LatLng[]; leaf: LeafKind }[] = [];
   const water: { latlngs: LatLng[] }[] = [];
+  const streams: { latlngs: LatLng[]; width: number }[] = [];
 
   for (const el of elements ?? []) {
-    if (el.type !== 'way' || !el.geometry || el.geometry.length < 3) continue;
+    if (el.type !== 'way' || !el.geometry) continue;
     const latlngs = el.geometry.map((g) => ({ lat: g.lat, lng: g.lon }));
     const tags = el.tags ?? {};
+
+    const wayType = tags.waterway ?? '';
+    if (WATERWAY_WIDTH[wayType] !== undefined) {
+      if (latlngs.length < 2) continue;
+      const tagged = parseFloat(tags.width ?? '');
+      const width = Number.isFinite(tagged) && tagged > 0 ? tagged : WATERWAY_WIDTH[wayType];
+      streams.push({ latlngs, width });
+      continue;
+    }
+
+    if (latlngs.length < 3) continue;
     const isWater =
       tags.natural === 'water' || tags.natural === 'wetland' ||
       tags.waterway === 'riverbank' || tags.landuse === 'reservoir';
@@ -441,7 +472,7 @@ async function fetchNature(
       forests.push({ latlngs, leaf: leafKind(tags) });
     }
   }
-  return { forests, water };
+  return { forests, water, streams };
 }
 
 // ── Основной импорт ─────────────────────────────
@@ -504,6 +535,41 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
 
   const round1 = (v: number) => Math.round(v * 10) / 10;
 
+  // ── Повышение разрешения сетки под вырезание русел ──
+  // Тайлы DEM грубее, чем нужно узким рекам. Интерполируем сетку до
+  // TARGET_DEM_PX_M: сам рельеф детальнее не станет (данных больше нет),
+  // но вырезанное русло получается ровным, а не рваным на два пикселя.
+  const srcW = dem.width;
+  const srcH = dem.height;
+  const scale = Math.min(
+    Math.max(1, Math.ceil(Math.max(widthM / srcW, heightM / srcH) / TARGET_DEM_PX_M)),
+    Math.max(1, Math.floor(MAX_DEM_PX / Math.max(srcW, srcH))),
+  );
+  const gridW = srcW * scale;
+  const gridH = srcH * scale;
+
+  let grid: Float32Array;
+  if (scale === 1) {
+    grid = elev;
+  } else {
+    grid = new Float32Array(gridW * gridH);
+    for (let y = 0; y < gridH; y++) {
+      const v = (y / (gridH - 1)) * (srcH - 1);
+      const y0 = Math.floor(v);
+      const y1 = Math.min(y0 + 1, srcH - 1);
+      const fy = v - y0;
+      for (let x = 0; x < gridW; x++) {
+        const u = (x / (gridW - 1)) * (srcW - 1);
+        const x0 = Math.floor(u);
+        const x1 = Math.min(x0 + 1, srcW - 1);
+        const fx = u - x0;
+        const top = elev[y0 * srcW + x0] * (1 - fx) + elev[y0 * srcW + x1] * fx;
+        const bot = elev[y1 * srcW + x0] * (1 - fx) + elev[y1 * srcW + x1] * fx;
+        grid[y * gridW + x] = top * (1 - fy) + bot * fy;
+      }
+    }
+  }
+
   // ── Природа (лес + вода) ──
   // Грузим до кодирования heightmap: русло вырезается прямо в рельефе.
   // Иначе вода не видна: terrarium на z15 даёт ~30 м на пиксель, и река
@@ -511,70 +577,109 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
   // оказывалась на уровне земли или под ней.
   const rawNature = await fetchNature(bbox);
 
-  /** lat/lng → пиксель вырезки DEM */
-  const demPx = (ll: LatLng): [number, number] => [
-    ((ll.lng - bbox.west) / (bbox.east - bbox.west)) * (dem.width - 1),
-    ((bbox.north - ll.lat) / (bbox.north - bbox.south)) * (dem.height - 1),
+  /** lat/lng → пиксель сетки рельефа */
+  const gridPx = (ll: LatLng): [number, number] => [
+    ((ll.lng - bbox.west) / (bbox.east - bbox.west)) * (gridW - 1),
+    ((bbox.north - ll.lat) / (bbox.north - bbox.south)) * (gridH - 1),
   ];
+  const sampleGrid = (x: number, y: number): number => {
+    const cx = Math.min(gridW - 1, Math.max(0, Math.round(x)));
+    const cy = Math.min(gridH - 1, Math.max(0, Math.round(y)));
+    return grid[cy * gridW + cx];
+  };
+  const bboxOf = (poly: [number, number][]) => {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const [x, y] of poly) {
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
+    return { minX, maxX, minY, maxY };
+  };
+  /** Уровень воды: нижний квартиль высот по контуру — устойчив и к выбросам
+   *  DEM, и к берегам (среднее задирало бы уровень над руслом) */
+  const waterLevelOf = (poly: [number, number][]): number => {
+    const s = poly.map(([x, y]) => sampleGrid(x, y)).sort((a, b2) => a - b2);
+    return s[Math.floor(s.length * 0.25)];
+  };
 
-  // Уровень каждого водоёма + пиксельный контур для вырезания
-  const waterPx = rawNature.water
+  type WaterPatch = { latlngs: LatLng[]; poly: [number, number][]; level: number };
+
+  // Водоёмы-полигоны (озёра, пруды, широкие реки, болота)
+  const waterPatches: WaterPatch[] = rawNature.water
     .map((w) => {
-      const poly = w.latlngs.map(demPx);
-      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-      for (const [x, y] of poly) {
-        if (x < minX) minX = x; if (x > maxX) maxX = x;
-        if (y < minY) minY = y; if (y > maxY) maxY = y;
-      }
-      // Высоты по контуру: нижний квартиль — устойчив и к выбросам DEM,
-      // и к берегам (среднее задирало бы уровень над руслом).
-      const samples = poly
-        .map(([x, y]) => {
-          const cx = Math.min(dem.width - 1, Math.max(0, Math.round(x)));
-          const cy = Math.min(dem.height - 1, Math.max(0, Math.round(y)));
-          return elev[cy * dem.width + cx];
-        })
-        .sort((a, b2) => a - b2);
-      if (samples.length === 0) return null;
-      const level = samples[Math.floor(samples.length * 0.25)];
-      return { latlngs: w.latlngs, poly, level, minX, maxX, minY, maxY };
+      const poly = w.latlngs.map(gridPx);
+      if (poly.length < 3) return null;
+      return { latlngs: w.latlngs, poly, level: waterLevelOf(poly) };
     })
-    .filter((w): w is NonNullable<typeof w> => w !== null);
+    .filter((w): w is WaterPatch => w !== null);
+
+  // Водотоки-линии → полигоны. Каждый сегмент буферизуется на свою ширину и
+  // получает собственный уровень: река течёт под уклон, одна плоскость на всё
+  // русло висела бы над водой в низовье.
+  const mPerPxLng = widthM / Math.max(gridW - 1, 1);
+  const mPerPxLat = heightM / Math.max(gridH - 1, 1);
+  for (const s of rawNature.streams) {
+    const pts = s.latlngs.map(gridPx);
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const [x1, y1] = pts[i];
+      const [x2, y2] = pts[i + 1];
+      // Нормаль к сегменту в пикселях с учётом разного масштаба по осям
+      const dxM = (x2 - x1) * mPerPxLng;
+      const dyM = (y2 - y1) * mPerPxLat;
+      const lenM = Math.hypot(dxM, dyM);
+      if (lenM < 0.5) continue;
+      const halfW = Math.max(s.width, 2) / 2;
+      const nxPx = (-dyM / lenM) * halfW / mPerPxLng;
+      const nyPx = (dxM / lenM) * halfW / mPerPxLat;
+      const poly: [number, number][] = [
+        [x1 + nxPx, y1 + nyPx], [x2 + nxPx, y2 + nyPx],
+        [x2 - nxPx, y2 - nyPx], [x1 - nxPx, y1 - nyPx],
+      ];
+      // Уровень — по середине сегмента: концы могут попасть на берег
+      const level = sampleGrid((x1 + x2) / 2, (y1 + y2) / 2);
+      const toLL = (px: number, py: number): LatLng => ({
+        lng: bbox.west + (px / (gridW - 1)) * (bbox.east - bbox.west),
+        lat: bbox.north - (py / (gridH - 1)) * (bbox.north - bbox.south),
+      });
+      waterPatches.push({ latlngs: poly.map(([px, py]) => toLL(px, py)), poly, level });
+    }
+  }
 
   // Русло опускаем ниже уровня воды — плоскость воды гарантированно видна.
   // Если получается ниже minElev, сдвигаем minElev: все выходные отметки
   // (вода, основания зданий, рельеф) считаются относительно него.
   let minElevAdj = minElev;
-  for (const w of waterPx) {
+  for (const w of waterPatches) {
     minElevAdj = Math.min(minElevAdj, w.level - WATER_CARVE_DEPTH);
   }
   const rangeAdj = Math.max(maxElev - minElevAdj, 1);
 
   // Вырезаем русло: внутри контура рельеф = уровень воды минус глубина
-  for (const w of waterPx) {
-    const x0 = Math.max(0, Math.floor(w.minX));
-    const x1 = Math.min(dem.width - 1, Math.ceil(w.maxX));
-    const y0 = Math.max(0, Math.floor(w.minY));
-    const y1 = Math.min(dem.height - 1, Math.ceil(w.maxY));
+  for (const w of waterPatches) {
+    const { minX, maxX, minY, maxY } = bboxOf(w.poly);
+    const x0 = Math.max(0, Math.floor(minX));
+    const x1 = Math.min(gridW - 1, Math.ceil(maxX));
+    const y0 = Math.max(0, Math.floor(minY));
+    const y1 = Math.min(gridH - 1, Math.ceil(maxY));
     const bed = w.level - WATER_CARVE_DEPTH;
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
-        if (pointInPolygon(x + 0.5, y + 0.5, w.poly)) elev[y * dem.width + x] = bed;
+        if (pointInPolygon(x + 0.5, y + 0.5, w.poly)) grid[y * gridW + x] = bed;
       }
     }
   }
 
   // Heightmap PNG, 16-бит кодирование: R — старший байт, G — младший.
   // 8-бит квантование давало «терраски» ~0.4м; 16 бит — шаг ~1.4мм.
-  const hmRaw = Buffer.alloc(dem.width * dem.height * 4);
-  for (let i = 0; i < elev.length; i++) {
-    const v16 = Math.round(((elev[i] - minElevAdj) / rangeAdj) * 65535);
+  const hmRaw = Buffer.alloc(gridW * gridH * 4);
+  for (let i = 0; i < grid.length; i++) {
+    const v16 = Math.round(((grid[i] - minElevAdj) / rangeAdj) * 65535);
     hmRaw[i * 4] = v16 >> 8;
     hmRaw[i * 4 + 1] = v16 & 0xff;
     hmRaw[i * 4 + 2] = 0;
     hmRaw[i * 4 + 3] = 255;
   }
-  const heightmap = await sharp(hmRaw, { raw: { width: dem.width, height: dem.height, channels: 4 } })
+  const heightmap = await sharp(hmRaw, { raw: { width: gridW, height: gridH, channels: 4 } })
     .png()
     .toBuffer();
 
@@ -643,28 +748,41 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
   // ── Здания (OSM) ──
   // Сэмпл высоты рельефа в точке (локальные метры) — для посадки коробок
   const elevAtLocal = (x: number, z: number): number => {
-    const px = Math.round(((x + widthM / 2) / widthM) * (dem.width - 1));
-    const py = Math.round(((z + heightM / 2) / heightM) * (dem.height - 1));
-    const cx = Math.min(Math.max(px, 0), dem.width - 1);
-    const cy = Math.min(Math.max(py, 0), dem.height - 1);
-    return elev[cy * dem.width + cx];
+    // По итоговой сетке (с вырезанными руслами) — это та поверхность,
+    // которая реально рендерится, на неё и садятся здания
+    const px = Math.round(((x + widthM / 2) / widthM) * (gridW - 1));
+    const py = Math.round(((z + heightM / 2) / heightM) * (gridH - 1));
+    const cx = Math.min(Math.max(px, 0), gridW - 1);
+    const cy = Math.min(Math.max(py, 0), gridH - 1);
+    return grid[cy * gridW + cx];
+  };
+
+  /** Центр контура внутри рабочего периметра? Всё вне него не грузим в сцену. */
+  const insidePerimeter = (p: [number, number][]): boolean => {
+    let cx = 0, cz = 0;
+    for (const [x, z] of p) { cx += x; cz += z; }
+    return pointInPolygon(cx / p.length, cz / p.length, polygonLocal);
   };
 
   const rawBuildings = await fetchBuildings(bbox);
-  const buildings: BuildingBox[] = rawBuildings.map((b) => {
-    const p = b.latlngs.map(toLocal);
-    // Основание — минимум рельефа по вершинам контура (чтобы не висело на склоне)
-    let base = Infinity;
-    for (const [x, z] of p) {
-      const e = elevAtLocal(x, z);
-      if (e < base) base = e;
-    }
-    return {
-      p: p.map(([x, z]) => [Math.round(x * 10) / 10, Math.round(z * 10) / 10] as [number, number]),
-      h: b.height,
-      base: Math.round((base - minElevAdj) * 10) / 10,
-    };
-  });
+  const buildings: BuildingBox[] = rawBuildings
+    .map((b) => {
+      const p = b.latlngs.map(toLocal);
+      // Основание — минимум рельефа по вершинам контура (чтобы не висело на склоне)
+      let base = Infinity;
+      for (const [x, z] of p) {
+        const e = elevAtLocal(x, z);
+        if (e < base) base = e;
+      }
+      return {
+        p: p.map(([x, z]) => [Math.round(x * 10) / 10, Math.round(z * 10) / 10] as [number, number]),
+        h: b.height,
+        base: Math.round((base - minElevAdj) * 10) / 10,
+      };
+    })
+    // bbox шире периметра (плюс паддинг), поэтому Overpass отдаёт застройку и
+    // за границей участка — она только ест ресурсы и мешает читать сцену
+    .filter((b) => insidePerimeter(b.p));
 
   // ── Природа в локальных координатах сцены ──
   // Уровни воды уже посчитаны выше (по исходному DEM, до вырезания русла) —
@@ -676,9 +794,12 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
 
   const forests: ForestArea[] = rawNature.forests
     .map((f) => ({ p: f.latlngs.map(toLocalRounded), leaf: f.leaf }))
-    .filter((f) => f.p.length >= 3);
+    // Массив, пересекающий границу, оставляем целиком — деревья отсекает по
+    // периметру уже фронт, точно по контуру. Отбрасываем только те, что
+    // целиком снаружи: рисовать по ним нечего.
+    .filter((f) => f.p.length >= 3 && (insidePerimeter(f.p) || f.p.some(([x, z]) => pointInPolygon(x, z, polygonLocal))));
 
-  const water: WaterArea[] = waterPx
+  const water: WaterArea[] = waterPatches
     .map((w) => ({
       p: w.latlngs.map(toLocalRounded),
       level: round1(w.level - minElevAdj),
