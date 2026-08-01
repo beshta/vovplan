@@ -69,6 +69,21 @@ export interface BuildingBox {
   base: number;
 }
 
+/** Тип листвы: хвойный / лиственный / смешанный — форма схематичного дерева */
+export type LeafKind = 'needle' | 'broad' | 'mixed';
+
+/** Массив леса: контур в локальных метрах + тип листвы */
+export interface ForestArea {
+  p: [number, number][];
+  leaf: LeafKind;
+}
+
+/** Водоём: контур в локальных метрах + уровень воды над minElev, м */
+export interface WaterArea {
+  p: [number, number][];
+  level: number;
+}
+
 export interface ImportResult {
   heightmap: Buffer;       // PNG, высота 16 бит: R — старший байт, G — младший
   texture: Buffer;         // JPEG схема OSM (дефолт, затемнение вне полигона)
@@ -82,6 +97,10 @@ export interface ImportResult {
   origin: LatLng;          // центр bbox
   /** Здания из OSM (может быть пустым при недоступности Overpass) */
   buildings: BuildingBox[];
+  /** Массивы леса из OSM — фронт расставляет по ним схематичные деревья */
+  forests: ForestArea[];
+  /** Водоёмы из OSM (реки, озёра, пруды, болота) с уровнем воды */
+  water: WaterArea[];
 }
 
 // ── Slippy-tile математика ──────────────────────
@@ -291,6 +310,8 @@ const OVERPASS_MIRRORS = [
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ];
 const MAX_BUILDINGS = 4000;
+/** Максимум природных контуров (лес + вода) на импорт */
+const MAX_NATURE = 1200;
 const FLOOR_HEIGHT_M = 3;
 const DEFAULT_BUILDING_H = 9; // 3 этажа, если OSM не знает высоту
 
@@ -312,31 +333,17 @@ interface OverpassWay {
   geometry?: { lat: number; lon: number }[];
 }
 
-/** Контуры зданий bbox из Overpass. Ошибки не валят импорт — вернём []. */
-async function fetchBuildings(
-  bbox: { west: number; east: number; north: number; south: number },
-): Promise<{ latlngs: LatLng[]; height: number }[]> {
-  const query = `[out:json][timeout:25];way["building"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});out geom ${MAX_BUILDINGS};`;
-
-  const parseElements = (elements: OverpassWay[] | undefined) => {
-    const out: { latlngs: LatLng[]; height: number }[] = [];
-    for (const el of elements ?? []) {
-      if (el.type !== 'way' || !el.geometry || el.geometry.length < 3) continue;
-      out.push({
-        latlngs: el.geometry.map((g) => ({ lat: g.lat, lng: g.lon })),
-        height: buildingHeight(el.tags),
-      });
-    }
-    return out;
-  };
-
-  // Кэш ответа Overpass по хэшу запроса (bbox) — повторный импорт не зависит
-  // от перегрузки Overpass; здания в OSM меняются редко.
+/**
+ * Запрос к Overpass с кэшем и перебором зеркал. Ошибки не валят импорт —
+ * вернём null, вызывающий решает, что делать без данных.
+ */
+async function overpassQuery(query: string, what: string): Promise<OverpassWay[] | null> {
+  // Кэш ответа по хэшу запроса — повторный импорт не зависит от перегрузки
+  // Overpass; здания и природа в OSM меняются редко.
   const cf = cachePath('overpass:' + query);
   if (existsSync(cf)) {
     try {
-      const cached = JSON.parse(readFileSync(cf, 'utf-8')) as { elements?: OverpassWay[] };
-      return parseElements(cached.elements);
+      return (JSON.parse(readFileSync(cf, 'utf-8')) as { elements?: OverpassWay[] }).elements ?? [];
     } catch { /* повреждён — запрашиваем заново */ }
   }
 
@@ -357,14 +364,78 @@ async function fetchBuildings(
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = (await res.json()) as { elements?: OverpassWay[] };
       try { writeFileSync(cf, JSON.stringify({ elements: json.elements ?? [] })); } catch { /* кэш не критичен */ }
-      return parseElements(json.elements);
+      return json.elements ?? [];
     } catch (err) {
       console.warn(`[terrain] Overpass ${host.split('/')[2]} недоступен:`, (err as Error).message);
     }
   }
-  // Все зеркала перегружены — площадка без зданий лучше, чем ошибка импорта
-  console.warn('[terrain] здания не загружены (все зеркала Overpass недоступны)');
-  return [];
+  console.warn(`[terrain] ${what} не загружены (все зеркала Overpass недоступны)`);
+  return null;
+}
+
+/** Контуры зданий bbox из Overpass. Ошибки не валят импорт — вернём []. */
+async function fetchBuildings(
+  bbox: { west: number; east: number; north: number; south: number },
+): Promise<{ latlngs: LatLng[]; height: number }[]> {
+  const query = `[out:json][timeout:25];way["building"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});out geom ${MAX_BUILDINGS};`;
+  const elements = await overpassQuery(query, 'здания');
+  const out: { latlngs: LatLng[]; height: number }[] = [];
+  for (const el of elements ?? []) {
+    if (el.type !== 'way' || !el.geometry || el.geometry.length < 3) continue;
+    out.push({
+      latlngs: el.geometry.map((g) => ({ lat: g.lat, lng: g.lon })),
+      height: buildingHeight(el.tags),
+    });
+  }
+  return out;
+}
+
+/** Тип листвы леса по тегам OSM — определяет форму схематичного дерева */
+export function leafKind(tags: Record<string, string> | undefined): LeafKind {
+  const t = tags?.leaf_type ?? '';
+  if (t === 'needleleaved') return 'needle';
+  if (t === 'broadleaved') return 'broad';
+  if (t === 'mixed') return 'mixed';
+  // Явного тега нет — пробуем по типу растительности
+  const wood = tags?.wood ?? '';
+  if (wood === 'coniferous') return 'needle';
+  if (wood === 'deciduous') return 'broad';
+  return 'mixed';
+}
+
+/**
+ * Природные объекты bbox: массивы леса и водоёмы.
+ * Лес — landuse=forest / natural=wood, вода — natural=water,
+ * waterway=riverbank, landuse=reservoir (реки, озёра, пруды, болота, море).
+ */
+async function fetchNature(
+  bbox: { west: number; east: number; north: number; south: number },
+): Promise<{ forests: { latlngs: LatLng[]; leaf: LeafKind }[]; water: { latlngs: LatLng[] }[] }> {
+  const b = `${bbox.south},${bbox.west},${bbox.north},${bbox.east}`;
+  const query =
+    `[out:json][timeout:30];(` +
+    `way["landuse"="forest"](${b});way["natural"="wood"](${b});` +
+    `way["natural"="water"](${b});way["natural"="wetland"](${b});` +
+    `way["waterway"="riverbank"](${b});way["landuse"="reservoir"](${b});` +
+    `);out geom ${MAX_NATURE};`;
+
+  const elements = await overpassQuery(query, 'природные объекты');
+  const forests: { latlngs: LatLng[]; leaf: LeafKind }[] = [];
+  const water: { latlngs: LatLng[] }[] = [];
+
+  for (const el of elements ?? []) {
+    if (el.type !== 'way' || !el.geometry || el.geometry.length < 3) continue;
+    const latlngs = el.geometry.map((g) => ({ lat: g.lat, lng: g.lon }));
+    const tags = el.tags ?? {};
+    const isWater =
+      tags.natural === 'water' || tags.natural === 'wetland' ||
+      tags.waterway === 'riverbank' || tags.landuse === 'reservoir';
+    if (isWater) water.push({ latlngs });
+    else if (tags.landuse === 'forest' || tags.natural === 'wood') {
+      forests.push({ latlngs, leaf: leafKind(tags) });
+    }
+  }
+  return { forests, water };
 }
 
 // ── Основной импорт ─────────────────────────────
@@ -446,8 +517,13 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
   // не добавляет), поэтому текстура почти всегда детальнее рельефа.
   const zFinal = Math.max(pickZoom(bbox, MAX_ZOOM_TEX, MAX_TILES_TEX), zDem);
 
-  // Маска полигона + JPEG. Затемняем всё вне периметра («вырез» участка).
-  const maskAndEncode = async (urlOf: (z: number, x: number, y: number) => string): Promise<Buffer> => {
+  // Маска полигона + JPEG. Внутри периметра карта не осветляется — только
+  // затемняется всё снаружи, чтобы участок читался за счёт контраста, а не
+  // подсветки (иначе схема выглядит засвеченной).
+  const maskAndEncode = async (
+    urlOf: (z: number, x: number, y: number) => string,
+    boostContrast = false,
+  ): Promise<Buffer> => {
     const mosaic = await buildMosaic(urlOf, bbox, zFinal);
     const tex = cropMosaic(mosaic, bbox);
     const polyPx: [number, number][] = polygon.map((p) => [
@@ -458,13 +534,19 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
       for (let x = 0; x < tex.width; x++) {
         if (!pointInPolygon(x + 0.5, y + 0.5, polyPx)) {
           const i = (y * tex.width + x) * 4;
-          tex.data[i] = Math.round(tex.data[i] * 0.35);
-          tex.data[i + 1] = Math.round(tex.data[i + 1] * 0.35);
-          tex.data[i + 2] = Math.round(tex.data[i + 2] * 0.35);
+          tex.data[i] = Math.round(tex.data[i] * 0.3);
+          tex.data[i + 1] = Math.round(tex.data[i + 1] * 0.3);
+          tex.data[i + 2] = Math.round(tex.data[i + 2] * 0.3);
         }
       }
     }
     let img = sharp(tex.data, { raw: { width: tex.width, height: tex.height, channels: 4 } });
+    if (boostContrast) {
+      // Тайлы OSM намеренно пастельные — под освещением сцены они сливаются.
+      // Тянем контраст вокруг средней точки и добавляем насыщенности, чтобы
+      // дороги, вода и застройка различались. Спутнику это не нужно.
+      img = img.linear(1.35, -0.35 * 128).modulate({ saturation: 1.5 });
+    }
     // На высоких зумах вырезка может превысить лимит текстуры GPU — ужимаем
     // только в этом случае, обычная детализация не страдает.
     if (Math.max(tex.width, tex.height) > MAX_TEX_PX) {
@@ -476,7 +558,7 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
 
   // Схема — дефолт (чёткая, читаемая); спутник — по желанию через переключатель.
   // Если Esri недоступен, спутник не срабатывает — схема всё равно есть.
-  const texture = await maskAndEncode(OSM_URL);
+  const texture = await maskAndEncode(OSM_URL, true);
   let satellite: Buffer | null = null;
   try {
     satellite = await maskAndEncode(ESRI_URL);
@@ -517,5 +599,34 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
     };
   });
 
-  return { heightmap, texture, satellite, widthM, heightM, minElev, maxElev, polygonLocal, origin, buildings };
+  // ── Природа (лес + вода) ──
+  const round1 = (v: number) => Math.round(v * 10) / 10;
+  const toLocalRounded = (ll: LatLng): [number, number] => {
+    const [x, z] = toLocal(ll);
+    return [round1(x), round1(z)];
+  };
+
+  const rawNature = await fetchNature(bbox);
+
+  const forests: ForestArea[] = rawNature.forests
+    .map((f) => ({ p: f.latlngs.map(toLocalRounded), leaf: f.leaf }))
+    .filter((f) => f.p.length >= 3);
+
+  const water: WaterArea[] = rawNature.water
+    .map((w) => {
+      const p = w.latlngs.map(toLocalRounded);
+      if (p.length < 3) return null;
+      // Поверхность воды горизонтальна. Берём нижний квартиль высот по контуру:
+      // минимум ловил бы одиночный выброс DEM, среднее — задирало бы уровень
+      // на берега, и вода «висела» бы над руслом.
+      const elevs = p.map(([x, z]) => elevAtLocal(x, z)).sort((a, b2) => a - b2);
+      const q = elevs[Math.floor(elevs.length * 0.25)];
+      return { p, level: round1(q - minElev) };
+    })
+    .filter((w): w is WaterArea => w !== null);
+
+  return {
+    heightmap, texture, satellite, widthM, heightM, minElev, maxElev,
+    polygonLocal, origin, buildings, forests, water,
+  };
 }

@@ -155,10 +155,15 @@ export default async function terrainRoutes(fastify: FastifyInstance) {
     const texName = `tex-${id}.jpg`;
     const satName = `sat-${id}.jpg`;
     const bldName = `buildings-${id}.json`;
+    const natName = `nature-${id}.json`;
     writeFileSync(join(projectDir, hmName), result.heightmap);
     writeFileSync(join(projectDir, texName), result.texture);
     if (result.satellite) writeFileSync(join(projectDir, satName), result.satellite);
     writeFileSync(join(projectDir, bldName), JSON.stringify({ buildings: result.buildings }));
+    writeFileSync(
+      join(projectDir, natName),
+      JSON.stringify({ forests: result.forests, water: result.water }),
+    );
 
     const terrainUrl = `/uploads/${projectId}/terrain/${hmName}`;
     const terrainMeta = {
@@ -166,6 +171,9 @@ export default async function terrainRoutes(fastify: FastifyInstance) {
       satelliteUrl: result.satellite ? `/uploads/${projectId}/terrain/${satName}` : null, // спутник Esri
       buildingsUrl: `/uploads/${projectId}/terrain/${bldName}`,
       buildingCount: result.buildings.length,
+      natureUrl: `/uploads/${projectId}/terrain/${natName}`,
+      forestCount: result.forests.length,
+      waterCount: result.water.length,
       encoding: 'rg16', // 16-битные высоты: R — старший байт, G — младший
       widthM: Math.round(result.widthM),
       heightM: Math.round(result.heightM),

@@ -23,16 +23,18 @@ export default function Lighting({
 
   return (
     <>
-      {/* Ambient sky light — soft blue from above, warm from below */}
+      {/* Ambient sky light — soft blue from above, warm from below.
+          Интенсивности снижены: суммарные 7.0 при экспозиции 1.8 выбивали
+          светлую схему OSM в белое — карта переставала читаться. */}
       <hemisphereLight
-        args={['#d0e8ff', '#aa9566', 2.0]}
+        args={['#d0e8ff', '#aa9566', 1.0]}
       />
 
       {/* Sun — directional with shadows */}
       <directionalLight
         ref={sunRef}
         position={sunPosition}
-        intensity={5.0}
+        intensity={2.4}
         color="#fff4e6"
         castShadow
         shadow-mapSize-width={shadowMapSize}

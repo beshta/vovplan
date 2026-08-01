@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Mountain, Upload, Trash2, Dices, Grid3x3, Globe, Building2 } from 'lucide-react';
+import { Mountain, Upload, Trash2, Dices, Grid3x3, Globe, Building2, Trees } from 'lucide-react';
 import MapImportModal from './MapImportModal';
 import { useViewerStore } from '../stores/viewerStore';
 import { terrainApi } from '../../../shared/api';
@@ -29,6 +29,8 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
   const terrainMeta = useViewerStore((s) => s.terrainMeta);
   const showBuildings = useViewerStore((s) => s.showBuildings);
   const setShowBuildings = useViewerStore((s) => s.setShowBuildings);
+  const showNature = useViewerStore((s) => s.showNature);
+  const setShowNature = useViewerStore((s) => s.setShowNature);
   const setWireframe = useViewerStore((s) => s.setWireframe);
   const setTerrainMeta = useViewerStore((s) => s.setTerrainMeta);
 
@@ -184,6 +186,22 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
             >
               <span className="flex items-center justify-center gap-1.5">
                 <Building2 size={14} /> Здания · {terrainMeta.buildingCount ?? 0}
+              </span>
+            </button>
+          )}
+
+          {/* Природа OSM: лес и водоёмы */}
+          {terrainMeta?.natureUrl && (
+            <button
+              onClick={() => setShowNature(!showNature)}
+              className={`w-full px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                showNature
+                  ? 'bg-vovplan-600/20 text-vovplan-200 ring-1 ring-vovplan-500/30'
+                  : 'bg-white/5 text-muted hover:bg-white/10'
+              }`}
+            >
+              <span className="flex items-center justify-center gap-1.5">
+                <Trees size={14} /> Лес {terrainMeta.forestCount ?? 0} · вода {terrainMeta.waterCount ?? 0}
               </span>
             </button>
           )}

@@ -52,7 +52,7 @@ function getTerrainColor(h: number, target: THREE.Color): void {
 }
 
 /** Пиксели изображения → ImageData (для сэмплинга высот) */
-function imageToData(img: HTMLImageElement): ImageData {
+export function imageToData(img: HTMLImageElement): ImageData {
   const canvas = document.createElement('canvas');
   canvas.width = img.width;
   canvas.height = img.height;

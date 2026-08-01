@@ -110,6 +110,9 @@ interface ViewerState {
   /** Показ OSM-зданий импортированного ландшафта */
   showBuildings: boolean;
   setShowBuildings: (v: boolean) => void;
+  /** Показ природы OSM: деревья лесных массивов и водоёмы */
+  showNature: boolean;
+  setShowNature: (v: boolean) => void;
 
   // ── Черновик рисуемой инженерной сети (общий для 3D-превью и HUD-панели) ──
   utilityDraft: {
@@ -283,6 +286,8 @@ export const useViewerStore = create<ViewerState>((set) => ({
   setFpMove: (fpMove) => set({ fpMove }),
   showBuildings: true,
   setShowBuildings: (showBuildings) => set({ showBuildings }),
+  showNature: true,
+  setShowNature: (showNature) => set({ showNature }),
 
   utilityDraft: { points: [], type: 'WATER', location: 'UNDERGROUND', depth: 1.5, diameter: 200 },
   addDraftPoint: (pt) => set((s) => ({ utilityDraft: { ...s.utilityDraft, points: [...s.utilityDraft.points, pt] } })),

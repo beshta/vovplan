@@ -10,6 +10,7 @@ import Annotation3D from './Annotation3D';
 import AnnotationTool from './AnnotationTool';
 import SceneGrid from './SceneGrid';
 import BuildingsLayer from './BuildingsLayer';
+import NatureLayer from './NatureLayer';
 import UtilityCreator from './UtilityCreator';
 import FirstPersonView from './FirstPersonView';
 import PeerLayer from '../../collaboration/PeerLayer';
@@ -50,7 +51,8 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
         antialias: !quality.isMobile,
         powerPreference: 'high-performance',
         toneMapping: ACESFilmicToneMapping,
-        toneMappingExposure: 1.8,
+        // 1.8 пересвечивало схему-карту (светлые тайлы OSM уходили в белое)
+        toneMappingExposure: 1.05,
       }}
       camera={{ fov: 50, near: 0.5, far: Math.max(100_000, sceneSize * 50), position: [50, 55, 50] }}
       onPointerMissed={() => {
@@ -114,6 +116,11 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
 
         {/* Здания OSM (только для импортированного реального ландшафта) */}
         {terrainMeta?.buildingsUrl && <BuildingsLayer meta={terrainMeta} />}
+
+        {/* Природа OSM: лес схематичными деревьями + водоёмы на своих отметках */}
+        {terrainMeta?.natureUrl && terrainUrl && (
+          <NatureLayer meta={terrainMeta} heightmapUrl={terrainUrl} />
+        )}
 
         {/* Engineering utility networks */}
         <UtilityNetworks3D />

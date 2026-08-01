@@ -266,6 +266,10 @@ export interface TerrainMeta {
   /** JSON со зданиями OSM: { buildings: [{ p, h, base }] } */
   buildingsUrl?: string;
   buildingCount?: number;
+  /** JSON с природой OSM: { forests: [{ p, leaf }], water: [{ p, level }] } */
+  natureUrl?: string;
+  forestCount?: number;
+  waterCount?: number;
   /** Кодирование heightmap: 'rg16' — 16 бит (R старший, G младший); нет — 8-бит яркость */
   encoding?: string;
   widthM: number;
