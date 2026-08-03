@@ -106,8 +106,25 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+
+          # Секрет принимаем в двух видах: как есть и в base64. При копировании
+          # ключа руками легко потерять обрамляющие строки или перевод в конце —
+          # тогда ssh падает с невнятным «error in libcrypto». base64 от этого
+          # избавляет: одна строка без пробелов.
+          if printf '%s' "$SSH_KEY" | grep -q 'BEGIN'; then
+            printf '%s\n' "$SSH_KEY" | sed 's/\r$//' > ~/.ssh/id_deploy
+          else
+            printf '%s' "$SSH_KEY" | tr -d '[:space:]' | base64 -d > ~/.ssh/id_deploy
+          fi
           chmod 600 ~/.ssh/id_deploy
+
+          # Проверяем ключ до подключения — иначе ошибка выглядит как отказ в
+          # доступе, хотя дело в битом файле
+          if ! ssh-keygen -y -f ~/.ssh/id_deploy > /dev/null 2>&1; then
+            echo "::error::DEPLOY_SSH_KEY не читается. Скопируйте вывод 'cat ~/.ssh/<ключ>' целиком, вместе со строками -----BEGIN----- и -----END-----, либо положите в секрет base64 от файла (см. DEPLOY.md)"
+            exit 1
+          fi
+
           ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
           # Токен ephemeral и живёт только внутри этого запуска — на сервере
