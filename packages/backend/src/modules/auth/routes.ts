@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { registerSchema, loginSchema } from '@vovplan/shared';
 import prisma from '../../db/prisma.js';
+import { rateLimit, rateLimitReset } from '../../utils/rateLimit.js';
 
 const updateProfileSchema = z.object({
   displayName: z.string().min(2, 'Имя должно быть не короче 2 символов').max(60).optional(),
@@ -24,6 +25,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
   // ── POST /api/auth/register ───────────────
   fastify.post('/register', async (request, reply) => {
+    rateLimit(request, 'register', 5, 15 * 60_000);
+
     const parsed = registerSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.code(400).send({
@@ -62,6 +65,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
   // ── POST /api/auth/login ──────────────────
   fastify.post('/login', async (request, reply) => {
+    // Без ограничения пароль можно подбирать бесконечно
+    rateLimit(request, 'login', 10, 5 * 60_000);
+
     const parsed = loginSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.code(400).send({
@@ -92,6 +98,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
 
     const accessToken = fastify.jwt.sign({ userId: user.id, email: user.email });
+    rateLimitReset(request, 'login');
 
     return reply.send({
       user: {
@@ -141,6 +148,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
   // ── POST /api/auth/password — смена пароля ──
   fastify.post('/password', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    // Здесь проверяется текущий пароль — тоже поддаётся подбору
+    rateLimit(request, 'password', 10, 5 * 60_000);
+
     const parsed = changePasswordSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.code(400).send({

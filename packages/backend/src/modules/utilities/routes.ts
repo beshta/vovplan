@@ -66,11 +66,7 @@ export default async function utilityRoutes(fastify: FastifyInstance) {
   fastify.post('/:projectId/utilities', async (request, reply) => {
     const { projectId } = request.params as { projectId: string };
 
-    try {
-      await requirePermission(request, projectId, 'model:upload');
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requirePermission(request, projectId, 'model:upload');
 
     const parsed = createUtilitySchema.safeParse(request.body);
     if (!parsed.success) {
@@ -115,11 +111,7 @@ export default async function utilityRoutes(fastify: FastifyInstance) {
   fastify.patch('/:projectId/utilities/:id', async (request, reply) => {
     const { projectId, id } = request.params as { projectId: string; id: string };
 
-    try {
-      await requirePermission(request, projectId, 'model:upload');
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requirePermission(request, projectId, 'model:upload');
 
     const existing = await prisma.utilityNetwork.findUnique({ where: { id } });
     if (!existing || existing.projectId !== projectId) {
@@ -155,11 +147,7 @@ export default async function utilityRoutes(fastify: FastifyInstance) {
   fastify.delete('/:projectId/utilities/:id', async (request, reply) => {
     const { projectId, id } = request.params as { projectId: string; id: string };
 
-    try {
-      await requirePermission(request, projectId, 'model:upload');
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requirePermission(request, projectId, 'model:upload');
 
     const existing = await prisma.utilityNetwork.findUnique({ where: { id } });
     if (!existing || existing.projectId !== projectId) {

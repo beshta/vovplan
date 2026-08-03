@@ -158,6 +158,10 @@ function RealTerrain({
     return { geometry: geo, sampleAt };
   }, [heightTex, meta]);
 
+  // Геометрия рельефа — до 410 тыс. вершин (~13 МБ в видеопамяти). Без
+  // освобождения каждый переимпорт ландшафта оставлял бы предыдущую висеть.
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
   // Отдаём высоту наружу: ходьба от первого лица идёт по рельефу, а не по
   // плоскости. Снимаем при размонтировании, чтобы следующий проект не ходил
   // по чужому рельефу.
@@ -225,6 +229,10 @@ function HeightmapTerrain({
     return { geometry: geo };
   }, [heightTex, size, segments, heightScale]);
 
+  // Геометрия рельефа — до 410 тыс. вершин (~13 МБ в видеопамяти). Без
+  // освобождения каждый переимпорт ландшафта оставлял бы предыдущую висеть.
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
   return (
     <mesh geometry={geometry} receiveShadow userData={{ isTerrain: true }}>
       <meshStandardMaterial
@@ -280,6 +288,10 @@ function ProceduralTerrain({
     geo.computeVertexNormals();
     return { geometry: geo };
   }, [size, segments, heightScale, seed, frequency]);
+
+  // Геометрия рельефа — до 410 тыс. вершин (~13 МБ в видеопамяти). Без
+  // освобождения каждый переимпорт ландшафта оставлял бы предыдущую висеть.
+  useEffect(() => () => geometry.dispose(), [geometry]);
 
   return (
     <mesh geometry={geometry} receiveShadow userData={{ isTerrain: true }}>

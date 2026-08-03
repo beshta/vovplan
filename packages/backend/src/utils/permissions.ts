@@ -7,6 +7,7 @@ import {
   type Permission,
 } from '@vovplan/shared';
 import prisma from '../db/prisma.js';
+import { HttpError } from './errors.js';
 
 /**
  * Get the user's role in a specific project.
@@ -33,14 +34,14 @@ export async function requirePermission(
   const role = await getUserRole(userId, projectId);
 
   if (!role) {
-    throw { statusCode: 404, error: 'NOT_FOUND', message: 'Проект не найден или нет доступа' };
+    throw new HttpError(404, 'NOT_FOUND', 'Проект не найден или нет доступа');
   }
 
   // Prisma enum values are identical strings to shared enum
   const sharedRole = role as unknown as SharedRole;
 
   if (!checkPerm(sharedRole, permission)) {
-    throw { statusCode: 403, error: 'FORBIDDEN', message: 'Недостаточно прав' };
+    throw new HttpError(403, 'FORBIDDEN', 'Недостаточно прав');
   }
 
   return role;
@@ -54,6 +55,6 @@ export async function requireMaster(request: FastifyRequest, projectId: string):
   const role = await getUserRole(userId, projectId);
 
   if (!role || !hasRoleLevel(role as unknown as SharedRole, SharedRole.MASTER)) {
-    throw { statusCode: 403, error: 'FORBIDDEN', message: 'Требуются права Мастера' };
+    throw new HttpError(403, 'FORBIDDEN', 'Требуются права Мастера');
   }
 }

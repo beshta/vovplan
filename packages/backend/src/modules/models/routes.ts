@@ -64,11 +64,7 @@ export default async function modelRoutes(fastify: FastifyInstance) {
     const { projectId } = request.params as { projectId: string };
 
     // Permission check — only designers and masters can upload
-    try {
-      await requirePermission(request, projectId, 'model:upload');
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requirePermission(request, projectId, 'model:upload');
 
     // Parse multipart
     const parts = request.parts();
@@ -152,11 +148,7 @@ export default async function modelRoutes(fastify: FastifyInstance) {
   fastify.delete('/:projectId/models/:id', async (request, reply) => {
     const { projectId, id } = request.params as { projectId: string; id: string };
 
-    try {
-      await requirePermission(request, projectId, 'model:upload');
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requirePermission(request, projectId, 'model:upload');
 
     const existing = await prisma.model3D.findUnique({ where: { id } });
     if (!existing || existing.projectId !== projectId) {

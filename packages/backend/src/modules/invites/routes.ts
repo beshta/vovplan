@@ -40,8 +40,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
 
   fastify.get('/:projectId/invites', async (request, reply) => {
     const { projectId } = request.params as { projectId: string };
-    try { await requireMaster(request, projectId); }
-    catch (err: any) { return reply.code(err.statusCode ?? 500).send(err); }
+    await requireMaster(request, projectId);
 
     const invites = await prisma.invite.findMany({ where: { projectId }, orderBy: { createdAt: 'desc' } });
     return reply.send({ data: invites.map(dto) });
@@ -49,8 +48,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
 
   fastify.post('/:projectId/invites', async (request, reply) => {
     const { projectId } = request.params as { projectId: string };
-    try { await requireMaster(request, projectId); }
-    catch (err: any) { return reply.code(err.statusCode ?? 500).send(err); }
+    await requireMaster(request, projectId);
 
     const parsed = createSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -73,8 +71,7 @@ export async function inviteRoutes(fastify: FastifyInstance) {
 
   fastify.delete('/:projectId/invites/:id', async (request, reply) => {
     const { projectId, id } = request.params as { projectId: string; id: string };
-    try { await requireMaster(request, projectId); }
-    catch (err: any) { return reply.code(err.statusCode ?? 500).send(err); }
+    await requireMaster(request, projectId);
 
     const existing = await prisma.invite.findUnique({ where: { id } });
     if (!existing || existing.projectId !== projectId) {

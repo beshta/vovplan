@@ -108,11 +108,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
   fastify.patch('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
 
-    try {
-      await requirePermission(request, id, 'project:update');
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requirePermission(request, id, 'project:update');
 
     const parsed = updateProjectSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -141,11 +137,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
     kind: 'icon' | 'preview',
   ) => {
     const { id } = request.params as { id: string };
-    try {
-      await requirePermission(request, id, 'project:update');
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requirePermission(request, id, 'project:update');
 
     const data = await request.file();
     if (!data) {
@@ -187,11 +179,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
   fastify.delete('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
 
-    try {
-      await requireMaster(request, id);
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requireMaster(request, id);
 
     await prisma.project.delete({ where: { id } });
     return reply.code(204).send();
@@ -201,11 +189,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
   fastify.get('/:id/members', async (request, reply) => {
     const { id } = request.params as { id: string };
 
-    try {
-      await requirePermission(request, id, 'project:read');
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requirePermission(request, id, 'project:read');
 
     const members = await prisma.projectMember.findMany({
       where: { projectId: id },
@@ -222,11 +206,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
   fastify.post('/:id/members', async (request, reply) => {
     const { id } = request.params as { id: string };
 
-    try {
-      await requireMaster(request, id);
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requireMaster(request, id);
 
     const parsed = inviteMemberSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -271,11 +251,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
   fastify.patch('/:id/members/:userId', async (request, reply) => {
     const { id, userId } = request.params as { id: string; userId: string };
 
-    try {
-      await requireMaster(request, id);
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requireMaster(request, id);
 
     const { role } = request.body as { role: string };
 
@@ -296,11 +272,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
 
     // User can remove themselves, or MASTER can remove anyone
     if (userId !== request.user.userId) {
-      try {
-        await requireMaster(request, id);
-      } catch (err: any) {
-        return reply.code(err.statusCode ?? 500).send(err);
-      }
+      await requireMaster(request, id);
     }
 
     const member = await prisma.projectMember.findUnique({

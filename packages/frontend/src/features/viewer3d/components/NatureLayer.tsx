@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
-import { useLoader } from '@react-three/fiber';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { imageToData } from './DemTerrain';
 import { useViewerStore } from '../stores/viewerStore';
 import { detectQuality } from '../utils/deviceProfiler';
 import type { TerrainMeta } from '../../../shared/api';
@@ -73,17 +71,17 @@ function mulberry32(seed: number) {
  * Деревья рисуются двумя InstancedMesh (ствол + крона на тип листвы) —
  * тысячи деревьев укладываются в единицы draw call.
  */
-export default function NatureLayer({
-  meta,
-  heightmapUrl,
-}: {
-  meta: TerrainMeta;
-  heightmapUrl: string;
-}) {
+export default function NatureLayer({ meta }: { meta: TerrainMeta }) {
   const showNature = useViewerStore((s) => s.showNature);
   const xray = useViewerStore((s) => s.xrayMode);
   const [nature, setNature] = useState<{ forests: ForestArea[]; water: WaterArea[] } | null>(null);
-  const heightTex = useLoader(THREE.TextureLoader, heightmapUrl);
+  /**
+   * Высоту берём у рельефа, а не считаем сами: раньше здесь заново грузилась
+   * и декодировалась карта высот (для 2048² это ~16 МБ обратного чтения из
+   * canvas — вторым разом), а логика интерполяции дублировалась и могла
+   * разойтись с той, по которой построен меш.
+   */
+  const elevAt = useViewerStore((s) => s.groundSampler);
 
   useEffect(() => {
     if (!meta.natureUrl) return;
@@ -97,42 +95,12 @@ export default function NatureLayer({
     return () => { cancelled = true; };
   }, [meta.natureUrl]);
 
-  /**
-   * Высота рельефа (м над minElev) в точке локальных координат.
-   * Билинейная интерполяция — ровно та же, что в DemTerrain при смещении
-   * вершин: с ближайшим пикселем деревья на склонах висели бы над землёй
-   * или уходили в неё.
-   */
-  const elevAt = useMemo(() => {
-    const hm = imageToData(heightTex.image as HTMLImageElement);
-    const is16 = meta.encoding === 'rg16';
-    const range = Math.max(meta.maxElev - meta.minElev, 1);
-
-    const sample = (px: number, py: number) => {
-      const idx = (py * hm.width + px) * 4;
-      return is16 ? (hm.data[idx] * 256 + hm.data[idx + 1]) / 65535 : hm.data[idx] / 255;
-    };
-
-    return (x: number, z: number): number => {
-      const u = Math.min(hm.width - 1, Math.max(0, (x / meta.widthM + 0.5) * (hm.width - 1)));
-      const v = Math.min(hm.height - 1, Math.max(0, (z / meta.heightM + 0.5) * (hm.height - 1)));
-      const x0 = Math.floor(u);
-      const y0 = Math.floor(v);
-      const x1 = Math.min(x0 + 1, hm.width - 1);
-      const y1 = Math.min(y0 + 1, hm.height - 1);
-      const fx = u - x0;
-      const fy = v - y0;
-      const top = sample(x0, y0) * (1 - fx) + sample(x1, y0) * fx;
-      const bot = sample(x0, y1) * (1 - fx) + sample(x1, y1) * fx;
-      return (top * (1 - fy) + bot * fy) * range;
-    };
-  }, [heightTex, meta]);
-
   // ── Деревья: детерминированная расстановка внутри контуров леса ──
   const perimeter = meta.polygon && meta.polygon.length >= 3 ? meta.polygon : null;
 
   const trees = useMemo(() => {
-    if (!nature || nature.forests.length === 0) return null;
+    // Без рельефа сажать некуда — пересчитается, как только он опубликует высоты
+    if (!elevAt || !nature || nature.forests.length === 0) return null;
     const cap = detectQuality().isMobile ? MAX_TREES_LOW : MAX_TREES;
 
     // Контуры леса в OSM заходят на воду (по данным Москвы-реки — 2 массива

@@ -58,6 +58,29 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        /**
+         * Разделение бандла по библиотекам. Единым файлом сборка выросла до
+         * 2.15 МБ и упёрлась в лимит precache у PWA — сборка падала целиком.
+         * Поднимать лимит смысла нет: гнать двухмегабайтный файл на первую
+         * загрузку плохо само по себе.
+         *
+         * Заодно кэшируется лучше: three.js меняется куда реже нашего кода,
+         * и правка интерфейса больше не заставляет пользователя качать
+         * заново всю 3D-библиотеку.
+         */
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (id.includes('three') || id.includes('@react-three')) return 'three';
+          if (id.includes('react') || id.includes('scheduler')) return 'react';
+          if (id.includes('leaflet')) return 'leaflet';
+          return 'vendor';
+        },
+      },
+    },
+  },
   // Read .env from the monorepo root (default would be packages/frontend)
   envDir: path.resolve(__dirname, '../..'),
   resolve: {

@@ -1,9 +1,24 @@
 /**
- * Throw an HTTP-friendly error.
- * In Fastify, any object with `statusCode` is handled by setErrorHandler.
+ * Ошибка с HTTP-статусом.
+ *
+ * Именно Error, а не «голый» объект: Fastify рассчитывает на Error, а
+ * глобальный обработчик в app.ts читает statusCode/code и сам формирует ответ.
+ * Благодаря этому роутам не нужно оборачивать проверки прав в try/catch —
+ * достаточно бросить, остальное сделает обработчик.
  */
-export function httpError(statusCode: number, message: string, code?: string): never {
-  throw { statusCode, error: code ?? 'ERROR', message };
+export class HttpError extends Error {
+  constructor(
+    readonly statusCode: number,
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'HttpError';
+  }
+}
+
+export function httpError(statusCode: number, message: string, code = 'ERROR'): never {
+  throw new HttpError(statusCode, code, message);
 }
 
 export const Errors = {

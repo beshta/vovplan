@@ -141,9 +141,7 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
         {terrainMeta?.buildingsUrl && <BuildingsLayer meta={terrainMeta} />}
 
         {/* Природа OSM: лес схематичными деревьями + водоёмы на своих отметках */}
-        {terrainMeta?.natureUrl && terrainUrl && (
-          <NatureLayer meta={terrainMeta} heightmapUrl={terrainUrl} />
-        )}
+        {terrainMeta?.natureUrl && terrainUrl && <NatureLayer meta={terrainMeta} />}
 
         {/* Engineering utility networks */}
         <UtilityNetworks3D />

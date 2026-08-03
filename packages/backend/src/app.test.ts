@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildServer } from './app.js';
+import { rateLimitClearAll } from './utils/rateLimit.js';
 import prisma from './db/prisma.js';
 
 /**
@@ -30,6 +31,10 @@ async function register(who: string): Promise<string> {
 }
 
 const auth = (token: string) => ({ authorization: `Bearer ${token}` });
+
+// Счётчики ограничителя общие для процесса: без сброса тесты
+// упрутся в лимит входа и начнут падать с 429
+beforeEach(() => rateLimitClearAll());
 
 beforeAll(async () => {
   app = await buildServer({ logger: false });
@@ -440,5 +445,49 @@ describe('Фаза 7: пресеты камеры + share-ссылки', () => {
 
     const res = await app.inject({ method: 'GET', url: `/api/shared/${shareToken}` });
     expect(res.statusCode).toBe(404);
+  });
+});
+
+describe('ограничение частоты (защита от подбора пароля)', () => {
+  it('после 10 неудачных входов отдаёт 429', async () => {
+    const attempt = () =>
+      app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { email: emailOf('master'), password: 'заведомо-неверный' },
+      });
+
+    // Первые 10 — обычный отказ
+    for (let i = 0; i < 10; i++) {
+      const res = await attempt();
+      expect(res.statusCode).toBe(401);
+    }
+    // Одиннадцатая попытка блокируется
+    const blocked = await attempt();
+    expect(blocked.statusCode).toBe(429);
+    expect(JSON.parse(blocked.body).message).toContain('Слишком много попыток');
+  });
+
+  it('успешный вход сбрасывает счётчик', async () => {
+    for (let i = 0; i < 5; i++) {
+      await app.inject({
+        method: 'POST', url: '/api/auth/login',
+        payload: { email: emailOf('master'), password: 'неверный' },
+      });
+    }
+    const ok = await app.inject({
+      method: 'POST', url: '/api/auth/login',
+      payload: { email: emailOf('master'), password: PASSWORD },
+    });
+    expect(ok.statusCode).toBe(200);
+
+    // Счётчик сброшен — снова доступны все попытки
+    for (let i = 0; i < 10; i++) {
+      const res = await app.inject({
+        method: 'POST', url: '/api/auth/login',
+        payload: { email: emailOf('master'), password: 'неверный' },
+      });
+      expect(res.statusCode).toBe(401);
+    }
   });
 });

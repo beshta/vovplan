@@ -48,11 +48,7 @@ export default async function shareRoutes(fastify: FastifyInstance) {
   fastify.post('/:projectId/presets', async (request, reply) => {
     const { projectId } = request.params as { projectId: string };
 
-    try {
-      await requirePermission(request, projectId, 'model:upload');
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requirePermission(request, projectId, 'model:upload');
 
     const parsed = createPresetSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -79,11 +75,7 @@ export default async function shareRoutes(fastify: FastifyInstance) {
   fastify.delete('/:projectId/presets/:id', async (request, reply) => {
     const { projectId, id } = request.params as { projectId: string; id: string };
 
-    try {
-      await requirePermission(request, projectId, 'model:upload');
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requirePermission(request, projectId, 'model:upload');
 
     const existing = await prisma.cameraPreset.findUnique({ where: { id } });
     if (!existing || existing.projectId !== projectId) {
@@ -100,11 +92,7 @@ export default async function shareRoutes(fastify: FastifyInstance) {
   fastify.get('/:projectId/shares', async (request, reply) => {
     const { projectId } = request.params as { projectId: string };
 
-    try {
-      await requireMaster(request, projectId);
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requireMaster(request, projectId);
 
     const links = await prisma.shareLink.findMany({
       where: { projectId },
@@ -118,11 +106,7 @@ export default async function shareRoutes(fastify: FastifyInstance) {
   fastify.post('/:projectId/shares', async (request, reply) => {
     const { projectId } = request.params as { projectId: string };
 
-    try {
-      await requireMaster(request, projectId);
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requireMaster(request, projectId);
 
     const parsed = createShareSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -161,11 +145,7 @@ export default async function shareRoutes(fastify: FastifyInstance) {
   fastify.delete('/:projectId/shares/:id', async (request, reply) => {
     const { projectId, id } = request.params as { projectId: string; id: string };
 
-    try {
-      await requireMaster(request, projectId);
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requireMaster(request, projectId);
 
     const existing = await prisma.shareLink.findUnique({ where: { id } });
     if (!existing || existing.projectId !== projectId) {

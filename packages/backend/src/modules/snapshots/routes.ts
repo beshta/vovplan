@@ -55,8 +55,7 @@ export default async function snapshotRoutes(fastify: FastifyInstance) {
   // ── Сохранить текущее состояние ──
   fastify.post('/:projectId/snapshots', async (request, reply) => {
     const { projectId } = request.params as { projectId: string };
-    try { await requirePermission(request, projectId, 'model:upload'); }
-    catch (err: any) { return reply.code(err.statusCode ?? 500).send(err); }
+    await requirePermission(request, projectId, 'model:upload');
 
     const parsed = createSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -100,8 +99,7 @@ export default async function snapshotRoutes(fastify: FastifyInstance) {
   // ── Восстановить версию (заменяет объекты/сети/аннотации проекта) ──
   fastify.post('/:projectId/snapshots/:id/restore', async (request, reply) => {
     const { projectId, id } = request.params as { projectId: string; id: string };
-    try { await requireMaster(request, projectId); }
-    catch (err: any) { return reply.code(err.statusCode ?? 500).send(err); }
+    await requireMaster(request, projectId);
 
     const snap = await prisma.sceneSnapshot.findUnique({ where: { id } });
     if (!snap || snap.projectId !== projectId) {
@@ -153,8 +151,7 @@ export default async function snapshotRoutes(fastify: FastifyInstance) {
   // ── Удалить версию ──
   fastify.delete('/:projectId/snapshots/:id', async (request, reply) => {
     const { projectId, id } = request.params as { projectId: string; id: string };
-    try { await requireMaster(request, projectId); }
-    catch (err: any) { return reply.code(err.statusCode ?? 500).send(err); }
+    await requireMaster(request, projectId);
 
     const snap = await prisma.sceneSnapshot.findUnique({ where: { id } });
     if (!snap || snap.projectId !== projectId) {

@@ -73,11 +73,7 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
   fastify.post('/:projectId/objects', async (request, reply) => {
     const { projectId } = request.params as { projectId: string };
 
-    try {
-      await requirePermission(request, projectId, 'model:upload');
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requirePermission(request, projectId, 'model:upload');
 
     const parsed = createObjectSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -213,11 +209,7 @@ export default async function sceneRoutes(fastify: FastifyInstance) {
   fastify.post('/:projectId/objects/:id/restore', async (request, reply) => {
     const { projectId, id } = request.params as { projectId: string; id: string };
 
-    try {
-      await requirePermission(request, projectId, 'project:update');
-    } catch (err: any) {
-      return reply.code(err.statusCode ?? 500).send(err);
-    }
+    await requirePermission(request, projectId, 'project:update');
 
     const updated = await prisma.sceneObject.update({
       where: { id },
