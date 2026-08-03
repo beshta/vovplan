@@ -138,6 +138,8 @@ interface ViewerState {
   // ── Camera lock (during transform) ────────
   cameraLocked: boolean;
   setCameraLocked: (v: boolean) => void;
+  /** Сброс временного состояния вида при открытии проекта */
+  resetViewer: () => void;
 
   // ── Camera presets (fly-to + захват позы) ──
   /** Цель плавного перелёта камеры; CameraRig анимирует и сбрасывает в null */
@@ -312,6 +314,32 @@ export const useViewerStore = create<ViewerState>((set) => ({
   // Camera lock
   cameraLocked: false,
   setCameraLocked: (cameraLocked) => set({ cameraLocked }),
+
+  /**
+   * Сброс временного состояния вида при открытии проекта.
+   *
+   * Стор — модульный синглтон и переживает уход со страницы, поэтому «залипшие»
+   * значения переносились в следующий проект. Особенно вредны два: cameraLocked
+   * (ставится на время перетаскивания объекта) и cameraFlyTarget — незавершённый
+   * перелёт каждый кадр тянул камеру к чужой позе, и вращение не работало.
+   */
+  resetViewer: () =>
+    set({
+      cameraLocked: false,
+      cameraFlyTarget: null,
+      cameraView: 'orbit',
+      fpPoint: null,
+      fpMove: { x: 0, y: 0 },
+      selectedObjectId: null,
+      selectedUtilityId: null,
+      selectedAnnotationId: null,
+      mode: 'view',
+      annDrawMode: undefined,
+      utilityDrawMode: false,
+      utilityDraft: { points: [], type: 'WATER', location: 'UNDERGROUND', depth: 1.5, diameter: 200 },
+      history: [],
+      historyIndex: -1,
+    }),
 
   // Camera presets
   cameraFlyTarget: null,

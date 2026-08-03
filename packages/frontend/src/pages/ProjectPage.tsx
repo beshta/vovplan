@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { projectsApi } from '../shared/api';
 import { useAuthStore } from '../shared/authStore';
@@ -17,7 +17,14 @@ export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const [tab, setTab] = useState<Tab>('viewer');
+  // ?tab= — переходы из меню карточки проекта («Доступы», «История изменений»)
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') as Tab | null;
+  const [tab, setTab] = useState<Tab>(
+    initialTab && ['viewer', 'members', 'activity', 'versions', 'share', 'settings'].includes(initialTab)
+      ? initialTab
+      : 'viewer',
+  );
 
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', id],

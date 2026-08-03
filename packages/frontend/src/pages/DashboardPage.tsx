@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectsApi } from '../shared/api';
 import { useAuthStore } from '../shared/authStore';
 import { ROLE_LABELS, type Project } from '@vovplan/shared';
+import ProjectCardMenu from '../components/ProjectCardMenu';
 
 export default function DashboardPage() {
   const { user, logout } = useAuthStore();
@@ -129,35 +130,83 @@ function plural(n: number, one: string, few: string, many: string) {
 // ── Карточка проекта ──────────────────────────
 function ProjectCard({ project }: { project: Project }) {
   const navigate = useNavigate();
+  const isArchived = project.status === 'ARCHIVED';
+  const isMaster = project.myRole === 'MASTER';
+  const open = () => navigate(`/projects/${project.id}`);
+
   return (
-    <button
-      onClick={() => navigate(`/projects/${project.id}`)}
-      className="group text-left rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 hover:border-vovplan-300 dark:hover:border-vovplan-500/40 hover:shadow-lg hover:shadow-vovplan-500/5 hover:-translate-y-0.5 transition-all"
+    <div
+      className={`group relative rounded-2xl border overflow-hidden transition-all border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/60 hover:border-vovplan-300 dark:hover:border-vovplan-500/40 hover:shadow-lg hover:shadow-vovplan-500/5 hover:-translate-y-0.5 ${
+        isArchived ? 'opacity-60' : ''
+      }`}
     >
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <h3 className="text-lg font-semibold text-strong tracking-tight group-hover:text-vovplan-700 dark:group-hover:text-vovplan-300 transition-colors">
-          {project.name}
-        </h3>
-        {project.myRole && (
-          <span className="text-xs px-2 py-1 bg-vovplan-500/10 text-vovplan-700 border border-vovplan-500/20 dark:bg-vovplan-600/20 dark:text-vovplan-200 dark:border-vovplan-500/30 rounded-full font-medium whitespace-nowrap shrink-0">
-            {ROLE_LABELS[project.myRole]}
-          </span>
-        )}
+      {/* Превью сцены. Пока снимка нет — топографический градиент-заглушка,
+          чтобы карточки не выглядели пустыми */}
+      <button onClick={open} className="block w-full text-left" aria-label={`Открыть проект ${project.name}`}>
+        <div className="relative h-36 bg-gradient-to-br from-vovplan-500/15 via-violet-500/10 to-cyan-500/15 dark:from-vovplan-500/20 dark:via-violet-500/10 dark:to-cyan-500/20">
+          {project.previewUrl ? (
+            <img src={project.previewUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-vovplan-500/40 dark:text-vovplan-300/30">
+              <MapIcon size={38} strokeWidth={1.2} />
+            </div>
+          )}
+          {isArchived && (
+            <span className="absolute top-2.5 left-2.5 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full bg-slate-900/70 text-white">
+              В архиве
+            </span>
+          )}
+        </div>
+      </button>
+
+      {/* Шестерёнка — только владельцу: остальным действия запрещены сервером */}
+      {isMaster && (
+        <div className="absolute top-2.5 right-2.5 z-10">
+          <div className="rounded-lg backdrop-blur bg-white/80 dark:bg-slate-900/70">
+            <ProjectCardMenu project={project} />
+          </div>
+        </div>
+      )}
+
+      <div className="p-5">
+        <div className="flex items-start gap-3 mb-3">
+          {/* Значок проекта */}
+          {project.iconUrl ? (
+            <img src={project.iconUrl} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
+          ) : (
+            <span className="w-9 h-9 rounded-lg shrink-0 bg-gradient-to-br from-vovplan-500 via-violet-500 to-cyan-500 flex items-center justify-center text-white font-display text-sm font-bold">
+              {project.name.trim().charAt(0).toUpperCase()}
+            </span>
+          )}
+          <button onClick={open} className="flex-1 min-w-0 text-left">
+            <h3 className="text-lg font-semibold text-strong tracking-tight truncate group-hover:text-vovplan-700 dark:group-hover:text-vovplan-300 transition-colors">
+              {project.name}
+            </h3>
+          </button>
+          {project.myRole && (
+            <span className="text-xs px-2 py-1 bg-vovplan-500/10 text-vovplan-700 border border-vovplan-500/20 dark:bg-vovplan-600/20 dark:text-vovplan-200 dark:border-vovplan-500/30 rounded-full font-medium whitespace-nowrap shrink-0">
+              {ROLE_LABELS[project.myRole]}
+            </span>
+          )}
+        </div>
+
+        <button onClick={open} className="block w-full text-left">
+          <p className="text-sm text-muted mb-5 line-clamp-2 min-h-[2.5rem]">
+            {project.description || 'Без описания'}
+          </p>
+          <div className="flex items-center flex-wrap text-xs text-slate-500 dark:text-slate-400 gap-x-3 gap-y-1.5 pt-3 border-t border-slate-100 dark:border-white/5">
+            <span className="flex items-center gap-1 font-mono">
+              <MapPin size={12} className="text-slate-400 dark:text-slate-500" />
+              {project.centerLat.toFixed(4)}, {project.centerLng.toFixed(4)}
+            </span>
+            <span className="flex items-center gap-1">
+              <Calendar size={12} className="text-slate-400 dark:text-slate-500" />
+              {new Date(project.createdAt).toLocaleDateString('ru-RU')}
+            </span>
+          </div>
+        </button>
       </div>
-      <p className="text-sm text-muted mb-5 line-clamp-2 min-h-[2.5rem]">
-        {project.description || 'Без описания'}
-      </p>
-      <div className="flex items-center flex-wrap text-xs text-slate-500 dark:text-slate-400 gap-x-3 gap-y-1.5 pt-3 border-t border-slate-100 dark:border-white/5">
-        <span className="flex items-center gap-1 font-mono">
-          <MapPin size={12} className="text-slate-400 dark:text-slate-500" />
-          {project.centerLat.toFixed(4)}, {project.centerLng.toFixed(4)}
-        </span>
-        <span className="flex items-center gap-1">
-          <Calendar size={12} className="text-slate-400 dark:text-slate-500" />
-          {new Date(project.createdAt).toLocaleDateString('ru-RU')}
-        </span>
-      </div>
-    </button>
+    </div>
   );
 }
 

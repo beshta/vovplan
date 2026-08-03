@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Package, Construction, Footprints, X } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { Package, Construction, Footprints, X, Camera } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ProjectRole } from '@vovplan/shared';
 import { useViewerStore } from './stores/viewerStore';
 import { sceneApi, modelsApi, utilitiesApi, projectsApi, commentsApi } from '../../shared/api';
@@ -50,6 +50,37 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const utilityDrawMode = useViewerStore((s) => s.utilityDrawMode);
 
   const userName = useAuthStore((s) => s.user?.displayName ?? s.user?.email ?? 'Гость');
+
+  // ── Снимок сцены на превью карточки проекта ──
+  const queryClient = useQueryClient();
+  const [capturing, setCapturing] = useState(false);
+  const [previewSaved, setPreviewSaved] = useState(false);
+
+  const capturePreview = async () => {
+    const canvas = document.querySelector('canvas');
+    if (!canvas) return;
+    setCapturing(true);
+    try {
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error('не удалось снять кадр');
+      await projectsApi.uploadPreview(projectId, blob);
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      setPreviewSaved(true);
+      setTimeout(() => setPreviewSaved(false), 2500);
+    } catch {
+      /* сеть/права — молча: превью не критично для работы со сценой */
+    } finally {
+      setCapturing(false);
+    }
+  };
+
+  // Стор вьювера — модульный синглтон и переживает уход со страницы. Без сброса
+  // в новый проект переносились чужие выделения, режимы и, что хуже всего,
+  // незавершённый перелёт камеры: он каждый кадр возвращал камеру в одну позу,
+  // и повернуть её было нельзя.
+  useEffect(() => {
+    useViewerStore.getState().resetViewer();
+  }, [projectId]);
 
   useEffect(() => {
     initFromRole(role);
@@ -280,7 +311,22 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
                   ↩ Назад к обзору
                 </button>
               ) : (
-                <PresetsBar projectId={projectId} canEdit={canEdit} />
+                <div className="flex items-center gap-2">
+                  <PresetsBar projectId={projectId} canEdit={canEdit} />
+                  {canEdit && (
+                    <button
+                      onClick={capturePreview}
+                      disabled={capturing}
+                      title="Снять превью для карточки проекта"
+                      className="glass-chip"
+                    >
+                      <Camera size={14} />
+                      <span className="hidden sm:inline">
+                        {capturing ? 'Снимок...' : previewSaved ? 'Готово' : 'Превью'}
+                      </span>
+                    </button>
+                  )}
+                </div>
               )}
             </div>
 

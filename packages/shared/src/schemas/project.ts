@@ -13,7 +13,10 @@ export const createProjectSchema = z.object({
   }),
 });
 
-export const updateProjectSchema = createProjectSchema.partial();
+export const updateProjectSchema = createProjectSchema.partial().extend({
+  /** Архивирование/возврат в работу с карточки проекта */
+  status: z.enum(['DRAFT', 'ACTIVE', 'ARCHIVED']).optional(),
+});
 
 export const inviteMemberSchema = z.object({
   email: z.string().email('Некорректный email'),

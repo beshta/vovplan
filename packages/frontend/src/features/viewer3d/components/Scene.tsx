@@ -50,6 +50,9 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
       gl={{
         antialias: !quality.isMobile,
         powerPreference: 'high-performance',
+        // Нужен для снимка превью: без него toBlob отдаёт пустой кадр,
+        // потому что буфер очищается сразу после отрисовки
+        preserveDrawingBuffer: true,
         toneMapping: ACESFilmicToneMapping,
         // 1.8 пересвечивало схему-карту (светлые тайлы OSM уходили в белое)
         toneMappingExposure: 1.05,

@@ -47,6 +47,10 @@ export interface Project {
   centerLat: number;
   centerLng: number;
   terrainUrl: string | null;
+  /** Значок проекта (загружает пользователь) */
+  iconUrl?: string | null;
+  /** Превью-скриншот сцены для карточки */
+  previewUrl?: string | null;
   status: ProjectStatus;
   createdAt: string;
   updatedAt: string;

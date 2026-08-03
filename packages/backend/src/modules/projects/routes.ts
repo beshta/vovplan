@@ -1,4 +1,9 @@
 import type { FastifyInstance } from 'fastify';
+import { randomUUID } from 'node:crypto';
+import { mkdirSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import sharp from 'sharp';
 import { createProjectSchema, updateProjectSchema, inviteMemberSchema } from '@vovplan/shared';
 import { ProjectRole, ProjectStatus } from '@prisma/client';
 import prisma from '../../db/prisma.js';
@@ -16,6 +21,8 @@ function toProjectDTO(row: any, myRole?: string) {
     centerLng: row.centerLng,
     terrainUrl: row.terrainUrl,
     terrainMeta: row.terrainMeta ?? null,
+    iconUrl: row.iconUrl ?? null,
+    previewUrl: row.previewUrl ?? null,
     status: row.status,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -124,6 +131,57 @@ export default async function projectRoutes(fastify: FastifyInstance) {
     const role = await getUserRole(request.user.userId, id);
     return reply.send(toProjectDTO(updated, role ?? undefined));
   });
+
+  // ── POST /api/projects/:id/icon | /preview — картинки карточки ──
+  // icon — значок, загружает пользователь; preview — снимок сцены из вьювера.
+  const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+  const uploadImage = async (
+    request: any,
+    reply: any,
+    kind: 'icon' | 'preview',
+  ) => {
+    const { id } = request.params as { id: string };
+    try {
+      await requirePermission(request, id, 'project:update');
+    } catch (err: any) {
+      return reply.code(err.statusCode ?? 500).send(err);
+    }
+
+    const data = await request.file();
+    if (!data) {
+      return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Файл не загружен', statusCode: 400 });
+    }
+    if (!IMAGE_TYPES.includes(data.mimetype)) {
+      return reply.code(400).send({
+        error: 'VALIDATION_ERROR',
+        message: `Неподдерживаемый формат: ${data.mimetype}. Разрешены PNG, JPEG, WebP`,
+        statusCode: 400,
+      });
+    }
+
+    // Значок — квадрат 256, превью — карточное 16:9
+    const buf = await data.toBuffer();
+    const img = kind === 'icon'
+      ? sharp(buf).resize(256, 256, { fit: 'cover' })
+      : sharp(buf).resize(960, 540, { fit: 'cover' });
+    const webp = await img.webp({ quality: 82 }).toBuffer();
+
+    const dir = join(process.cwd(), 'uploads', id, 'card');
+    mkdirSync(dir, { recursive: true });
+    const filename = `${kind}-${randomUUID()}.webp`;
+    await writeFile(join(dir, filename), webp);
+
+    const url = `/uploads/${id}/card/${filename}`;
+    const updated = await prisma.project.update({
+      where: { id },
+      data: kind === 'icon' ? { iconUrl: url } : { previewUrl: url },
+    });
+    const role = await getUserRole(request.user.userId, id);
+    return reply.send(toProjectDTO(updated, role ?? undefined));
+  };
+
+  fastify.post('/:id/icon', (request, reply) => uploadImage(request, reply, 'icon'));
+  fastify.post('/:id/preview', (request, reply) => uploadImage(request, reply, 'preview'));
 
   // ── DELETE /api/projects/:id — delete project (MASTER only) ──
   fastify.delete('/:id', async (request, reply) => {

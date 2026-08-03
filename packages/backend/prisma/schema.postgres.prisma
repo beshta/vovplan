@@ -81,6 +81,10 @@ model Project {
   centerLng   Float
   terrainUrl  String?
   terrainMeta Json? // импорт реального рельефа: {textureUrl, widthM, heightM, minElev, maxElev, polygon, origin}
+  /// Значок проекта, загружает пользователь
+  iconUrl     String?
+  /// Превью-скриншот сцены для карточки на дашборде
+  previewUrl  String?
   status      ProjectStatus    @default(DRAFT)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt

@@ -82,8 +82,22 @@ export const projectsApi = {
     bounds: { north: number; south: number; east: number; west: number };
   }) => apiFetch<Project>('/api/projects', { method: 'POST', body: JSON.stringify(data) }),
 
-  update: (id: string, data: Partial<{ name: string; description: string }>) =>
+  update: (id: string, data: Partial<{ name: string; description: string; status: string }>) =>
     apiFetch<Project>(`/api/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  /** Значок карточки */
+  uploadIcon: (id: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return apiFetch<Project>(`/api/projects/${id}/icon`, { method: 'POST', body: form });
+  },
+
+  /** Превью карточки — снимок сцены из вьювера */
+  uploadPreview: (id: string, blob: Blob) => {
+    const form = new FormData();
+    form.append('file', blob, 'preview.png');
+    return apiFetch<Project>(`/api/projects/${id}/preview`, { method: 'POST', body: form });
+  },
 
   delete: (id: string) =>
     apiFetch<void>(`/api/projects/${id}`, { method: 'DELETE' }),

@@ -48,6 +48,11 @@ export default function CameraRig() {
   }, [camera, setCameraGetter]);
 
   // Плавный перелёт к пресету (~0.8с, экспоненциальное приближение)
+  const flyElapsed = useRef(0);
+  useEffect(() => {
+    flyElapsed.current = 0;
+  }, [cameraFlyTarget]);
+
   useFrame((_, delta) => {
     if (!cameraFlyTarget || !controlsRef.current) return;
     const pos = new THREE.Vector3(...cameraFlyTarget.position);
@@ -56,10 +61,20 @@ export default function CameraRig() {
     camera.position.lerp(pos, k);
     controlsRef.current.target.lerp(tgt, k);
     controlsRef.current.update();
-    if (camera.position.distanceTo(pos) < 0.05 && controlsRef.current.target.distanceTo(tgt) < 0.05) {
-      camera.position.copy(pos);
-      controlsRef.current.target.copy(tgt);
-      controlsRef.current.update();
+
+    const arrived =
+      camera.position.distanceTo(pos) < 0.05 && controlsRef.current.target.distanceTo(tgt) < 0.05;
+    // Ограничение по времени обязательно: если поза недостижима (упирается в
+    // предел угла или дистанции), OrbitControls каждый кадр возвращает камеру
+    // назад, сближение не наступает никогда — и камера навсегда залипает,
+    // перебивая вращение мышью.
+    flyElapsed.current += delta;
+    if (arrived || flyElapsed.current > 2) {
+      if (arrived) {
+        camera.position.copy(pos);
+        controlsRef.current.target.copy(tgt);
+        controlsRef.current.update();
+      }
       clearFlyTarget();
     }
   });
