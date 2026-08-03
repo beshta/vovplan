@@ -73,6 +73,9 @@ export default function BuildingsLayer({ meta }: { meta: TerrainMeta }) {
         color="#dcd8cf"
         roughness={0.85}
         metalness={0}
+        // Каждая грань со своей нормалью: рёбра коробок читаются чётко,
+        // а не размываются интерполяцией по шву крыши и стены
+        flatShading
         transparent={xray}
         opacity={xray ? 0.15 : 1.0}
         depthWrite={!xray}
