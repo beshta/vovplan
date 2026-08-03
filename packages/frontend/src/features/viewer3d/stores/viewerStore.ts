@@ -114,6 +114,14 @@ interface ViewerState {
   showNature: boolean;
   setShowNature: (v: boolean) => void;
 
+  /**
+   * Высота рельефа в точке (локальные метры) — публикует сам рельеф после
+   * сборки геометрии. Нужна ходьбе от первого лица: рейкастить вниз каждый
+   * кадр нельзя, это перебор всех треугольников меша.
+   */
+  groundSampler: ((x: number, z: number) => number) | null;
+  setGroundSampler: (fn: ViewerState['groundSampler']) => void;
+
   /** Счётчики производительности сцены (обновляет PerfProbe изнутри Canvas) */
   perfStats: {
     fps: number;
@@ -304,6 +312,9 @@ export const useViewerStore = create<ViewerState>((set) => ({
   showNature: true,
   setShowNature: (showNature) => set({ showNature }),
 
+  groundSampler: null,
+  setGroundSampler: (groundSampler) => set({ groundSampler }),
+
   perfStats: null,
   setPerfStats: (perfStats) => set({ perfStats }),
   showPerf: false,
@@ -355,6 +366,10 @@ export const useViewerStore = create<ViewerState>((set) => ({
       annDrawMode: undefined,
       utilityDrawMode: false,
       utilityDraft: { points: [], type: 'WATER', location: 'UNDERGROUND', depth: 1.5, diameter: 200 },
+      // Функции, привязанные к сцене прошлого проекта: рельеф и инструменты
+      // регистрируют их заново, а чужие оставлять нельзя
+      groundSampler: null,
+      groundHandlers: null,
       history: [],
       historyIndex: -1,
     }),

@@ -144,7 +144,16 @@ export default function FirstPersonView({ targetPoint }: { targetPoint: [number,
 
     camera.position.addScaledVector(flatDir, forward * speed);
     camera.position.addScaledVector(side, -strafe * speed);
-    camera.position.y = EYE_HEIGHT + targetPoint[1]; // остаёмся на высоте глаз
+
+    // Идём по рельефу: высоту берём в текущей точке, а не в той, куда
+    // спустились изначально — иначе получалась ходьба по плоскости.
+    // Выборка из heightmap, а не рейкаст: последний перебирал бы все
+    // треугольники меша каждый кадр.
+    const ground = useViewerStore.getState().groundSampler;
+    const surfaceY = ground ? ground(camera.position.x, camera.position.z) : targetPoint[1];
+    // Сглаживаем подъём: на резких перепадах камера иначе дёргается
+    const wantY = surfaceY + EYE_HEIGHT;
+    camera.position.y += (wantY - camera.position.y) * Math.min(1, delta * 12);
   });
 
   return null;

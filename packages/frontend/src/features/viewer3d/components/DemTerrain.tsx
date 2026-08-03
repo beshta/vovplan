@@ -103,7 +103,7 @@ function RealTerrain({
     surfaceTex.needsUpdate = true;
   }, [surfaceTex, maxAnisotropy]);
 
-  const { geometry } = useMemo(() => {
+  const { geometry, sampleAt } = useMemo(() => {
     // Масштаб 1:1 — один юнит сцены = один метр. Сетка, объекты,
     // вид от первого лица (1.7м) и рельеф в одной честной системе.
     const sizeX = meta.widthM;
@@ -122,36 +122,50 @@ function RealTerrain({
     const geo = new THREE.PlaneGeometry(sizeX, sizeZ, segments, segments);
     geo.rotateX(-Math.PI / 2);
 
-    const pos = geo.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const z = pos.getZ(i);
-      // Билинейная интерполяция — без «ступенек» между пикселями DEM
-      const u = (x / sizeX + 0.5) * (hm.width - 1);
-      const v = (z / sizeZ + 0.5) * (hm.height - 1);
+    const texel = (px: number, py: number) => {
+      const idx = (py * hm.width + px) * 4;
+      return is16bit
+        ? (hm.data[idx] * 256 + hm.data[idx + 1]) / 65535
+        : hm.data[idx] / 255;
+    };
+
+    /**
+     * Высота поверхности в точке локальных координат. Билинейная интерполяция —
+     * без «ступенек» между пикселями DEM. Одной функцией и смещаем вершины, и
+     * отдаём наружу для ходьбы от первого лица: значения гарантированно
+     * совпадают с тем, что видно на экране.
+     */
+    const sampleAt = (x: number, z: number): number => {
+      const u = Math.min(hm.width - 1, Math.max(0, (x / sizeX + 0.5) * (hm.width - 1)));
+      const v = Math.min(hm.height - 1, Math.max(0, (z / sizeZ + 0.5) * (hm.height - 1)));
       const x0 = Math.floor(u);
       const y0 = Math.floor(v);
       const x1 = Math.min(x0 + 1, hm.width - 1);
       const y1 = Math.min(y0 + 1, hm.height - 1);
       const fx = u - x0;
       const fy = v - y0;
+      const top = texel(x0, y0) * (1 - fx) + texel(x1, y0) * fx;
+      const bot = texel(x0, y1) * (1 - fx) + texel(x1, y1) * fx;
+      return (top * (1 - fy) + bot * fy) * heightRange;
+    };
 
-      const sample = (px: number, py: number) => {
-        const idx = (py * hm.width + px) * 4;
-        return is16bit
-          ? (hm.data[idx] * 256 + hm.data[idx + 1]) / 65535
-          : hm.data[idx] / 255;
-      };
-
-      const top = sample(x0, y0) * (1 - fx) + sample(x1, y0) * fx;
-      const bot = sample(x0, y1) * (1 - fx) + sample(x1, y1) * fx;
-      const elevation01 = top * (1 - fy) + bot * fy;
-      pos.setY(i, elevation01 * heightRange);
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      pos.setY(i, sampleAt(pos.getX(i), pos.getZ(i)));
     }
     geo.computeVertexNormals();
 
-    return { geometry: geo };
+    return { geometry: geo, sampleAt };
   }, [heightTex, meta]);
+
+  // Отдаём высоту наружу: ходьба от первого лица идёт по рельефу, а не по
+  // плоскости. Снимаем при размонтировании, чтобы следующий проект не ходил
+  // по чужому рельефу.
+  const setGroundSampler = useViewerStore((s) => s.setGroundSampler);
+  useEffect(() => {
+    setGroundSampler(sampleAt);
+    return () => setGroundSampler(null);
+  }, [sampleAt, setGroundSampler]);
 
   return (
     <mesh geometry={geometry} receiveShadow userData={{ isTerrain: true }}>
