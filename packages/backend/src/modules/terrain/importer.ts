@@ -183,6 +183,40 @@ export function clipToRect(
   return out;
 }
 
+/**
+ * Обрезка отрезка прямоугольником (Лианг — Барски) с интерполяцией отметок
+ * на новых концах. Нужна руслам: осевая линия реки из OSM уходит далеко за
+ * площадку, и полотно воды тянулось в пустоту за краем рельефа.
+ */
+export function clipSegmentToRect(
+  p1: [number, number], p2: [number, number],
+  l1: number, l2: number,
+  minX: number, maxX: number, minY: number, maxY: number,
+): { p1: [number, number]; p2: [number, number]; l1: number; l2: number } | null {
+  const dx = p2[0] - p1[0];
+  const dy = p2[1] - p1[1];
+  let t0 = 0;
+  let t1 = 1;
+  const clip = (p: number, q: number): boolean => {
+    if (p === 0) return q >= 0;            // параллельно границе
+    const r = q / p;
+    if (p < 0) {
+      if (r > t1) return false;
+      if (r > t0) t0 = r;
+    } else {
+      if (r < t0) return false;
+      if (r < t1) t1 = r;
+    }
+    return true;
+  };
+  if (!clip(-dx, p1[0] - minX) || !clip(dx, maxX - p1[0])) return null;
+  if (!clip(-dy, p1[1] - minY) || !clip(dy, maxY - p1[1])) return null;
+
+  const at = (t: number): [number, number] => [p1[0] + t * dx, p1[1] + t * dy];
+  const lvl = (t: number) => l1 + t * (l2 - l1);
+  return { p1: at(t0), p2: at(t1), l1: lvl(t0), l2: lvl(t1) };
+}
+
 // ── Point-in-polygon (ray casting) ──────────────
 
 export function pointInPolygon(px: number, py: number, poly: [number, number][]): boolean {
@@ -729,11 +763,16 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
     }
     return { minX, maxX, minY, maxY };
   };
-  /** Уровень воды: нижний квартиль высот по контуру — устойчив и к выбросам
-   *  DEM, и к берегам (среднее задирало бы уровень над руслом) */
+  /**
+   * Уровень воды по контуру. Физически поверхность не может стоять выше
+   * самого низкого берега — иначе перелилась бы. Поэтому берём 10-й
+   * перцентиль: чистый минимум поймал бы одиночный выброс DEM, а нижний
+   * квартиль (было раньше) оказывался уже на берегу, и вода местами
+   * заливала сушу.
+   */
   const waterLevelOf = (poly: [number, number][]): number => {
     const s = poly.map(([x, y]) => sampleGrid(x, y)).sort((a, b2) => a - b2);
-    return s[Math.floor(s.length * 0.25)];
+    return s[Math.floor(s.length * 0.1)];
   };
 
   type WaterPatch = {
@@ -744,20 +783,30 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
     vertexLevels?: number[];
   };
 
-  // Водоёмы-полигоны (озёра, пруды, широкие реки, болота)
-  const waterPolys: WaterPatch[] = rawNature.water
-    .map((w) => {
-      const poly = w.latlngs.map(gridPx);
-      if (poly.length < 3) return null;
-      return { latlngs: w.latlngs, poly, level: waterLevelOf(poly) };
-    })
-    .filter((w): w is WaterPatch => w !== null);
-  const waterPatches: WaterPatch[] = [...waterPolys];
-
-  const toLL = (px: number, py: number): LatLng => ({
+  /** пиксель сетки → lat/lng */
+  const toLLpx = (px: number, py: number): LatLng => ({
     lng: bbox.west + (px / (gridW - 1)) * (bbox.east - bbox.west),
     lat: bbox.north - (py / (gridH - 1)) * (bbox.north - bbox.south),
   });
+
+  // Водоёмы-полигоны (озёра, пруды, широкие реки, болота).
+  // Обрезаем по площадке ДО расчёта уровня: кольцо крупной реки тянется на
+  // километры, и отметка, взятая по всему кольцу, приходила с чужой местности —
+  // на нашем участке вода оказывалась выше берега.
+  const waterPolys: WaterPatch[] = rawNature.water
+    .map((w) => {
+      const full = w.latlngs.map(gridPx);
+      if (full.length < 3) return null;
+      const poly = clipToRect(full, 0, gridW - 1, 0, gridH - 1);
+      if (poly.length < 3) return null;
+      return {
+        latlngs: poly.map(([px, py]) => toLLpx(px, py)),
+        poly,
+        level: waterLevelOf(poly),
+      };
+    })
+    .filter((w): w is WaterPatch => w !== null);
+  const waterPatches: WaterPatch[] = [...waterPolys];
 
   // Водотоки-линии → полотно по руслу.
   const mPerPxLng = widthM / Math.max(gridW - 1, 1);
@@ -778,7 +827,23 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
 
     // Сырые отметки по вершинам, затем сглаживание: DEM шумит, и от этого
     // соседние сегменты прыгали по высоте — русло шло «лесенкой».
-    const raw = pts.map(([x, y]) => sampleGrid(x, y));
+    // Отметку берём минимальной поперёк русла, а не строго по осевой: полотно
+    // шире линии, и на узкой реке его края вылезали на берег.
+    const halfWpx = Math.max(s.width, 2) / 2;
+    const raw = pts.map(([x, y], i) => {
+      const prev = pts[Math.max(0, i - 1)];
+      const next = pts[Math.min(pts.length - 1, i + 1)];
+      const dxM = (next[0] - prev[0]) * mPerPxLng;
+      const dyM = (next[1] - prev[1]) * mPerPxLat;
+      const len = Math.hypot(dxM, dyM) || 1;
+      const nx = ((-dyM / len) * halfWpx) / mPerPxLng;
+      const ny = ((dxM / len) * halfWpx) / mPerPxLat;
+      return Math.min(
+        sampleGrid(x, y),
+        sampleGrid(x + nx, y + ny),
+        sampleGrid(x - nx, y - ny),
+      );
+    });
     const smooth = raw.map((_, i) => {
       let sum = 0, n = 0;
       for (let k = Math.max(0, i - 2); k <= Math.min(raw.length - 1, i + 2); k++) {
@@ -793,28 +858,35 @@ export async function importRealTerrain(polygon: LatLng[]): Promise<ImportResult
     } else {
       for (let i = smooth.length - 2; i >= 0; i--) smooth[i] = Math.min(smooth[i], smooth[i + 1]);
     }
+    // Сглаживание и монотонность могли поднять отметку выше земли в этой точке —
+    // тогда вода заливала берег. Вода не стоит выше грунта: прижимаем к рельефу.
+    for (let i = 0; i < smooth.length; i++) smooth[i] = Math.min(smooth[i], raw[i]);
 
     for (let i = 0; i + 1 < pts.length; i++) {
-      const [x1, y1] = pts[i];
-      const [x2, y2] = pts[i + 1];
+      // Русло за краем площадки рисовать незачем — обрезаем сегмент по рамке,
+      // отметки на новых концах интерполируем по длине
+      const clipped = clipSegmentToRect(
+        pts[i], pts[i + 1], smooth[i], smooth[i + 1],
+        0, gridW - 1, 0, gridH - 1,
+      );
+      if (!clipped) continue;
+      const { p1: [x1, y1], p2: [x2, y2], l1: a, l2: b2 } = clipped;
+
       // Нормаль к сегменту в пикселях с учётом разного масштаба по осям
       const dxM = (x2 - x1) * mPerPxLng;
       const dyM = (y2 - y1) * mPerPxLat;
       const lenM = Math.hypot(dxM, dyM);
       if (lenM < 0.5) continue;
-      const halfW = Math.max(s.width, 2) / 2;
-      const nxPx = (-dyM / lenM) * halfW / mPerPxLng;
-      const nyPx = (dxM / lenM) * halfW / mPerPxLat;
+      const nxPx = (-dyM / lenM) * halfWpx / mPerPxLng;
+      const nyPx = (dxM / lenM) * halfWpx / mPerPxLat;
       const poly: [number, number][] = [
         [x1 + nxPx, y1 + nyPx], [x2 + nxPx, y2 + nyPx],
         [x2 - nxPx, y2 - nyPx], [x1 - nxPx, y1 - nyPx],
       ];
       // Порядок отметок повторяет порядок вершин квада: смежные сегменты
       // делят вершину и её высоту, поэтому полотно стыкуется без ступеньки.
-      const a = smooth[i];
-      const b2 = smooth[i + 1];
       waterPatches.push({
-        latlngs: poly.map(([px, py]) => toLL(px, py)),
+        latlngs: poly.map(([px, py]) => toLLpx(px, py)),
         poly,
         level: Math.min(a, b2),
         vertexLevels: [a, b2, b2, a],

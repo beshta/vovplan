@@ -21,10 +21,10 @@ interface WaterArea {
 }
 
 /** Одно дерево на N м² леса. Реже — пусто, чаще — просадка FPS на больших массивах */
-const AREA_PER_TREE = 260;
+const AREA_PER_TREE = 520;
 /** Потолок числа деревьев (десктоп / слабое устройство) */
-const MAX_TREES = 12_000;
-const MAX_TREES_LOW = 3_000;
+const MAX_TREES = 6_000;
+const MAX_TREES_LOW = 1_500;
 
 // ── Геометрия ──────────────────────────────────
 
@@ -222,19 +222,21 @@ export default function NatureLayer({
     return merged;
   }, [nature]);
 
-  // Ствол и кроны: низкополигональные, форма читается силуэтом
+  // Ствол и кроны. Форма читается силуэтом, поэтому геометрия предельно
+  // дешёвая: без крышек и с минимумом граней — вместо ~35 треугольников на
+  // дерево выходит ~13, а деревьев в кадре тысячи.
   const trunkGeo = useMemo(() => {
-    const g = new THREE.CylinderGeometry(0.28, 0.42, 4, 5);
+    const g = new THREE.CylinderGeometry(0.3, 0.4, 4, 3, 1, true); // 3 грани, открытый
     g.translate(0, 2, 0);
     return g;
   }, []);
   const needleGeo = useMemo(() => {
-    const g = new THREE.ConeGeometry(2.2, 8, 7); // ёлка — вытянутый конус
+    const g = new THREE.ConeGeometry(2.2, 8, 5, 1, true); // ёлка — конус без дна
     g.translate(0, 6, 0);
     return g;
   }, []);
   const broadGeo = useMemo(() => {
-    const g = new THREE.IcosahedronGeometry(2.7, 0); // лиственное — «кругляш»
+    const g = new THREE.OctahedronGeometry(2.7, 0); // лиственное — «кругляш», 8 граней
     g.scale(1, 0.85, 1);
     g.translate(0, 6.2, 0);
     return g;
@@ -266,17 +268,19 @@ export default function NatureLayer({
         </mesh>
       )}
 
-      {/* Стволы — общие для обоих типов деревьев */}
+      {/* Деревья теней не отбрасывают: отрисовка теневой карты для тысяч
+          инстансов дороже самой сцены, а на схематичных деревьях выигрыш
+          в реализме мизерный */}
       {allTrees.length > 0 && (
-        <Instanced geometry={trunkGeo} matrices={allTrees} color="#6b4f36" castShadow />
+        <Instanced geometry={trunkGeo} matrices={allTrees} color="#6b4f36" />
       )}
       {/* Кроны хвойных */}
       {trees && trees.needle.length > 0 && (
-        <Instanced geometry={needleGeo} matrices={trees.needle} color="#2f5d3a" castShadow />
+        <Instanced geometry={needleGeo} matrices={trees.needle} color="#2f5d3a" />
       )}
       {/* Кроны лиственных */}
       {trees && trees.broad.length > 0 && (
-        <Instanced geometry={broadGeo} matrices={trees.broad} color="#4a7c3f" castShadow />
+        <Instanced geometry={broadGeo} matrices={trees.broad} color="#4a7c3f" />
       )}
     </group>
   );
@@ -301,7 +305,9 @@ function Instanced({
     im.instanceMatrix.needsUpdate = true;
     im.castShadow = !!castShadow;
     im.receiveShadow = true;
-    im.frustumCulled = false; // матрицы в инстансах — bbox считается неверно
+    // Габариты считаем по матрицам инстансов — тогда отсечение по пирамиде
+    // видимости работает корректно и группа пропускается, когда не в кадре
+    im.computeBoundingSphere();
     return im;
   }, [geometry, matrices, color, castShadow]);
 

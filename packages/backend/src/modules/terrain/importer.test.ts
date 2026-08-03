@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { lngToTileX, latToTileY, pickZoom, pointInPolygon, buildingHeight, clipToRect, leafKind, stitchRings } from './importer.js';
+import { lngToTileX, latToTileY, pickZoom, pointInPolygon, buildingHeight, clipToRect, leafKind, stitchRings, clipSegmentToRect } from './importer.js';
 
 describe('terrain importer: тайловая математика', () => {
   it('lng/lat → тайловые координаты (Москва, z=10)', () => {
@@ -140,5 +140,34 @@ describe('terrain importer: сборка колец мультиполигона
       [ll(5, 5), ll(5, 6), ll(6, 6), ll(6, 5), ll(5, 5)],
     ];
     expect(stitchRings(parts)).toHaveLength(2);
+  });
+});
+
+describe('terrain importer: обрезка русла по краю площадки', () => {
+  const R = [0, 100, 0, 100] as const;
+
+  it('отрезок внутри — не меняется', () => {
+    const r = clipSegmentToRect([10, 10], [90, 90], 5, 15, ...R)!;
+    expect(r.p1).toEqual([10, 10]);
+    expect(r.p2).toEqual([90, 90]);
+    expect(r.l1).toBe(5);
+    expect(r.l2).toBe(15);
+  });
+
+  it('отрезок наружу — обрезается, отметка интерполируется', () => {
+    // Из центра за правый край: обрезается ровно на границе x=100
+    const r = clipSegmentToRect([50, 50], [150, 50], 10, 20, ...R)!;
+    expect(r.p2[0]).toBeCloseTo(100);
+    expect(r.l2).toBeCloseTo(15); // половина пути → середина между 10 и 20
+  });
+
+  it('отрезок целиком снаружи — null', () => {
+    expect(clipSegmentToRect([200, 200], [300, 300], 1, 2, ...R)).toBeNull();
+  });
+
+  it('отрезок пересекает площадку насквозь', () => {
+    const r = clipSegmentToRect([-50, 50], [150, 50], 0, 100, ...R)!;
+    expect(r.p1[0]).toBeCloseTo(0);
+    expect(r.p2[0]).toBeCloseTo(100);
   });
 });
