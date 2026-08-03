@@ -22,6 +22,13 @@ interface WaterArea {
 
 /** Одно дерево на N м² леса. Реже — пусто, чаще — просадка FPS на больших массивах */
 const AREA_PER_TREE = 520;
+/**
+ * Минимальная площадь, при которой массив всё же получает дерево. Без этого
+ * floor(площадь / AREA_PER_TREE) обнулял всё, что меньше порога: на реальной
+ * площадке в центре Москвы 18 скверов из 31 оставались голой землёй, хотя на
+ * карте под ними нарисован лес.
+ */
+const MIN_FOREST_AREA = 90;
 /** Потолок числа деревьев (десктоп / слабое устройство) */
 const MAX_TREES = 6_000;
 const MAX_TREES_LOW = 1_500;
@@ -128,6 +135,26 @@ export default function NatureLayer({
     if (!nature || nature.forests.length === 0) return null;
     const cap = detectQuality().isMobile ? MAX_TREES_LOW : MAX_TREES;
 
+    // Контуры леса в OSM заходят на воду (по данным Москвы-реки — 2 массива
+    // из 31 центром прямо в русле), и деревья вырастали посреди реки.
+    // Предрассчитываем габариты водоёмов: проверять каждое дерево по всем
+    // контурам дорого, а отсев по bbox отбрасывает почти все сразу.
+    const waterBoxes = (nature.water ?? []).map((w) => {
+      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+      for (const [x, z] of w.p) {
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (z < z0) z0 = z; if (z > z1) z1 = z;
+      }
+      return { p: w.p, x0, x1, z0, z1 };
+    });
+    const inWater = (x: number, z: number): boolean => {
+      for (const b of waterBoxes) {
+        if (x < b.x0 || x > b.x1 || z < b.z0 || z > b.z1) continue;
+        if (pointInPolygon(x, z, b.p)) return true;
+      }
+      return false;
+    };
+
     const needle: THREE.Matrix4[] = [];
     const broad: THREE.Matrix4[] = [];
     const rnd = mulberry32(1337);
@@ -139,7 +166,7 @@ export default function NatureLayer({
     for (const f of nature.forests) {
       if (needle.length + broad.length >= cap) break;
       const area = polygonArea(f.p);
-      if (area < AREA_PER_TREE) continue;
+      if (area < MIN_FOREST_AREA) continue;
 
       // bbox контура — сеем точки в нём и отбраковываем те, что вне полигона
       let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
@@ -148,7 +175,11 @@ export default function NatureLayer({
         if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
       }
 
-      const want = Math.min(Math.floor(area / AREA_PER_TREE), cap - needle.length - broad.length);
+      // round, а не floor: сквер в 400 м² получает дерево, а не ноль
+      const want = Math.min(
+        Math.max(1, Math.round(area / AREA_PER_TREE)),
+        cap - needle.length - broad.length,
+      );
       // Попыток с запасом: часть точек bbox не попадёт в полигон
       const maxAttempts = want * 6;
       let placed = 0;
@@ -158,6 +189,8 @@ export default function NatureLayer({
         if (!pointInPolygon(x, z, f.p)) continue;
         // Лес может выходить за рабочий периметр — деревья снаружи не нужны
         if (perimeter && !pointInPolygon(x, z, perimeter)) continue;
+        // И не растут посреди реки
+        if (inWater(x, z)) continue;
 
         const h = 6 + rnd() * 7;                // высота дерева 6–13 м
         const y = elevAt(x, z);
