@@ -11,6 +11,7 @@ import AnnotationTool from './AnnotationTool';
 import SceneGrid from './SceneGrid';
 import BuildingsLayer from './BuildingsLayer';
 import NatureLayer from './NatureLayer';
+import PerfProbe from './PerfProbe';
 import UtilityCreator from './UtilityCreator';
 import FirstPersonView from './FirstPersonView';
 import PeerLayer from '../../collaboration/PeerLayer';
@@ -71,6 +72,7 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
           целиком с любой дистанции. */}
 
       <Suspense fallback={null}>
+        <PerfProbe />
         <Lighting shadowMapSize={quality.shadowMapSize} sceneSize={sceneSize} />
         <CameraRig />
         {/* Группа-приёмник кликов по рельефу: R3F-события всплывают от

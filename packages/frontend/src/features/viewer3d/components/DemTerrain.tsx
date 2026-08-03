@@ -14,6 +14,11 @@ import type { TerrainMeta } from '../../../shared/api';
  *    высоты, пропорции области и спутниковая текстура.
  * 2. Heightmap PNG (ручная загрузка) — яркость = высота, vertex colors.
  * 3. Procedural noise — fBm + ridged, vertex colors.
+ *
+ * castShadow у рельефа нет намеренно: меш до 640×640 сегментов — это ~820 тыс.
+ * треугольников, и в теневом проходе он рисовался бы второй раз, удваивая
+ * нагрузку кадра. Тени от зданий и объектов на землю остаются (receiveShadow),
+ * теряется только самозатенение склонов.
  */
 
 export interface DemTerrainProps {
@@ -149,7 +154,7 @@ function RealTerrain({
   }, [heightTex, meta]);
 
   return (
-    <mesh geometry={geometry} receiveShadow castShadow={!xray} userData={{ isTerrain: true }}>
+    <mesh geometry={geometry} receiveShadow userData={{ isTerrain: true }}>
       <meshStandardMaterial
         key={xray ? 'real-xray' : 'real-solid'}
         map={surfaceTex}
@@ -207,7 +212,7 @@ function HeightmapTerrain({
   }, [heightTex, size, segments, heightScale]);
 
   return (
-    <mesh geometry={geometry} receiveShadow castShadow={!xray} userData={{ isTerrain: true }}>
+    <mesh geometry={geometry} receiveShadow userData={{ isTerrain: true }}>
       <meshStandardMaterial
         key={xray ? 'hm-xray' : 'hm-solid'}
         vertexColors
@@ -263,7 +268,7 @@ function ProceduralTerrain({
   }, [size, segments, heightScale, seed, frequency]);
 
   return (
-    <mesh geometry={geometry} receiveShadow castShadow={!xray} userData={{ isTerrain: true }}>
+    <mesh geometry={geometry} receiveShadow userData={{ isTerrain: true }}>
       <meshStandardMaterial
         key={xray ? 'proc-xray' : 'proc-solid'}
         vertexColors

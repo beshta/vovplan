@@ -17,6 +17,7 @@ import AnnotationsList from './components/AnnotationsList';
 import UtilityEditPanel from './components/UtilityEditPanel';
 import AnnotationEditPanel from './components/AnnotationEditPanel';
 import PresetsBar from './components/PresetsBar';
+import PerfPanel from './components/PerfPanel';
 import SceneObjectsList from './components/SceneObjectsList';
 import TouchJoystick from './components/TouchJoystick';
 import { isTouchDevice } from './utils/deviceProfiler';
@@ -48,6 +49,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const setCameraView = useViewerStore((s) => s.setCameraView);
   const fpPoint = useViewerStore((s) => s.fpPoint);
   const utilityDrawMode = useViewerStore((s) => s.utilityDrawMode);
+  const showPerf = useViewerStore((s) => s.showPerf);
 
   const userName = useAuthStore((s) => s.user?.displayName ?? s.user?.email ?? 'Гость');
 
@@ -276,6 +278,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
                 {utilityDrawMode && canEdit && <UtilityDrawPanel projectId={projectId} />}
                 <UtilityLayersPanel />
                 {canEdit && <TerrainPanel projectId={projectId} centerLat={projectData?.centerLat} centerLng={projectData?.centerLng} />}
+                {showPerf && <PerfPanel />}
                 <SceneObjectsList />
               </div>
               <div className="pointer-events-auto self-start">

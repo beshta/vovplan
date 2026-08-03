@@ -114,6 +114,19 @@ interface ViewerState {
   showNature: boolean;
   setShowNature: (v: boolean) => void;
 
+  /** Счётчики производительности сцены (обновляет PerfProbe изнутри Canvas) */
+  perfStats: {
+    fps: number;
+    triangles: number;
+    calls: number;
+    geometries: number;
+    textures: number;
+  } | null;
+  setPerfStats: (s: NonNullable<ViewerState['perfStats']>) => void;
+  /** Показ панели со счётчиками */
+  showPerf: boolean;
+  setShowPerf: (v: boolean) => void;
+
   // ── Черновик рисуемой инженерной сети (общий для 3D-превью и HUD-панели) ──
   utilityDraft: {
     points: [number, number, number][];
@@ -290,6 +303,11 @@ export const useViewerStore = create<ViewerState>((set) => ({
   setShowBuildings: (showBuildings) => set({ showBuildings }),
   showNature: true,
   setShowNature: (showNature) => set({ showNature }),
+
+  perfStats: null,
+  setPerfStats: (perfStats) => set({ perfStats }),
+  showPerf: false,
+  setShowPerf: (showPerf) => set({ showPerf }),
 
   utilityDraft: { points: [], type: 'WATER', location: 'UNDERGROUND', depth: 1.5, diameter: 200 },
   addDraftPoint: (pt) => set((s) => ({ utilityDraft: { ...s.utilityDraft, points: [...s.utilityDraft.points, pt] } })),

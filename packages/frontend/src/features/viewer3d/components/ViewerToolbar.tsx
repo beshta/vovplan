@@ -1,8 +1,7 @@
 import {
   Eye, Pencil, PenTool, Wrench, Move, RotateCw, Maximize2,
   MapPin, MoveUpRight, Minus, Brush, PersonStanding, Map as MapIcon,
-  ScanEye, MessageSquareText, EyeOff,
-} from 'lucide-react';
+  ScanEye, MessageSquareText, EyeOff, Activity } from 'lucide-react';
 import { useViewerStore } from '../stores/viewerStore';
 
 const ANN_PALETTE = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ffffff'];
@@ -17,6 +16,7 @@ export default function ViewerToolbar() {
     mode, setMode,
     role,
     cameraView, setCameraView,
+    showPerf, setShowPerf,
     transformMode, setTransformMode,
     showHidden, setShowHidden,
     showAnnotations, setShowAnnotations,
@@ -133,6 +133,12 @@ export default function ViewerToolbar() {
           onClick={() => setXrayMode(!xrayMode)}
           title="X-Ray (просвет подземных сетей)"
         ><ScanEye size={20} /></ToolButton>
+
+        <ToolButton
+          active={showPerf}
+          onClick={() => setShowPerf(!showPerf)}
+          title="Счётчики: кадры/с и нагрузка сцены"
+        ><Activity size={20} /></ToolButton>
 
         <ToolButton
           active={showAnnotations}
