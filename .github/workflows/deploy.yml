@@ -1,0 +1,73 @@
+name: Deploy
+
+# Деплой идёт только после успешного CI: сломанная сборка на прод не уедет.
+# Плюс кнопка ручного запуска на вкладке Actions.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # workflow_run срабатывает и на упавшем CI — отсекаем
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Проверить, что секреты настроены
+        id: check
+        env:
+          HAS_KEY: ${{ secrets.DEPLOY_SSH_KEY != '' }}
+        run: |
+          if [ "$HAS_KEY" != "true" ]; then
+            echo "::warning::Секреты деплоя не заданы — шаг пропущен. См. DEPLOY.md"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Подключиться и обновить прод
+        if: steps.check.outputs.ready == 'true'
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          DIR: ${{ secrets.DEPLOY_DIR }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes "$USER@$HOST" bash -s <<EOF
+            set -euo pipefail
+            cd "\${DIR:-~/vovplan}"
+            git fetch --all
+            git reset --hard origin/main
+            # Пересборка образов и перезапуск. Схема БД применяется самим
+            # контейнером backend (prisma db push в CMD).
+            docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+            docker image prune -f
+            docker compose -f docker-compose.prod.yml ps
+          EOF
+
+      - name: Проверить, что сайт отвечает
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          # Даём контейнерам подняться, затем проверяем фронт и API
+          for i in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://vovplan.com || true)
+            [ "$code" = "200" ] && { echo "сайт отвечает 200"; exit 0; }
+            sleep 10
+          done
+          echo "::error::vovplan.com не ответил 200 после деплоя"
+          exit 1
