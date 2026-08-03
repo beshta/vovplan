@@ -34,7 +34,9 @@ npm run dev          # backend :4000 (nodemon+tsx, SQLite) + frontend :5173 (vit
 
 **Фаза 9 (прод-деплой): ✅ РАЗВЁРНУТО — https://vovplan.com.** Стек в `docker-compose.prod.yml` (postgres+postgis / backend / web=caddy) на VPS 45.153.188.82 (Beget). Системный **nginx** держит 80/443 (TLS certbot) и проксирует на контейнер Caddy `127.0.0.1:8080` — на VPS есть другие сайты. Backend собирается через `packages/backend/build.mjs` (esbuild → CJS-бандл).
 
-**Деплой автоматический:** `.github/workflows/deploy.yml` собирает образы на раннере, публикует в GHCR и по SSH обновляет VPS (`docker compose pull` + `up -d`), затем проверяет 200. Триггер — зелёный CI или кнопка Actions → Deploy. Сборку вынесли в облако из-за диска: на VPS оставалось до 4 ГБ кэша buildkit в `/var/lib/containerd`, куда обычный `docker system prune` не достаёт (нужен `docker buildx prune -af`). Детали — memory `vovplan-prod-deploy`. **Осталось: 9.6 cron-бэкап** через `scripts/backup-db.sh`.
+**Деплой автоматический:** `.github/workflows/deploy.yml` собирает образы на раннере, публикует в GHCR и по SSH обновляет VPS (`docker compose pull` + `up -d`), затем проверяет 200. Триггер — зелёный CI или кнопка Actions → Deploy. Сборку вынесли в облако из-за диска: на VPS оставалось до 4 ГБ кэша buildkit в `/var/lib/containerd`, куда обычный `docker system prune` не достаёт (нужен `docker buildx prune -af`). Детали — memory `vovplan-prod-deploy`.
+
+**Бэкапы:** cron под `beshta` ежедневно в 3:00 (`scripts/backup-db.sh` → `backups/`, хранит 14, лог `backup.log`). В дамп входит только база; тома `vovplan_uploads` — отдельно. **Фаза 9 закрыта полностью.**
 
 ---
 
