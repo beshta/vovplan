@@ -32,7 +32,9 @@ npm run dev          # backend :4000 (nodemon+tsx, SQLite) + frontend :5173 (vit
 
 Фазы 0–8 + правки: real-time (Socket.io), share-ссылки/External Spectator, PWA, импорт реального ландшафта (масштаб 1:1, 16-бит DEM, здания OSM, схема/спутник), редизайн (тёмная glass-тема, lucide-иконки, шрифты Manrope/Unbounded), first-person drag-look, редактирование сетей и аннотаций (текст/цвет/толщина/скрыть/удалить), метка-«V», привязка объектов к земле (галочка «стоит на земле»), экран доступа + матрица прав.
 
-**Фаза 9 (прод-деплой): ✅ РАЗВЁРНУТО — https://vovplan.com (2026-07-27).** Стек в `docker-compose.prod.yml` (postgres+postgis / backend / web=caddy) поднят на VPS 45.153.188.82 (Beget). Системный **nginx** держит 80/443 (TLS через certbot, автопродление) и проксирует на контейнер Caddy `127.0.0.1:8080` — на VPS есть другие сайты, поэтому nginx-фронт, а не Caddy-TLS. Backend собирается через `packages/backend/build.mjs` (esbuild → CJS-бандл; tsc не годился из-за `type:module`+CJS и `@vovplan/shared`→`.ts`). Деплой-цикл: `git pull && docker compose -f docker-compose.prod.yml --env-file .env up -d --build`. Детали — memory `vovplan-prod-deploy`. **Осталось: 9.6 cron-бэкап** через `scripts/backup-db.sh` (ещё не настроен).
+**Фаза 9 (прод-деплой): ✅ РАЗВЁРНУТО — https://vovplan.com.** Стек в `docker-compose.prod.yml` (postgres+postgis / backend / web=caddy) на VPS 45.153.188.82 (Beget). Системный **nginx** держит 80/443 (TLS certbot) и проксирует на контейнер Caddy `127.0.0.1:8080` — на VPS есть другие сайты. Backend собирается через `packages/backend/build.mjs` (esbuild → CJS-бандл).
+
+**Деплой автоматический:** `.github/workflows/deploy.yml` собирает образы на раннере, публикует в GHCR и по SSH обновляет VPS (`docker compose pull` + `up -d`), затем проверяет 200. Триггер — зелёный CI или кнопка Actions → Deploy. Сборку вынесли в облако из-за диска: на VPS оставалось до 4 ГБ кэша buildkit в `/var/lib/containerd`, куда обычный `docker system prune` не достаёт (нужен `docker buildx prune -af`). Детали — memory `vovplan-prod-deploy`. **Осталось: 9.6 cron-бэкап** через `scripts/backup-db.sh`.
 
 ---
 
