@@ -58,13 +58,39 @@ docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 Данные (БД, загруженные файлы, TLS-сертификаты) хранятся в volumes и переживают пересборку.
 
 ## Бэкапы
+
+`scripts/backup-db.sh` — дамп Postgres в gzip, хранит последние 14, чистит старые.
+Пишет во временный файл и проверяет архив на целостность: незавершённый или
+битый дамп не заменит предыдущий. Если на диске меньше 500 МБ — не запускается
+(на этом VPS место дефицитное).
+
+**Установка cron** (под тем же пользователем, что владеет проектом):
 ```bash
+cd ~/vovplan
 chmod +x scripts/backup-db.sh
-./scripts/backup-db.sh              # разовый бэкап в ./backups
-crontab -e                          # ежедневно в 3:00:
-# 0 3 * * * cd /root/vovplan && ./scripts/backup-db.sh >> backup.log 2>&1
+./scripts/backup-db.sh                 # разовый прогон — убедиться, что работает
+ls -lh backups/
+
+crontab -e
 ```
-Восстановление — команда в конце `scripts/backup-db.sh`.
+Строка (путь подставить свой):
+```
+0 3 * * * /home/beshta/vovplan/scripts/backup-db.sh >> /home/beshta/vovplan/backup.log 2>&1
+```
+Проверить, что задание встало: `crontab -l`. Первый прогон — на следующие 3:00,
+результат смотреть в `backup.log`.
+
+⚠️ **Скрипт сохраняет только базу.** Загруженные GLB-модели и текстуры ландшафта
+лежат в docker-томе `vovplan_uploads` и в дамп не попадают. Их бэкап отдельно
+(объём заметно больше, на тесном диске делать выборочно):
+```bash
+docker run --rm -v vovplan_uploads:/d -v "$PWD/backups":/b alpine   tar czf /b/uploads-$(date +%F).tar.gz -C /d .
+```
+
+**Восстановление базы:**
+```bash
+gunzip -c backups/vovplan-ГГГГ-ММ-ДД_ЧЧММ.sql.gz |   docker compose -f docker-compose.prod.yml exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+```
 
 ## Диагностика
 ```bash
