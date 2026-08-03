@@ -1,5 +1,9 @@
 # ── VOVPLAN production stack ──
-# Запуск:  docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# Прод: образы собираются в GitHub Actions и подтягиваются готовыми —
+#   docker compose -f docker-compose.prod.yml --env-file .env pull
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d
+# Собрать на месте (локально) по-прежнему можно: добавить --build.
+# Сборка на VPS оставляла до 4 ГБ кэша buildkit при диске в 14 ГБ.
 services:
   postgres:
     image: postgis/postgis:16-3.4
@@ -17,6 +21,7 @@ services:
       retries: 5
 
   backend:
+    image: ${BACKEND_IMAGE:-ghcr.io/beshta/vovplan-backend:latest}
     build:
       context: .
       dockerfile: packages/backend/Dockerfile
@@ -37,6 +42,7 @@ services:
       - tilecache:/app/packages/backend/.tilecache  # кэш тайлов рельефа
 
   web:
+    image: ${WEB_IMAGE:-ghcr.io/beshta/vovplan-web:latest}
     build:
       context: .
       dockerfile: packages/frontend/Dockerfile
