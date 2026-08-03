@@ -1,4 +1,4 @@
-import { Canvas } from '@react-three/fiber';
+import { Canvas, type ThreeEvent } from '@react-three/fiber';
 import { Suspense } from 'react';
 import { ACESFilmicToneMapping } from 'three';
 import Lighting from './Lighting';
@@ -40,6 +40,41 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
   const cameraView = useViewerStore((s) => s.cameraView);
   const fpPoint = useViewerStore((s) => s.fpPoint);
   const setFpPoint = useViewerStore((s) => s.setFpPoint);
+  // Подписка нужна реактивная: от неё зависит, вешать ли обработчики на
+  // рельеф, а значит — участвует ли он в рейкасте вообще
+  const groundHandlers = useViewerStore((s) => s.groundHandlers);
+
+  /** Нужна ли точка на земле прямо сейчас (рисование или выбор точки спуска) */
+  const groundPicking = !!groundHandlers || (cameraView === 'first-person' && !fpPoint);
+
+  const groundEvents = {
+    onClick: (e: ThreeEvent<MouseEvent>) => {
+      const pt: [number, number, number] = [e.point.x, e.point.y, e.point.z];
+      if (cameraView === 'first-person' && !fpPoint) {
+        e.stopPropagation();
+        setFpPoint(pt);
+        return;
+      }
+      const h = useViewerStore.getState().groundHandlers;
+      if (h?.onClick) {
+        e.stopPropagation();
+        h.onClick(pt);
+      }
+    },
+    onPointerDown: (e: ThreeEvent<PointerEvent>) => {
+      const h = useViewerStore.getState().groundHandlers;
+      if (h?.onDown) {
+        e.stopPropagation();
+        h.onDown([e.point.x, e.point.y, e.point.z]);
+      }
+    },
+    onPointerMove: (e: ThreeEvent<PointerEvent>) => {
+      useViewerStore.getState().groundHandlers?.onMove?.([e.point.x, e.point.y, e.point.z]);
+    },
+    onPointerUp: () => {
+      useViewerStore.getState().groundHandlers?.onUp?.();
+    },
+  };
 
   // Масштаб 1:1 для реального ландшафта: размер сцены = размер площадки в метрах
   const sceneSize = terrainMeta ? Math.max(terrainMeta.widthM, terrainMeta.heightM) : 200;
@@ -77,36 +112,19 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
         <CameraRig />
         {/* Группа-приёмник кликов по рельефу: R3F-события всплывают от
             меша террейна, e.point — точное 3D-попадание (работает и на
-            холмах, в отличие от прежних плоских «планов-ловушек») */}
-        <group
-          onClick={(e) => {
-            const pt: [number, number, number] = [e.point.x, e.point.y, e.point.z];
-            if (cameraView === 'first-person' && !fpPoint) {
-              e.stopPropagation();
-              setFpPoint(pt);
-              return;
-            }
-            const h = useViewerStore.getState().groundHandlers;
-            if (h?.onClick) {
-              e.stopPropagation();
-              h.onClick(pt);
-            }
-          }}
-          onPointerDown={(e) => {
-            const h = useViewerStore.getState().groundHandlers;
-            if (h?.onDown) {
-              e.stopPropagation();
-              h.onDown([e.point.x, e.point.y, e.point.z]);
-            }
-          }}
-          onPointerMove={(e) => {
-            const h = useViewerStore.getState().groundHandlers;
-            h?.onMove?.([e.point.x, e.point.y, e.point.z]);
-          }}
-          onPointerUp={() => {
-            useViewerStore.getState().groundHandlers?.onUp?.();
-          }}
-        >
+            холмах, в отличие от прежних плоских «планов-ловушек»).
+
+            Обработчики вешаются ТОЛЬКО когда точка на земле реально нужна —
+            при рисовании сетей/аннотаций или выборе точки спуска в режим от
+            первого лица. Иначе R3F на каждое движение мыши считал пересечение
+            луча с мешем рельефа (до 820 тыс. треугольников перебором): в
+            статике сцена шла 144 кадра/с, а при вращении падала до 12.
+
+            Группа при этом одна и та же в обоих состояниях — меняются только
+            пропсы. Если подменять саму ветку дерева, рельеф перемонтируется и
+            геометрия на 820 тыс. вершин соберётся заново при каждом включении
+            инструмента. */}
+        <group {...(groundPicking ? groundEvents : {})}>
           <TerrainManager
             size={200}
             heightmapUrl={terrainUrl}
