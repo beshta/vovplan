@@ -59,37 +59,64 @@ docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 
 ## Бэкапы
 
-`scripts/backup-db.sh` — дамп Postgres в gzip, хранит последние 14, чистит старые.
-Пишет во временный файл и проверяет архив на целостность: незавершённый или
-битый дамп не заменит предыдущий. Если на диске меньше 500 МБ — не запускается
-(на этом VPS место дефицитное).
+`scripts/backup-db.sh` сохраняет **и базу, и файлы проектов**:
 
-**Установка cron** (под тем же пользователем, что владеет проектом):
+| Что | Как часто | Хранится |
+|---|---|---|
+| Дамп Postgres (`vovplan-*.sql.gz`) | ежедневно | 14 копий |
+| Файлы: модели GLB и текстуры ландшафта (`uploads-*.tar.gz`) | раз в 7 дней | 4 копии |
+
+Файлы лежат в docker-томе `vovplan_uploads` и в дамп базы **не входят** — без
+них восстановленные проекты откроются пустыми. Архив снимается с тома напрямую,
+останавливать приложение не требуется.
+
+Скрипт пишет во временный файл и проверяет целостность: незавершённый или
+битый архив не заменит предыдущий. Если свободно меньше 500 МБ — не запускается.
+
+**Установка cron:**
 ```bash
 cd ~/vovplan
 chmod +x scripts/backup-db.sh
-./scripts/backup-db.sh                 # разовый прогон — убедиться, что работает
+./scripts/backup-db.sh                 # разовый прогон
 ls -lh backups/
-
 crontab -e
 ```
-Строка (путь подставить свой):
 ```
 0 3 * * * /home/beshta/vovplan/scripts/backup-db.sh >> /home/beshta/vovplan/backup.log 2>&1
 ```
-Проверить, что задание встало: `crontab -l`. Первый прогон — на следующие 3:00,
-результат смотреть в `backup.log`.
 
-⚠️ **Скрипт сохраняет только базу.** Загруженные GLB-модели и текстуры ландшафта
-лежат в docker-томе `vovplan_uploads` и в дамп не попадают. Их бэкап отдельно
-(объём заметно больше, на тесном диске делать выборочно):
+### Выгрузка на внешнее хранилище
+
+⚠️ **Без неё бэкапы лежат на том же диске, что и база** — от потери или сбоя
+сервера они не спасают. Скрипт при каждом запуске об этом предупреждает в лог.
+
+Выгрузка идёт через [rclone](https://rclone.org) — он умеет S3, Яндекс Object
+Storage, Selectel, Google Drive и десятки других:
+
 ```bash
-docker run --rm -v vovplan_uploads:/d -v "$PWD/backups":/b alpine   tar czf /b/uploads-$(date +%F).tar.gz -C /d .
+# 1. Установить
+curl https://rclone.org/install.sh | sudo bash
+
+# 2. Настроить хранилище (мастер спросит тип и ключи)
+rclone config          # назовите remote, например: backup
+
+# 3. Проверить, что пишется
+rclone lsd backup:
+
+# 4. Включить в бэкапе — добавить в ~/vovplan/.env
+echo 'BACKUP_REMOTE=backup:vovplan' >> ~/vovplan/.env
 ```
 
-**Восстановление базы:**
+После этого каждый прогон копирует свежие архивы в `<remote>/db/` и
+`<remote>/files/` и удаляет там устаревшие по тем же правилам.
+
+**Восстановление:**
 ```bash
+# база
 gunzip -c backups/vovplan-ГГГГ-ММ-ДД_ЧЧММ.sql.gz |   docker compose -f docker-compose.prod.yml exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+
+# файлы проектов
+docker run --rm -v vovplan_uploads:/data -v "$PWD/backups":/in   alpine tar xzf /in/uploads-ГГГГ-ММ-ДД_ЧЧММ.tar.gz -C /data
 ```
 
 ## Диагностика
