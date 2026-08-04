@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Package, Construction, Footprints, X, Camera } from 'lucide-react';
+import { Package, Construction, Footprints, X, Camera, Globe } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ProjectRole } from '@vovplan/shared';
 import { useViewerStore } from './stores/viewerStore';
@@ -50,6 +50,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const fpPoint = useViewerStore((s) => s.fpPoint);
   const utilityDrawMode = useViewerStore((s) => s.utilityDrawMode);
   const showPerf = useViewerStore((s) => s.showPerf);
+  const setMapImportOpen = useViewerStore((s) => s.setMapImportOpen);
 
   const userName = useAuthStore((s) => s.user?.displayName ?? s.user?.email ?? 'Гость');
 
@@ -301,10 +302,38 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
             </div>
 
             {/* Empty state */}
+            {/* Подсказка первого шага. Раньше здесь всегда предлагалось
+                загрузить модель — но начинать надо с импорта местности, и
+                об этом не говорилось нигде. Теперь текст зависит от того,
+                загружен ли ландшафт, а кнопка ведёт прямо к действию. */}
             {sceneData?.data.length === 0 && (
-              <div className="text-center text-muted select-none">
-                <div className="flex justify-center mb-3 text-slate-600"><Construction size={48} strokeWidth={1.5} /></div>
-                <p className="text-sm">Сцена пуста. Загрузите GLB-модель справа и разместите её.</p>
+              <div className="glass pointer-events-auto max-w-sm text-center px-6 py-5 select-none">
+                {!projectData?.terrainUrl ? (
+                  <>
+                    <div className="flex justify-center mb-3 text-vovplan-500"><Globe size={40} strokeWidth={1.4} /></div>
+                    <p className="font-semibold text-strong mb-1.5">Начните с местности</p>
+                    <p className="text-sm text-muted mb-4">
+                      Обведите участок на карте — VOVPLAN подгрузит реальный рельеф,
+                      здания, лес и водоёмы.
+                    </p>
+                    {canEdit && (
+                      <button onClick={() => setMapImportOpen(true)} className="btn-primary text-sm">
+                        Импортировать с карты
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-center mb-3 text-slate-400 dark:text-slate-500">
+                      <Construction size={40} strokeWidth={1.4} />
+                    </div>
+                    <p className="font-semibold text-strong mb-1.5">Местность готова</p>
+                    <p className="text-sm text-muted">
+                      Теперь добавьте объекты: выберите модель в библиотеке справа
+                      и разместите её на площадке.
+                    </p>
+                  </>
+                )}
               </div>
             )}
 

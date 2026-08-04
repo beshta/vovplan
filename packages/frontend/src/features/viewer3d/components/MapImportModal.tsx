@@ -76,10 +76,35 @@ export default function MapImportModal({
     }
   }, [points]);
 
+  /**
+   * Импорт идёт 10–40 секунд (тайлы рельефа, две текстуры до z19, запросы к
+   * Overpass), и всё это время окно молчало — выглядело как зависание.
+   * Прогресса с сервера нет, поэтому показываем ожидаемые этапы по времени:
+   * это не точный индикатор, но человеку видно, что процесс идёт и чего ждать.
+   */
+  const STAGES = [
+    { at: 0, text: 'Загружаю рельеф местности...' },
+    { at: 6_000, text: 'Собираю карту и спутниковый снимок...' },
+    { at: 16_000, text: 'Ищу здания, лес и водоёмы...' },
+    { at: 26_000, text: 'Почти готово — собираю сцену...' },
+  ];
+  const [stage, setStage] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+
   const handleImport = async () => {
     if (points.length < 3) return;
     setImporting(true);
     setError(null);
+    setStage(0);
+    setElapsed(0);
+
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      const ms = Date.now() - startedAt;
+      setElapsed(Math.floor(ms / 1000));
+      setStage(STAGES.filter((s) => ms >= s.at).length - 1);
+    }, 500);
+
     try {
       const result = await terrainApi.importReal(
         projectId,
@@ -90,6 +115,7 @@ export default function MapImportModal({
     } catch (err) {
       setError((err as Error).message);
     } finally {
+      window.clearInterval(timer);
       setImporting(false);
     }
   };
@@ -149,13 +175,21 @@ export default function MapImportModal({
           >
             <Trash2 size={14} /> Очистить
           </button>
-          <button
-            onClick={handleImport}
-            disabled={points.length < 3 || importing}
-            className="btn-primary text-xs flex items-center gap-1.5"
-          >
-            <Check size={14} /> Импортировать область
-          </button>
+          {importing ? (
+            <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-vovplan-500/10 border border-vovplan-500/25">
+              <span className="w-4 h-4 shrink-0 rounded-full border-2 border-vovplan-500 border-t-transparent animate-spin" />
+              <span className="text-xs text-strong">{STAGES[Math.max(0, stage)].text}</span>
+              <span className="text-xs text-muted tabular-nums">{elapsed} с</span>
+            </div>
+          ) : (
+            <button
+              onClick={handleImport}
+              disabled={points.length < 3}
+              className="btn-primary text-xs flex items-center gap-1.5"
+            >
+              <Check size={14} /> Импортировать область
+            </button>
+          )}
         </div>
       </div>
     </div>,

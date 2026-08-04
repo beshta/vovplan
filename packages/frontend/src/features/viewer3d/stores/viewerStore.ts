@@ -135,6 +135,14 @@ interface ViewerState {
   showPerf: boolean;
   setShowPerf: (v: boolean) => void;
 
+  /**
+   * Окно импорта местности с карты. В сторе, а не в TerrainPanel: его должна
+   * уметь открыть и подсказка на пустой сцене — это первое действие, с
+   * которого начинается работа над проектом.
+   */
+  mapImportOpen: boolean;
+  setMapImportOpen: (v: boolean) => void;
+
   // ── Черновик рисуемой инженерной сети (общий для 3D-превью и HUD-панели) ──
   utilityDraft: {
     points: [number, number, number][];
@@ -319,6 +327,8 @@ export const useViewerStore = create<ViewerState>((set) => ({
   setPerfStats: (perfStats) => set({ perfStats }),
   showPerf: false,
   setShowPerf: (showPerf) => set({ showPerf }),
+  mapImportOpen: false,
+  setMapImportOpen: (mapImportOpen) => set({ mapImportOpen }),
 
   utilityDraft: { points: [], type: 'WATER', location: 'UNDERGROUND', depth: 1.5, diameter: 200 },
   addDraftPoint: (pt) => set((s) => ({ utilityDraft: { ...s.utilityDraft, points: [...s.utilityDraft.points, pt] } })),
@@ -370,6 +380,7 @@ export const useViewerStore = create<ViewerState>((set) => ({
       // регистрируют их заново, а чужие оставлять нельзя
       groundSampler: null,
       groundHandlers: null,
+      mapImportOpen: false,
       history: [],
       historyIndex: -1,
     }),

@@ -17,7 +17,8 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(true);
-  const [mapOpen, setMapOpen] = useState(false);
+  const mapOpen = useViewerStore((s) => s.mapImportOpen);
+  const setMapOpen = useViewerStore((s) => s.setMapImportOpen);
 
   const terrainUrl = useViewerStore((s) => s.terrainUrl);
   const setTerrainUrl = useViewerStore((s) => s.setTerrainUrl);
