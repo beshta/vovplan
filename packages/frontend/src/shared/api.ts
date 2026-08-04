@@ -68,6 +68,22 @@ export const authApi = {
   },
 };
 
+// ── Analytics API ─────────────────────────────
+export interface FunnelStep {
+  name: string;
+  label: string;
+  count: number;
+  /** доля от первого шага, % */
+  ofTotal: number;
+  /** доля от предыдущего шага, % — где именно теряются люди */
+  ofPrev: number;
+}
+
+export const analyticsApi = {
+  funnel: (days = 30) =>
+    apiFetch<{ since: string; days: number; steps: FunnelStep[] }>(`/api/analytics/funnel?days=${days}`),
+};
+
 // ── Projects API ──────────────────────────────
 export const projectsApi = {
   list: () => apiFetch<{ data: Project[] }>('/api/projects'),

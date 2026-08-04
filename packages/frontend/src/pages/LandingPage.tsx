@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Map as MapIcon,
@@ -13,6 +13,7 @@ import {
   RotateCcw,
   ArrowRight,
 } from 'lucide-react';
+import { track } from '../shared/analytics';
 
 // Тяжёлый three.js-канвас грузим отдельным чанком — текст героя рисуется сразу
 const LandingScene = lazy(() => import('./landing/LandingScene'));
@@ -36,6 +37,8 @@ const FEATURES = [
 ];
 
 export default function LandingPage() {
+  useEffect(() => { track('landing.view'); }, []);
+
   return (
     <div className="min-h-screen surface-page antialiased">
       {/* ── Навигация ── */}

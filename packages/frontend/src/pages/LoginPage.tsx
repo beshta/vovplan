@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../shared/authStore';
 import AuthLayout, { authInput, authLabel } from './auth/AuthLayout';
+import { track } from '../shared/analytics';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -14,6 +15,7 @@ export default function LoginPage() {
     clearError();
     try {
       await login(email, password);
+      track('login.done');
       navigate('/');
     } catch {
       /* error is in store */

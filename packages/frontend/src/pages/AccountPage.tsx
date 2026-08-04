@@ -3,19 +3,20 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, User as UserIcon, Lock, FolderOpen, CreditCard,
-  Camera, Check, MapPin, LogOut,
+  Camera, Check, MapPin, LogOut, TrendingDown,
 } from 'lucide-react';
-import { authApi, projectsApi } from '../shared/api';
+import { authApi, projectsApi, analyticsApi } from '../shared/api';
 import { useAuthStore } from '../shared/authStore';
 import { ROLE_LABELS, type Project } from '@vovplan/shared';
 
-type Section = 'profile' | 'password' | 'projects' | 'billing';
+type Section = 'profile' | 'password' | 'projects' | 'billing' | 'funnel';
 
 const SECTIONS: { id: Section; label: string; icon: typeof UserIcon }[] = [
   { id: 'profile', label: 'Профиль', icon: UserIcon },
   { id: 'password', label: 'Безопасность', icon: Lock },
   { id: 'projects', label: 'Мои проекты', icon: FolderOpen },
   { id: 'billing', label: 'Подписка', icon: CreditCard },
+  { id: 'funnel', label: 'Воронка', icon: TrendingDown },
 ];
 
 export default function AccountPage() {
@@ -67,6 +68,7 @@ export default function AccountPage() {
           {section === 'password' && <PasswordSection />}
           {section === 'projects' && <ProjectsSection />}
           {section === 'billing' && <BillingSection />}
+          {section === 'funnel' && <FunnelSection />}
         </div>
       </main>
 
@@ -395,6 +397,92 @@ function BillingSection() {
       <p className="mt-5 text-xs text-muted">
         Приём оплаты ещё не подключён — кнопки тарифов пока неактивны.
       </p>
+    </Card>
+  );
+}
+
+// ── Воронка ───────────────────────────────────
+/**
+ * Сводка пути пользователя: от захода на сайт до первого объекта в сцене.
+ * Считаются уникальные люди на каждом шаге, а не события — иначе один
+ * человек, обновивший лендинг десять раз, исказил бы всю картину.
+ *
+ * Раздел виден всем, но данные отдаёт только тем, чей email в
+ * ANALYTICS_ADMIN_EMAILS: остальным сервер ответит отказом, и мы честно
+ * об этом пишем, а не притворяемся, что данных нет.
+ */
+function FunnelSection() {
+  const [days, setDays] = useState(30);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['funnel', days],
+    queryFn: () => analyticsApi.funnel(days),
+    retry: false,
+  });
+
+  return (
+    <Card title="Воронка" description="Сколько людей доходит от первого захода до работы со сценой.">
+      <div className="flex gap-1.5 mb-6">
+        {[7, 30, 90].map((d) => (
+          <button
+            key={d}
+            onClick={() => setDays(d)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              days === d
+                ? 'bg-vovplan-500/10 text-vovplan-700 ring-1 ring-vovplan-500/25 dark:bg-vovplan-600/20 dark:text-vovplan-200'
+                : 'text-muted hover:text-strong hover:bg-slate-900/5 dark:hover:bg-white/5'
+            }`}
+          >
+            {d} дн.
+          </button>
+        ))}
+      </div>
+
+      {isLoading && <p className="text-sm text-muted">Считаю...</p>}
+
+      {error && (
+        <Alert kind="error">
+          {(error as Error).message.includes('прав') || (error as Error).message.includes('владельц')
+            ? 'Сводка доступна только владельцам продукта. Добавьте свой email в ANALYTICS_ADMIN_EMAILS на сервере.'
+            : (error as Error).message}
+        </Alert>
+      )}
+
+      {data && (
+        data.steps[0].count === 0 ? (
+          <p className="text-sm text-muted">
+            За этот период данных нет. События начинают собираться после выкатки —
+            загляните через день-другой.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {data.steps.map((s, i) => (
+              <div key={s.name}>
+                <div className="flex items-baseline justify-between gap-3 mb-1">
+                  <span className="text-sm text-strong">{s.label}</span>
+                  <span className="text-sm font-mono tabular-nums text-strong">
+                    {s.count}
+                    <span className="text-muted ml-2">{s.ofTotal}%</span>
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-vovplan-600 via-violet-500 to-cyan-500"
+                    style={{ width: `${Math.max(s.ofTotal, s.count > 0 ? 2 : 0)}%` }}
+                  />
+                </div>
+                {/* Потеря относительно предыдущего шага — самое полезное число:
+                    показывает, на каком именно переходе люди уходят */}
+                {i > 0 && s.ofPrev < 100 && (
+                  <p className="text-xs text-muted mt-1">
+                    дошли {s.ofPrev}% с прошлого шага
+                    {s.ofPrev < 50 && <span className="text-amber-600 dark:text-amber-400"> — основная потеря</span>}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )
+      )}
     </Card>
   );
 }

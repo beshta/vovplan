@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../shared/authStore';
 import AuthLayout, { authInput, authLabel } from './auth/AuthLayout';
+import { track } from '../shared/analytics';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -13,8 +14,10 @@ export default function RegisterPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     clearError();
+    track('register.start');
     try {
       await register(email, password, displayName);
+      track('register.done');
       navigate('/');
     } catch {
       /* error is in store */

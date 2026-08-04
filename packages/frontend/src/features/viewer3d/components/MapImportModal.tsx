@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import { X, Globe, Undo2, Trash2, Check, Loader2 } from 'lucide-react';
 import { terrainApi } from '../../../shared/api';
 import type { TerrainMeta } from '../../../shared/api';
+import { track } from '../../../shared/analytics';
 
 interface MapImportModalProps {
   projectId: string;
@@ -110,6 +111,7 @@ export default function MapImportModal({
         projectId,
         points.map((p) => ({ lat: p.lat, lng: p.lng })),
       );
+      track('terrain.import', { seconds: Math.round((Date.now() - startedAt) / 1000) });
       onImported(result.terrainUrl, result.terrainMeta);
       onClose();
     } catch (err) {
@@ -149,8 +151,8 @@ export default function MapImportModal({
           {importing && (
             <div className="absolute inset-0 z-[1100] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center gap-3 text-slate-200">
               <Loader2 size={36} className="animate-spin text-vovplan-400" />
-              <p className="text-sm">Скачиваем рельеф и спутниковые снимки…</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Обычно 5–20 секунд</p>
+              <p className="text-sm">{STAGES[Math.max(0, stage)].text}</p>
+              <p className="text-xs text-slate-400 tabular-nums">{elapsed} с · обычно 10–40 секунд</p>
             </div>
           )}
         </div>
@@ -175,21 +177,13 @@ export default function MapImportModal({
           >
             <Trash2 size={14} /> Очистить
           </button>
-          {importing ? (
-            <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-vovplan-500/10 border border-vovplan-500/25">
-              <span className="w-4 h-4 shrink-0 rounded-full border-2 border-vovplan-500 border-t-transparent animate-spin" />
-              <span className="text-xs text-strong">{STAGES[Math.max(0, stage)].text}</span>
-              <span className="text-xs text-muted tabular-nums">{elapsed} с</span>
-            </div>
-          ) : (
-            <button
-              onClick={handleImport}
-              disabled={points.length < 3}
-              className="btn-primary text-xs flex items-center gap-1.5"
-            >
-              <Check size={14} /> Импортировать область
-            </button>
-          )}
+          <button
+            onClick={handleImport}
+            disabled={points.length < 3 || importing}
+            className="btn-primary text-xs flex items-center gap-1.5"
+          >
+            <Check size={14} /> Импортировать область
+          </button>
         </div>
       </div>
     </div>,

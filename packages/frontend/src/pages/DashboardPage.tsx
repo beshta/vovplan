@@ -6,6 +6,7 @@ import { projectsApi } from '../shared/api';
 import { useAuthStore } from '../shared/authStore';
 import { ROLE_LABELS, type Project } from '@vovplan/shared';
 import ProjectCardMenu from '../components/ProjectCardMenu';
+import { track } from '../shared/analytics';
 
 export default function DashboardPage() {
   const { user, logout } = useAuthStore();
@@ -20,6 +21,7 @@ export default function DashboardPage() {
   const createMutation = useMutation({
     mutationFn: projectsApi.create,
     onSuccess: () => {
+      track('project.create');
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       setShowCreate(false);
     },

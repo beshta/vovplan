@@ -312,3 +312,24 @@ model SceneSnapshot {
   @@index([projectId, createdAt])
   @@map("scene_snapshots")
 }
+
+/// Событие воронки: от захода на лендинг до импорта местности.
+/// Персональных данных не хранит: ни IP, ни cookie — только анонимный
+/// идентификатор вкладки, который живёт до её закрытия.
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  /// 'landing.view' | 'register.start' | 'register.done' | 'project.create' | 'terrain.import' | ...
+  name      String
+  /// Анонимный идентификатор сессии (sessionStorage), чтобы считать воронку по людям, а не по кликам
+  anonId    String
+  path      String?
+  referrer  String?
+  /// Заполняется, только если пользователь вошёл — для связи с воронкой после регистрации
+  userId    String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([name, createdAt])
+  @@index([anonId])
+  @@map("analytics_events")
+}
