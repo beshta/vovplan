@@ -57,6 +57,24 @@ npm run dev          # backend :4000 (nodemon+tsx, SQLite) + frontend :5173 (vit
 
 ---
 
+## Мультиимпорт 3D-форматов
+
+`packages/frontend/src/shared/modelConvert.ts` — приведение к GLB **в браузере**,
+до отправки на сервер. Поддержаны GLB/glTF, FBX, OBJ, STL, DAE, 3DS, PLY, 3MF, VRML, VTK.
+
+Почему на клиенте, а не на сервере: не занимает процессор и память VPS (там тесно),
+не тянет в образ нативные конвертеры, наверх уходит только GLB (обычно в разы легче
+исходника). Загрузчики three.js изначально браузерные — `GLTFExporter` в Node падает
+на `FileReader is not defined`.
+
+Загрузчики подключаются динамическим импортом и собираются в отдельные чанки
+(в `vite.config.ts` есть явное исключение из `manualChunks`, иначе правило перебивает
+ленивую загрузку и вес ложится на всех).
+
+**DWG не поддержан и не будет простым способом:** формат закрытый, надёжного открытого
+чтения не существует. Для него, как и для SKP/RVT/MAX/IFC/STEP, показывается конкретная
+подсказка, куда экспортировать (`KNOWN_UNSUPPORTED`).
+
 ## Карта кода (быстрый старт)
 
 - **Вьювер 3D**: `packages/frontend/src/features/viewer3d/` — `Scene.tsx` (Canvas), `DemTerrain.tsx` (3 режима рельефа + userData.isTerrain для рейкаста), `SceneObject.tsx` (объекты + привязка к земле), `Annotation3D.tsx` (метки-V, drei Line), `UtilityNetworks3D.tsx` + `UtilityCreator.tsx` (3D) / `UtilityDrawPanel.tsx` (HUD-контролы).

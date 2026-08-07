@@ -73,6 +73,14 @@ export default defineConfig({
          */
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
+          // Загрузчики форматов (FBX, OBJ, STL...) и экспортёр GLB грузятся по
+          // требованию — только когда человек добавляет модель. Если отправить
+          // их в общий чанк three, правило перебьёт ленивую загрузку, и вес
+          // лягут на всех: чанк three раздувался с 854К до 1.3М.
+          if (/three[\\/]examples[\\/]jsm[\\/](loaders|exporters)[\\/](?!GLTFLoader)/.test(id)) return;
+          // fflate распаковывает сжатые FBX и 3MF — нужна только им. В общем
+          // чанке она висела бы на всех, включая тех, кто заходит на лендинг.
+          if (id.includes('fflate')) return;
           if (id.includes('three') || id.includes('@react-three')) return 'three';
           if (id.includes('react') || id.includes('scheduler')) return 'react';
           if (id.includes('leaflet')) return 'leaflet';

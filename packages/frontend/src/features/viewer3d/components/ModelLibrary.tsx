@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Package, Upload, Plus, X } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { modelsApi, type Model3DPayload } from '../../../shared/api';
+import { convertToGlb, unsupportedReason, ACCEPT_EXTENSIONS } from '../../../shared/modelConvert';
 
 interface Props {
   projectId: string;
@@ -9,12 +10,17 @@ interface Props {
 }
 
 /**
- * Model Library panel — upload GLB files, browse existing models, place on scene.
+ * Model Library panel — загрузка моделей, просмотр библиотеки, размещение в сцене.
+ *
+ * Принимает популярные форматы (FBX, OBJ, STL, DAE, 3DS...) и приводит их к GLB
+ * прямо в браузере — для пользователя это один шаг, конвертации он не видит.
  */
 export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadName, setUploadName] = useState('');
   const [uploadError, setUploadError] = useState('');
+  /** Что происходит прямо сейчас: чтение FBX и сборка GLB занимают секунды */
+  const [stage, setStage] = useState('');
   const queryClient = useQueryClient();
 
   const { data: modelsData, isLoading } = useQuery({
@@ -29,6 +35,7 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
       queryClient.invalidateQueries({ queryKey: ['models', projectId] });
       setUploadName('');
       setUploadError('');
+      setStage('');
       if (fileInputRef.current) fileInputRef.current.value = '';
     },
     onError: (err: Error) => {
@@ -43,11 +50,35 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
     },
   });
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Приводим файл к GLB прямо в браузере и грузим уже его. Для пользователя
+   * это один шаг: он выбрал свой FBX или OBJ — модель появилась в библиотеке.
+   */
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const name = uploadName || file.name.replace(/\.(glb|gltf)$/i, '');
-    uploadMutation.mutate({ file, name });
+    setUploadError('');
+
+    const reason = unsupportedReason(file.name);
+    if (reason) {
+      setUploadError(reason);
+      e.target.value = '';
+      return;
+    }
+
+    const name = uploadName || file.name.replace(/\.[^.]+$/, '');
+    try {
+      const glb = await convertToGlb(file, setStage);
+      setStage('Загружаю...');
+      uploadMutation.mutate({ file: glb, name });
+    } catch (err) {
+      // Битый или нестандартный файл: показываем, что именно не вышло,
+      // вместо общего «ошибка загрузки»
+      setUploadError(`Не удалось прочитать файл: ${(err as Error).message}`);
+      e.target.value = '';
+    } finally {
+      setStage('');
+    }
   };
 
   const models = modelsData?.data ?? [];
@@ -64,7 +95,7 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".glb,.gltf"
+          accept={ACCEPT_EXTENSIONS}
           onChange={handleFileSelect}
           className="hidden"
         />
@@ -80,10 +111,20 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
           disabled={uploadMutation.isPending}
           className="btn-primary w-full text-sm"
         >
-          {uploadMutation.isPending ? 'Загрузка...' : <span className="flex items-center justify-center gap-1.5"><Upload size={15} /> Загрузить GLB</span>}
+          {stage || uploadMutation.isPending ? (
+            <span className="flex items-center justify-center gap-1.5">
+              <span className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+              {stage || 'Загрузка...'}
+            </span>
+          ) : (
+            <span className="flex items-center justify-center gap-1.5"><Upload size={15} /> Загрузить модель</span>
+          )}
         </button>
+        <p className="mt-2 text-[11px] text-muted leading-relaxed">
+          GLB, FBX, OBJ, STL, DAE, 3DS, PLY, 3MF, VRML — приведём к нужному формату сами
+        </p>
         {uploadError && (
-          <p className="mt-2 text-xs text-red-300">{uploadError}</p>
+          <p className="mt-2 text-xs text-red-600 dark:text-red-400 leading-relaxed">{uploadError}</p>
         )}
       </div>
 
