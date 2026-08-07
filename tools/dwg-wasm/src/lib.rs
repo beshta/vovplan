@@ -7,8 +7,13 @@
 //! Обмен памятью: JS просит `dwg_alloc`, кладёт туда файл, зовёт разбор,
 //! читает результат и возвращает память через `dwg_free`.
 
+mod blocks;
+mod convert;
 mod probe;
 mod rng;
+mod tess;
+mod tri;
+mod xform;
 
 use std::alloc::{alloc, dealloc, Layout};
 
@@ -76,4 +81,21 @@ pub unsafe extern "C" fn dwg_probe(ptr: *mut u8, len: usize) -> *mut u8 {
     let bytes = Vec::from_raw_parts(ptr, len, len);
     let report = probe::report(bytes);
     hand_over(report.into_bytes())
+}
+
+/// Превращает DWG в треугольники сцены.
+///
+/// Возвращает двоичный блок: метка, счётчики, координаты, нормали. Разбор
+/// длится секунды, поэтому вызывать стоит из Worker, чтобы не морозить вкладку.
+///
+/// # Safety
+/// `ptr` и `len` описывают буфер из [`dwg_alloc`]; владение переходит внутрь.
+#[no_mangle]
+pub unsafe extern "C" fn dwg_convert(ptr: *mut u8, len: usize) -> *mut u8 {
+    let bytes = Vec::from_raw_parts(ptr, len, len);
+    let out = match convert::convert(bytes) {
+        Ok(r) => convert::encode(&r),
+        Err(e) => convert::encode_error(&e),
+    };
+    hand_over(out)
 }
