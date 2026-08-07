@@ -1,0 +1,12 @@
+# Собираем всегда под браузер: нативной сборки у этого пакета нет.
+# Это осознанно — в цепочке зависимостей есть getrandom, а он под
+# x86_64-pc-windows-gnu требует полный mingw (dlltool + as), которого
+# в самодостаточном toolchain нет. Под wasm он не нужен вовсе.
+[build]
+target = "wasm32-unknown-unknown"
+
+[target.wasm32-unknown-unknown]
+# getrandom 0.3 под wasm32-unknown-unknown отказывается собираться, пока не
+# указан источник случайности. Штатный вариант тянет wasm-bindgen ради одного
+# вызова crypto; вместо этого объявляем свой backend — см. src/rng.rs.
+rustflags = ['--cfg', 'getrandom_backend="custom"']
