@@ -1,0 +1,9 @@
+{
+  "name": "dwg-inspect",
+  "private": true,
+  "type": "module",
+  "description": "Разведка содержимого DWG. НЕ часть продукта: LibreDWG под GPL-3, поэтому пакет держим вне workspaces — он не попадает ни в бандл, ни в Docker-образ.",
+  "dependencies": {
+    "@mlightcad/libredwg-web": "^0.7.9"
+  }
+}
