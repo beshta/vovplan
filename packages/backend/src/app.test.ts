@@ -42,8 +42,15 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // Чистим всё, что создали (порядок: зависимые → корневые)
-  if (projectId) {
+  // Чистим всё, что создали (порядок: зависимые → корневые).
+  // Проектов за прогон появляется несколько, поэтому ищем их по метке, а не по
+  // одной переменной: забытый проект держит участников, а те — пользователей,
+  // и удаление падает на внешнем ключе уже после того, как все тесты прошли.
+  const mine = await prisma.project.findMany({
+    where: { name: { contains: marker } },
+    select: { id: true },
+  });
+  for (const { id: projectId } of mine) {
     await prisma.shareLink.deleteMany({ where: { projectId } });
     await prisma.cameraPreset.deleteMany({ where: { projectId } });
     await prisma.comment.deleteMany({ where: { projectId } });
@@ -480,5 +487,108 @@ describe('ограничение частоты (защита от подбор�
     for (let i = 0; i < 10; i++) {
       expect((await app.inject({ method: 'POST', url: '/api/auth/login', payload: unknown })).statusCode).toBe(401);
     }
+  });
+});
+
+describe('правка рельефа', () => {
+  /**
+   * Настройка живёт внутри terrainMeta, а не в своей колонке: три числа не
+   * окупают правку обеих схем Prisma. Значит важно проверить, что она
+   * действительно доезжает до базы и не сносит остальные данные о рельефе.
+   */
+  let terrainProject = '';
+
+  beforeAll(async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/projects',
+      headers: auth(masterToken),
+      payload: {
+        name: `Рельеф ${marker}`,
+        description: 'правка высот',
+        centerLat: 55.75,
+        centerLng: 37.61,
+        bounds: { north: 55.76, south: 55.74, east: 37.62, west: 37.6 },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    terrainProject = res.json().id;
+  });
+
+  it('без загруженного рельефа → 404', async () => {
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/projects/${terrainProject}/terrain/adjust`,
+      headers: auth(masterToken),
+      payload: { smooth: 0, level: 0, scale: 1 },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('значения вне допустимого → 400', async () => {
+    // Отрицательный масштаб вывернул бы рельеф наизнанку
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/projects/${terrainProject}/terrain/adjust`,
+      headers: auth(masterToken),
+      payload: { smooth: 0, level: 0, scale: -1 },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('сохраняет правку и не теряет остальные данные о рельефе', async () => {
+    const prisma = (await import('./db/prisma.js')).default;
+    await prisma.project.update({
+      where: { id: terrainProject },
+      data: {
+        terrainUrl: '/uploads/x/terrain/h.png',
+        terrainMeta: { textureUrl: '/t.jpg', widthM: 200, heightM: 200, minElev: 10, maxElev: 20 } as any,
+      },
+    });
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/projects/${terrainProject}/terrain/adjust`,
+      headers: auth(masterToken),
+      payload: { smooth: 12, level: 0.5, scale: 0.75 },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const meta = res.json().terrainMeta;
+    expect(meta.adjust).toEqual({ smooth: 12, level: 0.5, scale: 0.75 });
+    // Снимок высот и размеры площадки должны остаться на месте
+    expect(meta.widthM).toBe(200);
+    expect(meta.textureUrl).toBe('/t.jpg');
+  });
+
+  it('наблюдатель править рельеф не может → 403', async () => {
+    const viewer = await register('terrain-viewer');
+    const invited = await app.inject({
+      method: 'POST',
+      url: `/api/projects/${terrainProject}/members`,
+      headers: auth(masterToken),
+      payload: { email: emailOf('terrain-viewer'), role: 'SPECTATOR' },
+    });
+    expect(invited.statusCode).toBe(201);
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/projects/${terrainProject}/terrain/adjust`,
+      headers: auth(viewer),
+      payload: { smooth: 0, level: 0, scale: 1 },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('посторонний не узнаёт даже о существовании проекта → 404', async () => {
+    // Права проверяются раньше всего, и чужому проект не показывается вовсе
+    const stranger = await register('terrain-stranger');
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/projects/${terrainProject}/terrain/adjust`,
+      headers: auth(stranger),
+      payload: { smooth: 0, level: 0, scale: 1 },
+    });
+    expect(res.statusCode).toBe(404);
   });
 });

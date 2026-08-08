@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Mountain, Upload, Trash2, Dices, Grid3x3, Globe, Building2, Trees } from 'lucide-react';
 import MapImportModal from './MapImportModal';
 import { useViewerStore } from '../stores/viewerStore';
+import TerrainAdjustPanel from './TerrainAdjustPanel';
 import { terrainApi } from '../../../shared/api';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -110,6 +111,11 @@ export default function TerrainPanel({ projectId, centerLat, centerLng }: { proj
                 </button>
               </div>
             </div>
+          )}
+
+          {/* Правка высот: данные грубые, а человек про место знает больше */}
+          {terrainMeta && (
+            <TerrainAdjustPanel projectId={projectId} meta={terrainMeta} />
           )}
 
           {/* Импорт реального ландшафта с карты */}

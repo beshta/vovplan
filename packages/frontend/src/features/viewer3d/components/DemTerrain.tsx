@@ -4,7 +4,8 @@ import { useLoader, useThree } from '@react-three/fiber';
 import { fbm, ridged } from '../utils/noise';
 import { detectQuality } from '../utils/deviceProfiler';
 import { useViewerStore } from '../stores/viewerStore';
-import type { TerrainMeta } from '../../../shared/api';
+import { TERRAIN_ADJUST_OFF, type TerrainMeta } from '../../../shared/api';
+import { buildHeightGrid } from '../utils/heightGrid';
 
 /**
  * DEM-based terrain with vertex displacement.
@@ -122,12 +123,23 @@ function RealTerrain({
     const geo = new THREE.PlaneGeometry(sizeX, sizeZ, segments, segments);
     geo.rotateX(-Math.PI / 2);
 
-    const texel = (px: number, py: number) => {
+    const raw = (px: number, py: number) => {
       const idx = (py * hm.width + px) * 4;
       return is16bit
         ? (hm.data[idx] * 256 + hm.data[idx + 1]) / 65535
         : hm.data[idx] / 255;
     };
+
+    /**
+     * Правка высот: сглаживание, выравнивание, вертикальный масштаб.
+     *
+     * Считается один раз в отдельный массив, а не при каждом обращении: по
+     * этим значениям и строится меш, и ходит вид от первого лица, и садятся
+     * объекты на землю — расхождение между ними было бы заметно сразу.
+     */
+    const adjust = { ...TERRAIN_ADJUST_OFF, ...(meta.adjust ?? {}) };
+    const grid = buildHeightGrid(raw, hm.width, hm.height, sizeX, sizeZ, adjust);
+    const texel = (px: number, py: number) => grid[py * hm.width + px];
 
     /**
      * Высота поверхности в точке локальных координат. Билинейная интерполяция —

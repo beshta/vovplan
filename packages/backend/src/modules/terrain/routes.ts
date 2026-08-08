@@ -196,6 +196,69 @@ export default async function terrainRoutes(fastify: FastifyInstance) {
     return reply.code(200).send({ terrainUrl, terrainMeta });
   });
 
+  /**
+   * ── Правка рельефа ──
+   *
+   * Открытые данные о высотах идут сеткой 30 м. На участке в двести метров это
+   * тринадцать точек поперёк, и разница между «пологий сквер» и «холм» там уже
+   * не различается — а человек, который на месте бывал, знает про него больше
+   * любого спутника. Поэтому правки живут отдельно от самих высот: исходный
+   * снимок не портится, а настройка общая для проекта, чтобы вся команда
+   * смотрела на одну и ту же местность.
+   */
+  fastify.patch('/:projectId/terrain/adjust', async (request, reply) => {
+    const { projectId } = request.params as { projectId: string };
+
+    await requirePermission(request, projectId, 'project:update');
+
+    const adjustSchema = z.object({
+      // Радиус сглаживания в метрах. Убирает ступеньки, появившиеся при
+      // растягивании 30-метровой сетки на метровую — их в исходных данных нет.
+      smooth: z.number().min(0).max(50),
+      // Насколько подтянуть рельеф к опорной отметке: 0 — как есть,
+      // 1 — идеально ровная площадка.
+      level: z.number().min(0).max(1),
+      // Вертикальный масштаб. Единица — честные метры; меньше единицы полезно,
+      // чтобы отделить настоящий уклон от погрешности источника.
+      scale: z.number().min(0).max(3),
+    });
+
+    const parsed = adjustSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({
+        error: 'VALIDATION_ERROR',
+        message: parsed.error.issues[0]?.message ?? 'Некорректные данные',
+        statusCode: 400,
+      });
+    }
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { terrainUrl: true, terrainMeta: true },
+    });
+    if (!project?.terrainMeta) {
+      return reply.code(404).send({ error: 'У проекта нет загруженного рельефа' });
+    }
+
+    // Кладём внутрь существующих данных о рельефе: отдельная колонка ради трёх
+    // чисел не окупает правку обеих схем Prisma и миграции
+    const terrainMeta = {
+      ...(project.terrainMeta as Record<string, unknown>),
+      adjust: parsed.data,
+    };
+
+    await prisma.project.update({
+      where: { id: projectId },
+      data: { terrainMeta: terrainMeta as any },
+    });
+
+    emitTerrainChanged(fastify, projectId, {
+      terrainUrl: project.terrainUrl,
+      terrainMeta,
+    });
+    return reply.send({ terrainMeta });
+  });
+
   // ── Delete terrain ──
   fastify.delete('/:projectId/terrain', async (request, reply) => {
     const { projectId } = request.params as { projectId: string };

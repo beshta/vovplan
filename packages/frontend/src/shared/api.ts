@@ -309,7 +309,28 @@ export interface TerrainMeta {
   /** Периметр в локальных метрах от центра области (x — восток, z — юг) */
   polygon: [number, number][];
   origin: { lat: number; lng: number };
+  /**
+   * Правка рельефа поверх исходных высот.
+   *
+   * Открытые данные о высотах идут сеткой 30 м: на участке в двести метров это
+   * тринадцать точек поперёк, и мелкий рельеф там не столько измерен, сколько
+   * додуман при растягивании. Настройка не трогает сам снимок высот и общая для
+   * проекта, чтобы команда смотрела на одну и ту же местность.
+   */
+  adjust?: TerrainAdjust;
 }
+
+export interface TerrainAdjust {
+  /** Радиус сглаживания, м: гасит ступеньки, которых в исходных данных нет */
+  smooth: number;
+  /** Подтягивание к опорной отметке: 0 — как есть, 1 — ровная площадка */
+  level: number;
+  /** Вертикальный масштаб; 1 — честные метры */
+  scale: number;
+}
+
+/** Рельеф как есть, без правок */
+export const TERRAIN_ADJUST_OFF: TerrainAdjust = { smooth: 0, level: 0, scale: 1 };
 
 export const terrainApi = {
   /** Импорт реального рельефа по полигону с карты (lat/lng) */
@@ -317,6 +338,13 @@ export const terrainApi = {
     apiFetch<{ terrainUrl: string; terrainMeta: TerrainMeta }>(
       `/api/projects/${projectId}/terrain/import`,
       { method: 'POST', body: JSON.stringify({ polygon }) },
+    ),
+
+  /** Сохранить правку рельефа — она общая для всех участников проекта */
+  adjust: (projectId: string, adjust: TerrainAdjust) =>
+    apiFetch<{ terrainMeta: TerrainMeta }>(
+      `/api/projects/${projectId}/terrain/adjust`,
+      { method: 'PATCH', body: JSON.stringify(adjust) },
     ),
 
   upload: async (projectId: string, file: File): Promise<{ terrainUrl: string }> => {
