@@ -90,10 +90,12 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    /// Кладёт треугольник, переводя оси чертежа в оси сцены.
+    /// Кладёт треугольник в осях чертежа.
     ///
-    /// В CAD вертикаль — это Z, в three.js — Y. Поворот делается здесь один
-    /// раз, чтобы дальше по коду не гадать, в какой системе точка.
+    /// В CAD вертикаль — это Z, в three.js — Y, но разворачивать здесь нельзя:
+    /// копии деталей задаются матрицами в осях чертежа, и деталь, повёрнутая
+    /// заранее, с ними уже не сойдётся. Поворот делается один раз на корне
+    /// собранной модели.
     fn push_tri(&mut self, a: V3, b: V3, c: V3, flip: bool) {
         let raw = cross(sub(b, a), sub(c, a));
         let l = len(raw);
@@ -109,12 +111,10 @@ impl Mesh {
         let tri = if flip { [a, c, b] } else { [a, b, c] };
         for p in tri {
             let p = sub(p, o);
-            self.positions.push(p[0] as f32);
-            self.positions.push(p[2] as f32);
-            self.positions.push(-p[1] as f32);
-            self.normals.push(n[0] as f32);
-            self.normals.push(n[2] as f32);
-            self.normals.push(-n[1] as f32);
+            self.positions
+                .extend_from_slice(&[p[0] as f32, p[1] as f32, p[2] as f32]);
+            self.normals
+                .extend_from_slice(&[n[0] as f32, n[1] as f32, n[2] as f32]);
         }
     }
 }

@@ -40,6 +40,7 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
     },
     onError: (err: Error) => {
       setUploadError(err.message);
+      setStage('');
     },
   });
 
@@ -69,15 +70,18 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
     const name = uploadName || file.name.replace(/\.[^.]+$/, '');
     try {
       const glb = await convertToGlb(file, setStage);
-      setStage('Загружаю...');
+      // Стадию не сбрасываем: отправка идёт дальше, и `onSuccess` погасит
+      // её сам. Раньше сброс стоял в `finally` и срабатывал сразу после
+      // `mutate`, из-за чего долгая отправка выглядела как «Загрузка...»
+      // без объяснений — и по индикатору нельзя было понять, где затык.
+      setStage('Отправляю на сервер...');
       uploadMutation.mutate({ file: glb, name });
     } catch (err) {
       // Битый или нестандартный файл: показываем, что именно не вышло,
       // вместо общего «ошибка загрузки»
       setUploadError(`Не удалось прочитать файл: ${(err as Error).message}`);
-      e.target.value = '';
-    } finally {
       setStage('');
+      e.target.value = '';
     }
   };
 

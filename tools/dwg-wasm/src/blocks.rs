@@ -43,7 +43,11 @@ fn insert_xform(doc: &CadDocument, ins: &acadrust::entities::Insert) -> Xform {
 /// Тела отдаются как есть, в своих координатах, а место передаётся отдельной
 /// матрицей — так одно и то же определение блока не приходится копировать и
 /// переписывать на каждую из сотен вставок.
-pub fn for_each_body(doc: &CadDocument, f: &mut impl FnMut(&AcisData, &Xform)) {
+///
+/// Первым аргументом идёт дескриптор тела. Он один и тот же у всех копий
+/// одного определения блока, и по нему вызывающая сторона узнаёт повтор:
+/// резать одну и ту же деталь заново для каждой из сотен вставок незачем.
+pub fn for_each_body(doc: &CadDocument, f: &mut impl FnMut(u64, &AcisData, &Xform)) {
     // Начинать надо строго с пространства модели. Общий список документа
     // содержит и внутренности определений блоков: пойти по нему значит выдать
     // каждый блок лишний раз, в его собственных координатах у нуля, вдобавок
@@ -74,13 +78,15 @@ fn walk(
     // себя, иначе раскрывался бы до предела глубины, каждый раз добавляя
     // свой сдвиг, и разносил бы геометрию на километры от чертежа.
     chain: &mut Vec<String>,
-    f: &mut impl FnMut(&AcisData, &Xform),
+    f: &mut impl FnMut(u64, &AcisData, &Xform),
 ) {
     for item in items {
+        // Дескриптор сущности уникален в файле и одинаков у всех копий блока
+        let id = item.common().handle.value();
         match item {
-            EntityType::Solid3D(s) => f(&s.acis_data, at),
-            EntityType::Region(r) => f(&r.acis_data, at),
-            EntityType::Body(b) => f(&b.acis_data, at),
+            EntityType::Solid3D(s) => f(id, &s.acis_data, at),
+            EntityType::Region(r) => f(id, &r.acis_data, at),
+            EntityType::Body(b) => f(id, &b.acis_data, at),
 
             EntityType::Insert(ins) if depth < MAX_DEPTH => {
                 if chain.iter().any(|b| b == &ins.block_name) {

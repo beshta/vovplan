@@ -260,6 +260,32 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const isTouch = isTouchDevice();
   const [libraryOpen, setLibraryOpen] = useState(false);
 
+  /**
+   * Подсказку первого шага можно закрыть, и она не возвращается.
+   *
+   * Висела она до появления первого объекта в сцене, то есть у того, кто
+   * пришёл просто осмотреться, — постоянно и ровно посреди экрана. Отметку
+   * держим по проекту: в другом проекте человек начинает с нуля, и подсказка
+   * там снова уместна.
+   */
+  const hintKey = `vovplan.hint.start.${projectId}`;
+  const [hintClosed, setHintClosed] = useState(() => {
+    try {
+      return localStorage.getItem(hintKey) === '1';
+    } catch {
+      // Приватный режим и запрет хранилища не повод ронять вьювер
+      return false;
+    }
+  });
+  const closeHint = () => {
+    setHintClosed(true);
+    try {
+      localStorage.setItem(hintKey, '1');
+    } catch {
+      /* переживём: подсказка просто вернётся при следующем открытии */
+    }
+  };
+
   return (
     <div className="flex w-full h-full">
       {/* 3D Scene area */}
@@ -306,8 +332,16 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
                 загрузить модель — но начинать надо с импорта местности, и
                 об этом не говорилось нигде. Теперь текст зависит от того,
                 загружен ли ландшафт, а кнопка ведёт прямо к действию. */}
-            {sceneData?.data.length === 0 && (
-              <div className="glass pointer-events-auto max-w-sm text-center px-6 py-5 select-none">
+            {sceneData?.data.length === 0 && !hintClosed && (
+              <div className="glass pointer-events-auto relative max-w-sm text-center px-6 py-5 select-none">
+                <button
+                  onClick={closeHint}
+                  title="Скрыть подсказку"
+                  aria-label="Скрыть подсказку"
+                  className="absolute top-2 right-2 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-900/5 dark:hover:text-slate-200 dark:hover:bg-white/10 transition-colors"
+                >
+                  <X size={15} />
+                </button>
                 {!projectData?.terrainUrl ? (
                   <>
                     <div className="flex justify-center mb-3 text-vovplan-500"><Globe size={40} strokeWidth={1.4} /></div>

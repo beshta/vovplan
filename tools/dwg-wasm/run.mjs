@@ -58,41 +58,83 @@ if (tag !== 'DWGM') {
 
 const view = new DataView(raw.buffer, raw.byteOffset);
 const version = view.getUint32(4, true);
-const verts = view.getUint32(8, true);
-const bodiesOk = view.getUint32(12, true);
-const bodiesFail = view.getUint32(16, true);
-const skipped = view.getUint32(20, true);
+const partCount = view.getUint32(8, true);
+const instCount = view.getUint32(12, true);
+const bodiesOk = view.getUint32(16, true);
+const bodiesFail = view.getUint32(20, true);
+const skipped = view.getUint32(24, true);
 
-const HEAD = 24;
-const pos = new Float32Array(raw.buffer.slice(raw.byteOffset + HEAD, raw.byteOffset + HEAD + verts * 12));
-const nrm = new Float32Array(
-  raw.buffer.slice(raw.byteOffset + HEAD + verts * 12, raw.byteOffset + HEAD + verts * 24),
-);
+// Детали идут подряд: у каждой число вершин, координаты, нормали
+let at = 28;
+const parts = [];
+let triangles = 0;
+for (let i = 0; i < partCount; i++) {
+  const verts = view.getUint32(at, true);
+  at += 4;
+  const pos = new Float32Array(raw.buffer.slice(raw.byteOffset + at, raw.byteOffset + at + verts * 12));
+  at += verts * 12;
+  at += verts * 12; // нормали здесь не нужны
+  parts.push(pos);
+  triangles += verts / 3;
+}
 
-// Габарит — первый признак, что масштаб и оси не поехали
+// Копии: номер детали и матрица 3×4
+const instances = [];
+for (let i = 0; i < instCount; i++) {
+  const part = view.getUint32(at, true);
+  at += 4;
+  const m = [];
+  for (let k = 0; k < 12; k++, at += 4) m.push(view.getFloat32(at, true));
+  instances.push({ part, m });
+}
+
+// Габарит по расставленным копиям — первый признак, что оси не поехали
 const lo = [Infinity, Infinity, Infinity];
 const hi = [-Infinity, -Infinity, -Infinity];
-for (let i = 0; i < pos.length; i += 3) {
-  for (let k = 0; k < 3; k++) {
-    if (pos[i + k] < lo[k]) lo[k] = pos[i + k];
-    if (pos[i + k] > hi[k]) hi[k] = pos[i + k];
+const place = (m, p) => [
+  m[0] * p[0] + m[1] * p[1] + m[2] * p[2] + m[3],
+  m[4] * p[0] + m[5] * p[1] + m[6] * p[2] + m[7],
+  m[8] * p[0] + m[9] * p[1] + m[10] * p[2] + m[11],
+];
+for (const { part, m } of instances) {
+  const pos = parts[part];
+  for (let i = 0; i < pos.length; i += 3) {
+    const w = place(m, [pos[i], pos[i + 1], pos[i + 2]]);
+    for (let k = 0; k < 3; k++) {
+      if (w[k] < lo[k]) lo[k] = w[k];
+      if (w[k] > hi[k]) hi[k] = w[k];
+    }
   }
 }
 const size = hi.map((h, i) => (h - lo[i]).toFixed(1));
 
+const payload = 28 + triangles * 72 + instCount * 52;
 console.log(`формат ${version} · тел разобрано ${bodiesOk}, не вышло ${bodiesFail}`);
-console.log(`треугольников ${(verts / 3).toLocaleString('ru')}, граней пропущено ${skipped}`);
+console.log(
+  `деталей ${partCount.toLocaleString('ru')}, копий ${instCount.toLocaleString('ru')}, граней пропущено ${skipped}`,
+);
+console.log(
+  `треугольников в деталях ${triangles.toLocaleString('ru')} (при разворачивании копий было бы ${(
+    instances.reduce((s, { part }) => s + parts[part].length / 9, 0)
+  ).toLocaleString('ru')})`,
+);
 console.log(`габарит: ${size[0]} × ${size[1]} × ${size[2]}`);
-console.log(`нормалей ${nrm.length / 3}, разбор занял ${secs} с`);
+console.log(`объём данных: ${(payload / 1024 / 1024).toFixed(1)} МБ, разбор занял ${secs} с`);
 
 if (objPath) {
-  const parts = [`# DWG → ${(verts / 3) | 0} треугольников\n`];
-  for (let i = 0; i < pos.length; i += 3) {
-    parts.push(`v ${pos[i]} ${pos[i + 1]} ${pos[i + 2]}\n`);
+  const out = [`# DWG → ${partCount} деталей, ${instCount} копий\n`];
+  let base = 1;
+  for (const { part, m } of instances) {
+    const pos = parts[part];
+    for (let i = 0; i < pos.length; i += 3) {
+      const w = place(m, [pos[i], pos[i + 1], pos[i + 2]]);
+      out.push(`v ${w[0]} ${w[1]} ${w[2]}\n`);
+    }
+    for (let i = 0; i < pos.length / 3; i += 3) {
+      out.push(`f ${base + i} ${base + i + 1} ${base + i + 2}\n`);
+    }
+    base += pos.length / 3;
   }
-  for (let i = 0; i < verts; i += 3) {
-    parts.push(`f ${i + 1} ${i + 2} ${i + 3}\n`);
-  }
-  writeFileSync(objPath, parts.join(''));
+  writeFileSync(objPath, out.join(''));
   console.log(`записано: ${objPath}`);
 }
