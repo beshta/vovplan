@@ -31,6 +31,9 @@ const FORMATS = {
   // которая может оказаться недоступна. Все остальные — полностью локальные.
   wrl: { label: 'VRML', native: false },
   vtk: { label: 'VTK', native: false },
+  // DWG читается своим модулем на Rust: готового решения нет, объём в нём
+  // лежит телами ACIS, а не сеткой. Подробности — tools/dwg-wasm.
+  dwg: { label: 'AutoCAD DWG', native: false },
 } as const;
 
 export type SupportedExt = keyof typeof FORMATS;
@@ -46,12 +49,9 @@ export const SUPPORTED_LABELS = Object.entries(FORMATS).map(([ext, f]) => `${ext
  * Молчать о них нельзя: человек выберет .dwg и не поймёт, почему не вышло.
  */
 const KNOWN_UNSUPPORTED: Record<string, string> = {
-  dwg:
-    'DWG — закрытый формат AutoCAD, надёжного открытого чтения для него не существует. ' +
-    'Экспортируйте из AutoCAD в FBX, OBJ или DAE — они поддерживаются полностью.',
   dxf:
     'DXF — чертёжный формат, в нём обычно плоские линии, а не объёмная модель. ' +
-    'Если нужен объём, экспортируйте FBX, OBJ или DAE.',
+    'Сохраните из AutoCAD как DWG — его мы читаем, включая объём.',
   rvt: 'RVT — внутренний формат Revit. Экспортируйте FBX или IFC → FBX.',
   skp: 'SKP — формат SketchUp. Экспортируйте DAE (Collada) или FBX.',
   max: 'MAX — сцена 3ds Max. Экспортируйте FBX или OBJ.',
@@ -122,9 +122,18 @@ export async function convertToGlb(
   if (ext === 'glb') return file;
 
   const baseName = file.name.replace(/\.[^.]+$/, '');
-  onStage?.(`Читаю ${format.label}...`);
-
   const buffer = await file.arrayBuffer();
+
+  // Чертежи идут своим путём: у них не загрузчик, а собственный разбор,
+  // и он сам рассказывает интерфейсу, чем занят
+  if (ext === 'dwg') {
+    const { parseDwg } = await import('./dwg');
+    const { object } = await parseDwg(buffer, onStage);
+    onStage?.('Собираю GLB...');
+    return sceneToGlb(object, baseName);
+  }
+
+  onStage?.(`Читаю ${format.label}...`);
   const object = await parse(ext, buffer);
   if (!object) throw new Error('в файле не нашлось геометрии');
 

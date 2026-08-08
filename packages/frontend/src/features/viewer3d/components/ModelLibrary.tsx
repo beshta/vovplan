@@ -121,7 +121,7 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
           )}
         </button>
         <p className="mt-2 text-[11px] text-muted leading-relaxed">
-          GLB, FBX, OBJ, STL, DAE, 3DS, PLY, 3MF, VRML — приведём к нужному формату сами
+          DWG, GLB, FBX, OBJ, STL, DAE, 3DS, PLY, 3MF, VRML — приведём к нужному формату сами
         </p>
         {uploadError && (
           <p className="mt-2 text-xs text-red-600 dark:text-red-400 leading-relaxed">{uploadError}</p>

@@ -19,7 +19,7 @@ DWG закрыт, и объём в нём хранится телами ACIS —
 ## Сборка
 
 ```bash
-cargo build --release
+npm run build:dwg      # из корня: собирает и кладёт результат во фронтенд
 ```
 
 Цель `wasm32-unknown-unknown` прописана в `.cargo/config.toml`, отдельно
@@ -27,7 +27,9 @@ cargo build --release
 зависимостях есть `getrandom`, которому под Windows нужен полный mingw, а под
 wasm он не нужен вовсе.
 
-Результат: `target/wasm32-unknown-unknown/release/dwg_wasm.wasm`, около 1,2 МБ.
+Готовый `.wasm` лежит в репозитории (`packages/frontend/src/wasm/dwg.wasm`),
+чтобы сборка сайта и деплой не требовали Rust. **После правок в этом пакете
+его надо пересобрать и закоммитить** — иначе на сайте останется старая версия.
 
 ## Проверка
 

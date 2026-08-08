@@ -31,7 +31,22 @@ export default defineConfig({
         // Шелл приложения — precache; API и сокет не трогаем
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//, /^\/socket\.io\//, /^\/uploads\//],
+        // Модуль чтения чертежей весит больше мегабайта и нужен единицам.
+        // В предзагрузке он оказывался у всех подряд, включая тех, кто просто
+        // открыл лендинг; кэшируется по факту первого использования ниже.
+        globIgnores: ['**/*.wasm'],
         runtimeCaching: [
+          {
+            // Разбор чертежей: модуль неизменяемый (имя с хешем), поэтому
+            // после первой загрузки берётся из кэша
+            urlPattern: /\.wasm$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'vovplan-wasm',
+              expiration: { maxEntries: 4, maxAgeSeconds: 90 * 24 * 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             // 3D-ассеты (GLB, heightmap) — тяжёлые и неизменяемые: CacheFirst
             urlPattern: /^\/uploads\/.*/i,
