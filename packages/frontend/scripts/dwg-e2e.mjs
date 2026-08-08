@@ -13,7 +13,10 @@ import { webcrypto } from 'node:crypto';
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 
-const WASM = new URL('../../../tools/dwg-wasm/target/wasm32-unknown-unknown/release/dwg_wasm.wasm', import.meta.url);
+// Берём ровно ту копию, что уходит в сборку сайта, а не свежую из target/:
+// именно расхождение между ними один раз и дало «Offset is outside the bounds
+// of the DataView» — браузер читал новым разбором старый модуль.
+const WASM = new URL('../src/wasm/dwg.wasm', import.meta.url);
 const HEADER_BYTES = 28;
 
 // GLTFExporter собирает двоичный кусок через FileReader — браузерный класс,

@@ -41,9 +41,6 @@ impl Converted {
     pub fn triangles(&self) -> usize {
         self.parts.iter().map(|m| m.positions.len() / 9).sum()
     }
-    pub fn instance_count(&self) -> usize {
-        self.instances.len()
-    }
     pub fn skipped(&self) -> usize {
         self.parts.iter().map(|m| m.skipped).sum()
     }
