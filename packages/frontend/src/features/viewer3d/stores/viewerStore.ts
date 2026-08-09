@@ -80,6 +80,14 @@ interface ViewerState {
 
   // ── Model cache (modelId → {glbUrl, lod1Url, lod2Url}) ──
   modelCache: Record<string, { glbUrl: string; lod1Url: string | null; lod2Url: string | null }>;
+  /**
+   * Габариты моделей в их собственных осях, метры.
+   *
+   * Считаются при загрузке GLB и живут здесь, потому что свойства объекта
+   * рисуются вне Canvas и до самой модели не дотягиваются.
+   */
+  objectSizes: Record<string, [number, number, number]>;
+  setObjectSize: (id: string, size: [number, number, number]) => void;
   setModelCache: (cache: Record<string, { glbUrl: string; lod1Url: string | null; lod2Url: string | null }>) => void;
 
   // ── Utility networks (инженерные сети) ─────
@@ -279,6 +287,11 @@ export const useViewerStore = create<ViewerState>((set) => ({
 
   // Model cache (with LOD)
   modelCache: {},
+  objectSizes: {},
+  setObjectSize: (id, size) =>
+    set((st) => (st.objectSizes[id]?.[0] === size[0] && st.objectSizes[id]?.[1] === size[1]
+      ? st
+      : { objectSizes: { ...st.objectSizes, [id]: size } })),
   setModelCache: (modelCache) => set({ modelCache }),
 
   // Utility networks

@@ -44,6 +44,7 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
   const resetTransform = useViewerStore((s) => s.resetTransform);
   const setTransformMode = useViewerStore((s) => s.setTransformMode);
   const removeObject = useViewerStore((s) => s.removeObject);
+  const objectSizes = useViewerStore((s) => s.objectSizes);
   const history = useViewerStore((s) => s.history);
   const historyIndex = useViewerStore((s) => s.historyIndex);
 
@@ -119,6 +120,8 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
 
   // Масштаб сверх выбранных единиц
   const pct = (sclDraft / (unitDraft || 1)) * 100;
+  /** Габариты модели в её собственных осях, до масштаба */
+  const size = objectSizes[obj.id];
 
   const isHidden = obj.hidden;
   const isLocked = obj.locked ?? true;
@@ -358,6 +361,18 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
             масштаб — насколько объект уменьшили или увеличили сверх этого.
             Пока подсветка выводилась из общего множителя, набранные вручную
             проценты перекидывали её на другую единицу сами собой. */}
+        {/* Габариты по осям самого объекта, а не по мировым: у повёрнутой
+            модели мировая коробка шире её самой, и человек увидел бы размер,
+            которого у объекта нет. Масштаб учтён — это размер в сцене. */}
+        {size && (
+          <div className="flex items-baseline justify-between text-xs">
+            <span className="text-muted">Габариты</span>
+            <span className="text-strong tabular-nums">
+              {size.map((v) => (v * sclDraft).toFixed(2)).join(' × ')} м
+            </span>
+          </div>
+        )}
+
         <label className="text-xs text-muted block">Исходные единицы</label>
         <div className="grid grid-cols-5 gap-1">
           {MODEL_UNITS.map((u) => (

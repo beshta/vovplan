@@ -43,6 +43,7 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
   const transformMode = useViewerStore((s) => s.transformMode);
   const showHidden = useViewerStore((s) => s.showHidden);
   const modelCache = useViewerStore((s) => s.modelCache);
+  const setObjectSize = useViewerStore((s) => s.setObjectSize);
   const pushHistory = useViewerStore((s) => s.pushHistory);
   const utilityDrawMode = useViewerStore((s) => s.utilityDrawMode);
   const cameraView = useViewerStore((s) => s.cameraView);
@@ -214,6 +215,7 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
             lod1Url={model.lod1Url}
             lod2Url={model.lod2Url}
             name={data.name}
+            onSize={(size) => setObjectSize(data.id, size)}
           />
         ) : (
           <ModelPlaceholder position={[0, 0, 0]} name={data.name} color={color} />
