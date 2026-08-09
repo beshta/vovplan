@@ -15,13 +15,15 @@ use std::io::Cursor;
 use acadrust::io::dwg::DwgReader;
 
 use crate::blocks;
+use crate::units;
 use crate::tess::{self, Mesh};
 use crate::xform::Xform;
 
 /// Метка формата: JS проверяет её, чтобы не принять за геометрию мусор.
 const MAGIC: &[u8; 4] = b"DWGM";
-/// Версия 2: детали и копии врозь. В первой был сплошной список треугольников.
-const FORMAT_VERSION: u32 = 2;
+/// Версия 3: добавлены единицы чертежа. Во второй появились детали и копии
+/// врозь, в первой был сплошной список треугольников.
+const FORMAT_VERSION: u32 = 3;
 
 /// Копия детали в чертеже.
 struct Instance {
@@ -35,6 +37,10 @@ pub struct Converted {
     instances: Vec<Instance>,
     pub bodies_ok: usize,
     pub bodies_failed: usize,
+    /// Во сколько метров перевели юнит чертежа. Пересчёт уже сделан, но
+    /// множитель отдаём наружу: человек должен видеть, из чего мы исходили,
+    /// и мочь поправить неверно подписанный чертёж.
+    pub unit_scale: f64,
 }
 
 impl Converted {
@@ -86,11 +92,36 @@ pub fn convert(bytes: Vec<u8>) -> Result<Converted, String> {
         return Err("в чертеже не нашлось объёмной геометрии".into());
     }
 
+    // Приводим к метрам сцены. Масштабируем координаты деталей и сдвиги копий,
+    // но не линейную часть матриц: повороты и зеркала от смены единиц не
+    // зависят, а повторный множитель там дал бы масштаб в квадрате.
+    let insunits = doc.header.insertion_units;
+    let (unit_scale, _) = units::resolve(insunits);
+    if unit_scale != 1.0 {
+        let k = unit_scale as f32;
+        for part in &mut parts {
+            for v in &mut part.positions {
+                *v *= k;
+            }
+            if let Some(o) = part.origin.as_mut() {
+                for v in o.iter_mut() {
+                    *v *= unit_scale;
+                }
+            }
+        }
+        for inst in &mut instances {
+            for v in inst.at.t.iter_mut() {
+                *v *= unit_scale;
+            }
+        }
+    }
+
     Ok(Converted {
         parts,
         instances,
         bodies_ok: ok,
         bodies_failed: failed,
+        unit_scale,
     })
 }
 
@@ -111,6 +142,9 @@ pub fn encode(r: &Converted) -> Vec<u8> {
         r.bodies_ok as u32,
         r.bodies_failed as u32,
         r.skipped() as u32,
+        // Множитель в миллиметрах на юнит: целым числом, чтобы не заводить
+        // в заголовке единственное дробное поле ради одного значения
+        (r.unit_scale * 1000.0).round() as u32,
     ] {
         out.extend_from_slice(&v.to_le_bytes());
     }

@@ -63,9 +63,10 @@ const instCount = view.getUint32(12, true);
 const bodiesOk = view.getUint32(16, true);
 const bodiesFail = view.getUint32(20, true);
 const skipped = view.getUint32(24, true);
+const mmPerUnit = view.getUint32(28, true);
 
 // Детали идут подряд: у каждой число вершин, координаты, нормали
-let at = 28;
+let at = 32;
 const parts = [];
 let triangles = 0;
 for (let i = 0; i < partCount; i++) {
@@ -110,6 +111,7 @@ const size = hi.map((h, i) => (h - lo[i]).toFixed(1));
 
 const payload = 28 + triangles * 72 + instCount * 52;
 console.log(`формат ${version} · тел разобрано ${bodiesOk}, не вышло ${bodiesFail}`);
+console.log(`единицы: ${mmPerUnit} мм на юнит чертежа`);
 console.log(
   `деталей ${partCount.toLocaleString('ru')}, копий ${instCount.toLocaleString('ru')}, граней пропущено ${skipped}`,
 );

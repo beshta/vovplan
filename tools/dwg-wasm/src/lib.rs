@@ -13,6 +13,7 @@ mod probe;
 mod rng;
 mod tess;
 mod tri;
+mod units;
 mod xform;
 
 use std::alloc::{alloc, dealloc, Layout};

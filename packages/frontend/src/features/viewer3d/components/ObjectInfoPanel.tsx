@@ -15,6 +15,22 @@ import { sceneApi } from '../../../shared/api';
  *
  * Panel positioned at right-4 top-16 (below top nav, doesn't overlap model library)
  */
+/**
+ * Единицы, в которых обычно приходят модели, и во сколько метров сцены
+ * превращается их единица.
+ *
+ * Список короткий намеренно: это не справочник мер, а починка самой частой
+ * беды импорта — модель приезжает в тысячу раз крупнее площадки, потому что
+ * начерчена в миллиметрах. Экзотику всё равно доберёт поле процентов.
+ */
+const MODEL_UNITS = [
+  { label: 'мм', title: 'миллиметрах', scale: 0.001 },
+  { label: 'см', title: 'сантиметрах', scale: 0.01 },
+  { label: 'м', title: 'метрах', scale: 1 },
+  { label: '″', title: 'дюймах', scale: 0.0254 },
+  { label: '′', title: 'футах', scale: 0.3048 },
+];
+
 export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
   const selectedId = useViewerStore((s) => s.selectedObjectId);
   const objects = useViewerStore((s) => s.objects);
@@ -271,11 +287,54 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           />
         </div>
 
-        <label className="text-xs text-muted block">Масштаб</label>
-        <input type="number" step="0.1" value={sclDraft.toFixed(2)}
-          onChange={(e) => setSclDraft(parseFloat(e.target.value) || 1)}
-          className={inputClass + " w-full"} disabled={isLocked || !canEdit}
-        />
+        {/* Исходные единицы модели.
+            В сцене один юнит — метр, а чертежи и модели приходят в чём угодно:
+            чаще всего в миллиметрах. Ошибка тут не в процентах, а в тысячу раз,
+            и подбирать такой масштаб вручную мучительно. */}
+        <label className="text-xs text-muted block">Исходные единицы</label>
+        <div className="grid grid-cols-5 gap-1">
+          {MODEL_UNITS.map((u) => (
+            <button
+              key={u.label}
+              onClick={() => setSclDraft(u.scale)}
+              disabled={isLocked || !canEdit}
+              title={`Модель начерчена в ${u.title}`}
+              className={`px-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors disabled:opacity-40 ${
+                Math.abs(sclDraft - u.scale) < 1e-9
+                  ? 'bg-vovplan-600 text-white'
+                  : 'bg-slate-900/5 text-muted hover:bg-slate-900/10 dark:bg-white/5 dark:hover:bg-white/10'
+              }`}
+            >
+              {u.label}
+            </button>
+          ))}
+        </div>
+
+        <label className="text-xs text-muted block">Масштаб, %</label>
+        <div className="flex items-center gap-1">
+          <input
+            type="number"
+            step="0.1"
+            min="0.1"
+            /* Проценты, а не доли: 0,1 % читается, а 0,001 глазом не отличить
+               от 0,01, и промах в десять раз замечаешь уже в сцене */
+            value={Number((sclDraft * 100).toFixed(3))}
+            onChange={(e) => {
+              const pct = parseFloat(e.target.value);
+              setSclDraft(Number.isFinite(pct) && pct > 0 ? pct / 100 : 1);
+            }}
+            className={inputClass + ' flex-1'}
+            disabled={isLocked || !canEdit}
+          />
+          <button
+            onClick={() => setSclDraft(1)}
+            disabled={isLocked || !canEdit}
+            title="Вернуть натуральную величину"
+            className="px-2 py-1.5 rounded-lg text-[11px] text-muted hover:text-strong bg-slate-900/5 hover:bg-slate-900/10 dark:bg-white/5 dark:hover:bg-white/10 disabled:opacity-40"
+          >
+            100%
+          </button>
+        </div>
 
         {canEdit && !isHidden && !isLocked && (
           <button

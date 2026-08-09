@@ -22,8 +22,8 @@ interface DwgModule {
   dwg_convert(ptr: number, len: number): number;
 }
 
-/** Длина заголовка ответа: метка и шесть счётчиков */
-const HEADER_BYTES = 28;
+/** Длина заголовка ответа: метка и семь счётчиков */
+const HEADER_BYTES = 32;
 
 let loading: Promise<DwgModule> | null = null;
 
@@ -56,6 +56,8 @@ export interface DwgStats {
   bodiesOk: number;
   bodiesFailed: number;
   facesSkipped: number;
+  /** Сколько миллиметров чертежа пришлось на юнит — из чего мы исходили */
+  mmPerUnit: number;
   /** Треугольников в самих деталях, без учёта повторов */
   triangles: number;
   parts: number;
@@ -151,6 +153,7 @@ self.onmessage = async (e: MessageEvent<ArrayBuffer>) => {
       bodiesOk: hdr.getUint32(16, true),
       bodiesFailed: hdr.getUint32(20, true),
       facesSkipped: hdr.getUint32(24, true),
+      mmPerUnit: hdr.getUint32(28, true),
       triangles,
       parts: partCount,
       instances: instCount,
