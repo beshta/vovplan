@@ -8,6 +8,7 @@ import ModelPlaceholder from './ModelPlaceholder';
 import LodModel from './LodModel';
 import { sceneApi } from '../../../shared/api';
 import { emitLiveTransform } from '../../collaboration/socket';
+import { localSize } from '../utils/instancing';
 
 interface Props {
   data: SceneObjectData;
@@ -172,6 +173,25 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
   const groundSnap = data.groundSnap !== false; // по умолчанию true
   useEffect(() => { snapped.current = false; }, [data.position[0], data.position[2], data.scale[0], groundSnap, data.modelId]);
 
+  /**
+   * Габариты объекта для панели свойств.
+   *
+   * Считаем здесь, а не в загрузчике модели: GLB приезжает через Suspense, и
+   * поймать момент, когда геометрия уже в сцене, надёжнее всего покадровой
+   * проверкой. Меряем группу — её собственное преобразование при этом
+   * снимается, так что размер получается по осям объекта, а не по мировым.
+   */
+  const sized = useRef(false);
+  useEffect(() => { sized.current = false; }, [data.modelId]);
+  useFrame(() => {
+    const g = groupRef.current;
+    if (!g || sized.current) return;
+    const size = localSize(g);
+    if (size[0] === 0 && size[1] === 0 && size[2] === 0) return; // модель ещё грузится
+    sized.current = true;
+    setObjectSize(data.id, size);
+  });
+
   useFrame(() => {
     const g = groupRef.current;
     if (!g || !groundSnap || snapped.current) return;
@@ -215,7 +235,6 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
             lod1Url={model.lod1Url}
             lod2Url={model.lod2Url}
             name={data.name}
-            onSize={(size) => setObjectSize(data.id, size)}
           />
         ) : (
           <ModelPlaceholder position={[0, 0, 0]} name={data.name} color={color} />

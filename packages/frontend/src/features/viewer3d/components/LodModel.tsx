@@ -1,9 +1,9 @@
-import { Suspense, Component, useMemo, useEffect, useRef } from 'react';
+import { Suspense, Component, useMemo } from 'react';
 import * as THREE from 'three';
 import type { ReactNode } from 'react';
 import { useGLTF, Detailed } from '@react-three/drei';
 import ModelPlaceholder from './ModelPlaceholder';
-import { collapseInstances, localSize } from '../utils/instancing';
+import { collapseInstances } from '../utils/instancing';
 
 interface LodModelProps {
   /** Primary GLB URL (highest detail, always present) */
@@ -14,8 +14,6 @@ interface LodModelProps {
   lod2Url?: string | null;
   /** Fallback name for placeholder */
   name: string;
-  /** Габариты в собственных осях модели — для свойств объекта */
-  onSize?: (size: [number, number, number]) => void;
 }
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
@@ -35,42 +33,25 @@ function toAbsolute(url: string): string {
  * Результат запоминается по ссылке на файл: клонирование и перебор узлов —
  * работа не бесплатная, а один и тот же GLB стоит в сцене помногу раз.
  */
-interface Prepared {
-  template: THREE.Object3D;
-  /** Габариты в собственных осях — считаются один раз вместе с заготовкой */
-  size: [number, number, number];
-}
+const prepared = new Map<string, THREE.Object3D>();
 
-const prepared = new Map<string, Prepared>();
-
-function prepare(url: string, scene: THREE.Object3D): Prepared {
+function prepare(url: string, scene: THREE.Object3D): THREE.Object3D {
   const cached = prepared.get(url);
   if (cached) return cached;
   const template = scene.clone(true);
   collapseInstances(template);
-  // Меряем до того, как объект попадёт в повёрнутую группу: в мировых осях
-  // у наклонённой модели коробка шире её самой
-  const made: Prepared = { template, size: localSize(template) };
-  prepared.set(url, made);
-  return made;
+  prepared.set(url, template);
+  return template;
 }
 
-function GlbScene({ url, onSize }: { url: string; onSize?: (s: [number, number, number]) => void }) {
+function GlbScene({ url }: { url: string }) {
   const { scene } = useGLTF(toAbsolute(url));
 
   // Отдавать наружу саму заготовку нельзя: у объекта three.js один родитель,
   // и вторая сцена с той же моделью просто отняла бы её у первой. Клонируем —
   // геометрия и материалы при этом остаются общими, копируются только узлы,
   // а их после схлопывания сотни, а не десятки тысяч.
-  const object = useMemo(() => prepare(url, scene).template.clone(true), [scene, url]);
-
-  // Обработчик часто приходит новой стрелкой на каждый рендер, поэтому в
-  // зависимостях его нет: иначе размер пересчитывался бы вхолостую
-  const report = useRef(onSize);
-  report.current = onSize;
-  useEffect(() => {
-    report.current?.(prepare(url, scene).size);
-  }, [url, scene]);
+  const object = useMemo(() => prepare(url, scene).clone(true), [scene, url]);
 
   return <primitive object={object} />;
 }
@@ -103,7 +84,7 @@ class ErrorBoundarySafe extends Component<{ children: ReactNode; name: string },
  * automatically picks the right mesh each frame based on camera distance,
  * dramatically reducing draw calls on large scenes.
  */
-export default function LodModel({ glbUrl, lod1Url, lod2Url, name, onSize }: LodModelProps) {
+export default function LodModel({ glbUrl, lod1Url, lod2Url, name }: LodModelProps) {
   // Пороги переключения: distance[i] — с какого расстояния показывать
   // соответствующего ребёнка
   const distances: [number, number, number] = [0, 30, 80];
@@ -114,7 +95,7 @@ export default function LodModel({ glbUrl, lod1Url, lod2Url, name, onSize }: Lod
       <Suspense fallback={<ModelPlaceholder position={[0, 0, 0]} name="" color="#94a3b8" />}>
         {hasLods ? (
           <Detailed distances={distances}>
-            <GlbScene url={glbUrl} onSize={onSize} />
+            <GlbScene url={glbUrl} />
             <GlbScene url={lod1Url ?? glbUrl} />
             <GlbScene url={lod2Url ?? glbUrl} />
           </Detailed>
@@ -122,7 +103,7 @@ export default function LodModel({ glbUrl, lod1Url, lod2Url, name, onSize }: Lod
           // Упрощённых уровней нет — показываем модель как есть. Раньше здесь
           // всё равно стоял переключатель с тремя одинаковыми копиями: разницы
           // на экране ноль, а сцена и память несли её втройне.
-          <GlbScene url={glbUrl} onSize={onSize} />
+          <GlbScene url={glbUrl} />
         )}
       </Suspense>
     </ErrorBoundarySafe>
