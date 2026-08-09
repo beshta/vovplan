@@ -60,8 +60,6 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
   const dragStart = useRef<{ position: [number, number, number]; rotation: [number, number, number]; scale: [number, number, number] } | null>(null);
   const lastEmit = useRef(0);
 
-  if (data.hidden && !showHidden) return null;
-
   const isSelected = selectedObjectId === data.id;
 
   const canEdit =
@@ -193,6 +191,11 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
 
   const model = data.modelId ? modelCache[data.modelId] : undefined;
   const color = data.hidden ? '#f59e0b' : isSelected ? '#10b981' : hovered ? '#60a5fa' : '#3b82f6';
+
+  // Скрытый объект отсеиваем только здесь, ниже всех хуков. Раньше выход стоял
+  // до useEffect и useFrame, и в момент скрытия React получал меньше хуков, чем
+  // в прошлый раз, — падало всё дерево, а страница уходила в белый экран.
+  if (data.hidden && !showHidden) return null;
 
   return (
     <>

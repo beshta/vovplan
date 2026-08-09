@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Lock, LockOpen, Pencil, Check, EyeOff } from 'lucide-react';
+import { Lock, LockOpen, Pencil, Check, EyeOff, Move, RotateCw, Trash2 } from 'lucide-react';
 import { useViewerStore } from '../stores/viewerStore';
 import { sceneApi } from '../../../shared/api';
 
@@ -27,8 +27,8 @@ const MODEL_UNITS = [
   { label: 'мм', title: 'миллиметрах', scale: 0.001 },
   { label: 'см', title: 'сантиметрах', scale: 0.01 },
   { label: 'м', title: 'метрах', scale: 1 },
-  { label: '″', title: 'дюймах', scale: 0.0254 },
-  { label: '′', title: 'футах', scale: 0.3048 },
+  { label: 'дюйм', title: 'дюймах', scale: 0.0254 },
+  { label: 'фут', title: 'футах', scale: 0.3048 },
 ];
 
 export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
@@ -42,6 +42,8 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
   const undo = useViewerStore((s) => s.undo);
   const redo = useViewerStore((s) => s.redo);
   const resetTransform = useViewerStore((s) => s.resetTransform);
+  const setTransformMode = useViewerStore((s) => s.setTransformMode);
+  const removeObject = useViewerStore((s) => s.removeObject);
   const history = useViewerStore((s) => s.history);
   const historyIndex = useViewerStore((s) => s.historyIndex);
 
@@ -53,6 +55,8 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
   const [posDraft, setPosDraft] = useState<[number, number, number]>([0, 0, 0]);
   const [rotDraft, setRotDraft] = useState<[number, number, number]>([0, 0, 0]);
   const [sclDraft, setSclDraft] = useState<number>(1);
+  /** Что значила единица длины в исходном файле; хранится отдельно от масштаба */
+  const [unitDraft, setUnitDraft] = useState<number>(1);
 
   const obj = objects.find((o) => o.id === selectedId);
 
@@ -62,8 +66,20 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
     setDescDraft(obj.description ?? '');
     setUrlDraft(obj.docUrl ?? '');
     setPosDraft([...obj.position] as [number, number, number]);
-    setRotDraft([...obj.rotation] as [number, number, number]);
+    // Черновик поворота держим в градусах — в них человек и вводит.
+    // Раньше сюда клали радианы, а обратно применяли как градусы, и число
+    // росло в 57 раз за каждый заход: в сцене оказывалось 29564°.
+    setRotDraft(obj.rotation.map((r) => (r * 180) / Math.PI) as [number, number, number]);
     setSclDraft(obj.scale[0]);
+    // Какие единицы подсветить: та, при которой масштаб читается ближе всего
+    // к 100 %. Сам множитель в объекте один, разложить его на «единицы» и
+    // «масштаб» однозначно нельзя, но эта пара — самая осмысленная из всех.
+    const s = obj.scale[0] || 1;
+    setUnitDraft(
+      MODEL_UNITS.reduce((a, b) =>
+        Math.abs(Math.log(s / b.scale)) < Math.abs(Math.log(s / a.scale)) ? b : a,
+      ).scale,
+    );
   }, [obj?.id, obj?.description, obj?.docUrl, obj?.position, obj?.rotation, obj?.scale]);
 
   // Ctrl+Z hotkeys — MUST be before any early return
@@ -100,6 +116,9 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
   }, [projectId, history, historyIndex]);
 
   if (!obj) return null;
+
+  // Масштаб сверх выбранных единиц
+  const pct = (sclDraft / (unitDraft || 1)) * 100;
 
   const isHidden = obj.hidden;
   const isLocked = obj.locked ?? true;
@@ -188,6 +207,21 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
     }
   };
 
+  /**
+   * Окончательное удаление. Сервер сносит объект насовсем, когда мастер
+   * удаляет уже скрытый, — тот же вызов, что и скрытие, но по второму разу.
+   */
+  const handlePurge = async () => {
+    if (!confirm(`Удалить «${obj.name}» навсегда? Отменить это будет нельзя.`)) return;
+    try {
+      await sceneApi.deleteObject(projectId, obj.id);
+      selectObject(null);
+      removeObject(obj.id);
+    } catch (err) {
+      console.error('Failed to delete object:', err);
+    }
+  };
+
   const handleRestore = async () => {
     try {
       await sceneApi.restoreObject(projectId, obj.id);
@@ -254,7 +288,15 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           Стоит на земле
         </button>
 
-        <label className="text-xs text-muted block">Позиция (X, Y, Z)</label>
+        {/* Подпись — кнопка: включает нужные стрелки во вьювере, чтобы не
+            искать переключатель в другом углу экрана */}
+        <button
+          onClick={() => setTransformMode('translate')}
+          className="text-xs text-muted block hover:text-strong transition-colors"
+          title="Показать стрелки перемещения во вьювере"
+        >
+          Позиция (X, Y, Z), м <Move size={11} className="inline -mt-0.5" />
+        </button>
         <div className="flex gap-1">
           <input type="number" step="0.1" value={posDraft[0].toFixed(1)}
             onChange={(e) => setPosDraft([parseFloat(e.target.value) || 0, posDraft[1], posDraft[2]])}
@@ -271,36 +313,64 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           />
         </div>
 
-        <label className="text-xs text-muted block">Поворот (°)</label>
-        <div className="flex gap-1">
-          <input type="number" step="1" value={Math.round(rotDraft[0] * 180 / Math.PI)}
+        {/* Поворот вокруг вертикали — тот самый, которым объект разворачивают
+            по площадке. Два других наклоняют его набок и нужны редко, поэтому
+            нужный выделен, а не спрятан в ряду одинаковых полей. */}
+        <button
+          onClick={() => setTransformMode('rotate')}
+          className="text-xs text-muted block hover:text-strong transition-colors"
+          title="Показать кольца вращения во вьювере"
+        >
+          Поворот, ° <RotateCw size={11} className="inline -mt-0.5" />
+        </button>
+        <div className="flex gap-1 items-center">
+          <input
+            type="number" step="1" value={Math.round(rotDraft[1])}
+            onChange={(e) => setRotDraft([rotDraft[0], parseFloat(e.target.value) || 0, rotDraft[2]])}
+            className={inputClass + ' flex-[2] ring-1 ring-vovplan-500/40'}
+            disabled={isLocked || !canEdit}
+            title="Разворот по площадке — вокруг вертикальной оси"
+          />
+          <span className="text-[10px] text-muted shrink-0">по площадке</span>
+        </div>
+        <div className="flex gap-1 items-center">
+          <input
+            type="number" step="1" value={Math.round(rotDraft[0])}
             onChange={(e) => setRotDraft([parseFloat(e.target.value) || 0, rotDraft[1], rotDraft[2]])}
             className={inputClass} disabled={isLocked || !canEdit}
+            title="Наклон вперёд-назад"
           />
-          <input type="number" step="1" value={Math.round(rotDraft[1] * 180 / Math.PI)}
-            onChange={(e) => setRotDraft([rotDraft[0], parseFloat(e.target.value) || 0, rotDraft[2]])}
-            className={inputClass} disabled={isLocked || !canEdit}
-          />
-          <input type="number" step="1" value={Math.round(rotDraft[2] * 180 / Math.PI)}
+          <input
+            type="number" step="1" value={Math.round(rotDraft[2])}
             onChange={(e) => setRotDraft([rotDraft[0], rotDraft[1], parseFloat(e.target.value) || 0])}
             className={inputClass} disabled={isLocked || !canEdit}
+            title="Наклон вбок"
           />
+          <span className="text-[10px] text-muted shrink-0">наклоны</span>
         </div>
 
         {/* Исходные единицы модели.
             В сцене один юнит — метр, а чертежи и модели приходят в чём угодно:
             чаще всего в миллиметрах. Ошибка тут не в процентах, а в тысячу раз,
             и подбирать такой масштаб вручную мучительно. */}
+        {/* Единицы и масштаб — разные вещи, поэтому и хранятся врозь.
+            Единицы говорят, что значила единица длины в исходном файле;
+            масштаб — насколько объект уменьшили или увеличили сверх этого.
+            Пока подсветка выводилась из общего множителя, набранные вручную
+            проценты перекидывали её на другую единицу сами собой. */}
         <label className="text-xs text-muted block">Исходные единицы</label>
         <div className="grid grid-cols-5 gap-1">
           {MODEL_UNITS.map((u) => (
             <button
               key={u.label}
-              onClick={() => setSclDraft(u.scale)}
+              onClick={() => {
+                setUnitDraft(u.scale);
+                setSclDraft(u.scale * (pct / 100));
+              }}
               disabled={isLocked || !canEdit}
               title={`Модель начерчена в ${u.title}`}
               className={`px-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors disabled:opacity-40 ${
-                Math.abs(sclDraft - u.scale) < 1e-9
+                unitDraft === u.scale
                   ? 'bg-vovplan-600 text-white'
                   : 'bg-slate-900/5 text-muted hover:bg-slate-900/10 dark:bg-white/5 dark:hover:bg-white/10'
               }`}
@@ -318,18 +388,18 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
             min="0.1"
             /* Проценты, а не доли: 0,1 % читается, а 0,001 глазом не отличить
                от 0,01, и промах в десять раз замечаешь уже в сцене */
-            value={Number((sclDraft * 100).toFixed(3))}
+            value={Number(pct.toFixed(3))}
             onChange={(e) => {
-              const pct = parseFloat(e.target.value);
-              setSclDraft(Number.isFinite(pct) && pct > 0 ? pct / 100 : 1);
+              const next = parseFloat(e.target.value);
+              setSclDraft(unitDraft * ((Number.isFinite(next) && next > 0 ? next : 100) / 100));
             }}
             className={inputClass + ' flex-1'}
             disabled={isLocked || !canEdit}
           />
           <button
-            onClick={() => setSclDraft(1)}
+            onClick={() => setSclDraft(unitDraft)}
             disabled={isLocked || !canEdit}
-            title="Вернуть натуральную величину"
+            title="Вернуть натуральную величину для выбранных единиц"
             className="px-2 py-1.5 rounded-lg text-[11px] text-muted hover:text-strong bg-slate-900/5 hover:bg-slate-900/10 dark:bg-white/5 dark:hover:bg-white/10 disabled:opacity-40"
           >
             100%
@@ -452,12 +522,21 @@ export default function ObjectInfoPanel({ projectId }: { projectId: string }) {
           </div>
         )}
 
-        {/* Soft-delete / Restore */}
+        {/* Скрытие, возврат и окончательное удаление.
+            Удалить насовсем можно только уже скрытый объект: так между
+            случайным щелчком и безвозвратной потерей стоит ещё один шаг,
+            а сам объект тем временем не мешает на сцене. */}
         {role === 'MASTER' && (
           isHidden ? (
-            <button onClick={handleRestore}
-              className="w-full px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium hover:bg-slate-600"
-            >↺ Восстановить</button>
+            <div className="space-y-2">
+              <button onClick={handleRestore}
+                className="w-full px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium hover:bg-slate-600"
+              >↺ Восстановить</button>
+              <button onClick={handlePurge}
+                title="Объект и его положение исчезнут безвозвратно"
+                className="w-full px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
+              ><span className="flex items-center justify-center gap-1.5"><Trash2 size={14} /> Удалить навсегда</span></button>
+            </div>
           ) : (
             <button onClick={handleHide}
               className="w-full px-4 py-2 bg-red-900/50 text-red-300 rounded-lg text-sm font-medium hover:bg-red-900/70"
