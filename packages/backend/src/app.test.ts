@@ -592,3 +592,81 @@ describe('правка рельефа', () => {
     expect(res.statusCode).toBe(404);
   });
 });
+
+describe('загрузка моделей', () => {
+  /**
+   * Разбор multipart обязан вычитывать поток файла сразу, а не откладывать
+   * часть «на потом»: иначе разбор встаёт и ответа нет вовсе. Работало это
+   * ровно до тех пор, пока файл помещался во внутренний буфер, поэтому на
+   * десяти килобайтах ничего не ловилось — нужен файл заведомо больше.
+   */
+  let modelProject = '';
+  const CRLF = '\r\n';
+
+  beforeAll(async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/projects',
+      headers: auth(masterToken),
+      payload: {
+        name: `Модели ${marker}`,
+        description: 'загрузка',
+        centerLat: 55.75,
+        centerLng: 37.61,
+        bounds: { north: 55.76, south: 55.74, east: 37.62, west: 37.6 },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    modelProject = res.json().id;
+  });
+
+  /**
+   * Тело multipart руками: inject не умеет FormData.
+   * `nameFirst` — порядок полей, его задаёт браузер, и файл вполне может идти
+   * первым; для разбора это принципиально разные случаи.
+   */
+  const upload = (opts: { size: number; name?: string; filename?: string; nameFirst?: boolean }) => {
+    const b = `----vovplan${Math.random().toString(36).slice(2)}`;
+    const namePart = opts.name
+      ? `--${b}${CRLF}Content-Disposition: form-data; name="name"${CRLF}${CRLF}${opts.name}${CRLF}`
+      : '';
+    const fileHead =
+      `--${b}${CRLF}` +
+      `Content-Disposition: form-data; name="file"; filename="${opts.filename ?? 'model.glb'}"${CRLF}` +
+      `Content-Type: model/gltf-binary${CRLF}${CRLF}`;
+
+    const head = Buffer.from(opts.nameFirst === false ? fileHead : namePart + fileHead);
+    const tail = Buffer.from(
+      (opts.nameFirst === false ? CRLF + namePart.replace(`--${b}${CRLF}`, `--${b}${CRLF}`) : CRLF) +
+        `--${b}--${CRLF}`,
+    );
+
+    return app.inject({
+      method: 'POST',
+      url: `/api/projects/${modelProject}/models`,
+      headers: { ...auth(masterToken), 'content-type': `multipart/form-data; boundary=${b}` },
+      payload: Buffer.concat([head, Buffer.alloc(opts.size, 7), tail]),
+    });
+  };
+
+  it('файл в мегабайт доходит целиком', async () => {
+    const size = 1024 * 1024;
+    const res = await upload({ size, name: 'большая деталь' });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.name).toBe('большая деталь');
+    // Ровно столько, сколько отправили: обрезка означала бы битую модель
+    expect(body.fileSize).toBe(size);
+  });
+
+  it('имя после файла тоже доезжает', async () => {
+    const res = await upload({ size: 300 * 1024, name: 'позже', nameFirst: false });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().name).toBe('позже');
+  });
+
+  it('чужой формат → 400', async () => {
+    const res = await upload({ size: 200 * 1024, filename: 'чертёж.dwg' });
+    expect(res.statusCode).toBe(400);
+  });
+});

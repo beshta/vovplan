@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
-import { createWriteStream, mkdirSync, existsSync, statSync } from 'node:fs';
+import { createWriteStream, mkdirSync, existsSync, statSync, unlinkSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { unlink } from 'node:fs/promises';
@@ -66,46 +66,71 @@ export default async function modelRoutes(fastify: FastifyInstance) {
     // Permission check — only designers and masters can upload
     await requirePermission(request, projectId, 'model:upload');
 
-    // Parse multipart
-    const parts = request.parts();
-    let file: any = null;
-    let name = '';
-
-    for await (const part of parts) {
-      if (part.type === 'file') {
-        if (part.fieldname === 'file') {
-          file = part;
-        }
-      } else {
-        // text field
-        if (part.fieldname === 'name') {
-          name = (part.value as string) ?? '';
-        }
-      }
-    }
-
-    if (!file) {
-      return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Файл не предоставлен', statusCode: 400 });
-    }
-
-    // Validate file type
-    const ext = extname(file.filename).toLowerCase();
-    if (ext !== '.glb' && ext !== '.gltf') {
-      return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Поддерживаются только .glb и .gltf', statusCode: 400 });
-    }
-
-    if (!name) name = file.filename.replace(/\.(glb|gltf)$/i, '');
-
-    // Save file to disk
+    /**
+     * Разбор multipart.
+     *
+     * Файл сохраняется прямо здесь, внутри цикла, и это принципиально: перейти
+     * к следующей части, не вычитав поток файла, нельзя — разбор встаёт, и
+     * ответ не приходит вовсе. Раньше часть откладывали «на потом», и работало
+     * это только пока файл целиком помещался во внутренний буфер: всё тяжелее
+     * нескольких килобайт подвисало намертво, а на клиенте выглядело как
+     * бесконечная загрузка.
+     */
     ensureDirs(projectId);
-    const fileId = randomUUID();
-    const safeExt = ext === '.gltf' ? '.gltf' : '.glb';
-    const fileName = `${fileId}${safeExt}`;
-    const filePath = join(UPLOADS_ROOT, projectId, fileName);
-    const publicUrl = `/uploads/${projectId}/${fileName}`;
 
-    const saveStream = createWriteStream(filePath);
-    await pipeline(file.file, saveStream);
+    let name = '';
+    let originalName = '';
+    let filePath: string | null = null;
+    let publicUrl = '';
+    let safeExt: '.glb' | '.gltf' = '.glb';
+    let wrongType = false;
+    let truncated = false;
+
+    for await (const part of request.parts()) {
+      if (part.type !== 'file') {
+        if (part.fieldname === 'name') name = (part.value as string) ?? '';
+        continue;
+      }
+
+      const ext = extname(part.filename).toLowerCase();
+      // Не наше поле, второй файл или неподходящий формат — поток всё равно
+      // надо вычитать до конца, иначе разбор остановится на нём
+      if (part.fieldname !== 'file' || filePath) {
+        await part.toBuffer();
+        continue;
+      }
+      if (ext !== '.glb' && ext !== '.gltf') {
+        wrongType = true;
+        await part.toBuffer();
+        continue;
+      }
+
+      originalName = part.filename;
+      safeExt = ext === '.gltf' ? '.gltf' : '.glb';
+      const fileName = `${randomUUID()}${safeExt}`;
+      filePath = join(UPLOADS_ROOT, projectId, fileName);
+      publicUrl = `/uploads/${projectId}/${fileName}`;
+      await pipeline(part.file, createWriteStream(filePath));
+      // Файл больше разрешённого обрезается молча — на выходе был бы битый GLB
+      truncated = part.file.truncated;
+    }
+
+    const fail = (code: number, message: string) => {
+      if (filePath && existsSync(filePath)) unlinkSync(filePath);
+      return reply.code(code).send({ error: 'VALIDATION_ERROR', message, statusCode: code });
+    };
+
+    if (truncated) {
+      return fail(413, 'Файл слишком большой — не больше 100 МБ');
+    }
+    if (wrongType && !filePath) {
+      return fail(400, 'Поддерживаются только .glb и .gltf');
+    }
+    if (!filePath) {
+      return fail(400, 'Файл не предоставлен');
+    }
+
+    if (!name) name = originalName.replace(/\.(glb|gltf)$/i, '');
 
     // Get file size
     const fileSize = statSync(filePath).size;
