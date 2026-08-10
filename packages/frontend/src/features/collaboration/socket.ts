@@ -24,18 +24,23 @@ export function disconnectSocket(): void {
   }
 }
 
-// ── Typed emit helpers (ephemeral, relayed to room peers) ──
+/*
+ * ── Пересылка эфемерных событий соседям по комнате ──
+ *
+ * Проект не передаётся: сервер шлёт событие в ту комнату, куда сокет вошёл
+ * через `join`, и присланному номеру проекта не верит. Иначе указать чужой
+ * проект прямо в событии мог бы кто угодно.
+ */
 
-export function emitCursor(projectId: string, point: [number, number, number] | null): void {
-  socket?.emit('cursor', { projectId, point });
+export function emitCursor(point: [number, number, number] | null): void {
+  socket?.emit('cursor', { point });
 }
 
 export function emitLiveTransform(
-  projectId: string,
   objectId: string,
   position: [number, number, number],
   rotation: [number, number, number],
   scale: [number, number, number],
 ): void {
-  socket?.emit('object:transform', { projectId, objectId, position, rotation, scale });
+  socket?.emit('object:transform', { objectId, position, rotation, scale });
 }

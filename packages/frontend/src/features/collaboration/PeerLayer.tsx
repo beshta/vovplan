@@ -12,7 +12,9 @@ import { useViewerStore } from '../viewer3d/stores/viewerStore';
  * The emit plane is disabled while drawing annotations / utility networks
  * so it never intercepts those tools' raycasts.
  */
-export default function PeerLayer({ projectId, currentUserId }: { projectId: string; currentUserId: string }) {
+// Проект компоненту больше не нужен: комнату для пересылки определяет сервер
+// по тому, куда вошёл сокет, — присланному номеру он не верит
+export default function PeerLayer({ currentUserId }: { currentUserId: string }) {
   const cursors = usePresenceStore((s) => s.cursors);
   const selectObject = useViewerStore((s) => s.selectObject);
   const mode = useViewerStore((s) => s.mode);
@@ -25,7 +27,7 @@ export default function PeerLayer({ projectId, currentUserId }: { projectId: str
     const now = performance.now();
     if (now - lastEmit.current < 50) return; // ~20 Hz
     lastEmit.current = now;
-    emitCursor(projectId, [e.point.x, e.point.y, e.point.z]);
+    emitCursor([e.point.x, e.point.y, e.point.z]);
   };
 
   return (
@@ -36,7 +38,7 @@ export default function PeerLayer({ projectId, currentUserId }: { projectId: str
           position={[0, 0.02, 0]}
           rotation={[-Math.PI / 2, 0, 0]}
           onPointerMove={handleMove}
-          onPointerOut={() => emitCursor(projectId, null)}
+          onPointerOut={() => emitCursor(null)}
           onClick={() => selectObject(null)}
         >
           <planeGeometry args={[400, 400]} />

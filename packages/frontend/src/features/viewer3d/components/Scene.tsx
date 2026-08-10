@@ -199,7 +199,7 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
 
         {/* Real-time collaboration: peer cursors + local cursor emit.
             В публичном shared-режиме сокета нет — слой отключён. */}
-        {!shared && <PeerLayer projectId={projectId} currentUserId={currentUserId} />}
+        {!shared && <PeerLayer currentUserId={currentUserId} />}
       </Suspense>
     </Canvas>
   );

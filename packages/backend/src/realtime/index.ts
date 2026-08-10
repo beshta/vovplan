@@ -1,6 +1,8 @@
 import { Server as SocketServer, type Socket } from 'socket.io';
 import type { FastifyInstance } from 'fastify';
 import { config } from '../config/index.js';
+import prisma from '../db/prisma.js';
+import { getUserRole } from '../utils/permissions.js';
 
 // ── Type augmentation: fastify.io for route broadcasts ──
 declare module 'fastify' {
@@ -78,10 +80,53 @@ export function setupRealtime(fastify: FastifyInstance): SocketServer {
     const user = (socket.data as { user: SocketUser }).user;
     let joinedProject: string | null = null;
 
-    // ── Join a project room ──
-    socket.on('join', (payload: { projectId: string; name?: string }) => {
+    /** Выйти из текущей комнаты и убрать себя из присутствия */
+    const leaveRoom = () => {
+      if (!joinedProject) return;
+      const left = joinedProject;
+      joinedProject = null;
+      presence.get(left)?.delete(socket.id);
+      socket.leave(roomOf(left));
+      broadcastPresence(io, left);
+      // Чужой курсор должен погаснуть, а не застыть на месте
+      socket.to(roomOf(left)).emit('cursor', {
+        socketId: socket.id,
+        userId: user.userId,
+        point: null,
+      });
+    };
+
+    /*
+     * Вход в комнату проекта.
+     *
+     * Участие ОБЯЗАТЕЛЬНО проверяется здесь. Раньше проверки не было вовсе:
+     * достаточно было знать чужой projectId, чтобы получать живой поток чужого
+     * проекта целиком — правки объектов, комментарии, сети, рельеф, курсоры и
+     * список присутствующих с почтами. HTTP-маршруты право спрашивают все до
+     * одного, а сокет пускал мимо них.
+     */
+    socket.on('join', async (payload: { projectId: string; name?: string }) => {
       const { projectId } = payload ?? {};
       if (!projectId || typeof projectId !== 'string') return;
+
+      const [role, me] = await Promise.all([
+        getUserRole(user.userId, projectId),
+        prisma.user.findUnique({
+          where: { id: user.userId },
+          select: { displayName: true },
+        }),
+      ]);
+
+      if (!role) {
+        // Не участник — молча в комнату не пускаем, но и молчать нельзя:
+        // клиент должен понимать, почему не приходит присутствие
+        socket.emit('join:denied', { projectId });
+        return;
+      }
+
+      // Смена проекта в той же вкладке: из прошлой комнаты надо выйти,
+      // иначе события двух проектов польются в одно окно
+      if (joinedProject && joinedProject !== projectId) leaveRoom();
 
       joinedProject = projectId;
       socket.join(roomOf(projectId));
@@ -89,7 +134,10 @@ export function setupRealtime(fastify: FastifyInstance): SocketServer {
       const peer: PresencePeer = {
         socketId: socket.id,
         userId: user.userId,
-        name: payload.name?.slice(0, 60) || user.email,
+        // Имя берём из базы, а не из payload: присланным именем можно было
+        // представиться кем угодно. Почта в запасной вариант больше не идёт —
+        // список присутствующих её раздавал всей комнате.
+        name: me?.displayName || 'Участник',
         color: colorForUser(user.userId),
       };
       if (!presence.has(projectId)) presence.set(projectId, new Map());
@@ -100,14 +148,21 @@ export function setupRealtime(fastify: FastifyInstance): SocketServer {
       broadcastPresence(io, projectId);
     });
 
-    // ── Live cursor (ephemeral, relayed to others) ──
-    socket.on('cursor', (payload: { projectId: string; point: [number, number, number] | null }) => {
-      if (!payload?.projectId) return;
-      socket.to(roomOf(payload.projectId)).emit('cursor', {
+    /*
+     * Пересылка эфемерных событий.
+     *
+     * Комната берётся из того, куда сокет реально вошёл, а НЕ из payload.
+     * Пока адресат брался из присланных данных, попасть в чужую комнату можно
+     * было и без join: достаточно указать чужой projectId в самом событии, и
+     * чужие клиенты применяли подсунутое движение объекта у себя.
+     */
+    socket.on('cursor', (payload: { point: [number, number, number] | null }) => {
+      if (!joinedProject) return;
+      socket.to(roomOf(joinedProject)).emit('cursor', {
         socketId: socket.id,
         userId: user.userId,
         color: colorForUser(user.userId),
-        point: payload.point,
+        point: payload?.point ?? null,
       });
     });
 
@@ -115,14 +170,13 @@ export function setupRealtime(fastify: FastifyInstance): SocketServer {
     socket.on(
       'object:transform',
       (payload: {
-        projectId: string;
         objectId: string;
         position: [number, number, number];
         rotation: [number, number, number];
         scale: [number, number, number];
       }) => {
-        if (!payload?.projectId || !payload.objectId) return;
-        socket.to(roomOf(payload.projectId)).emit('object:transform', {
+        if (!joinedProject || !payload?.objectId) return;
+        socket.to(roomOf(joinedProject)).emit('object:transform', {
           objectId: payload.objectId,
           position: payload.position,
           rotation: payload.rotation,
@@ -132,21 +186,8 @@ export function setupRealtime(fastify: FastifyInstance): SocketServer {
       },
     );
 
-    // ── Leave / disconnect: clean up presence ──
-    const cleanup = () => {
-      if (joinedProject) {
-        presence.get(joinedProject)?.delete(socket.id);
-        broadcastPresence(io, joinedProject);
-        socket.to(roomOf(joinedProject)).emit('cursor', {
-          socketId: socket.id,
-          userId: user.userId,
-          point: null,
-        });
-      }
-    };
-
-    socket.on('leave', cleanup);
-    socket.on('disconnect', cleanup);
+    socket.on('leave', leaveRoom);
+    socket.on('disconnect', leaveRoom);
   });
 
   fastify.decorate('io', io);

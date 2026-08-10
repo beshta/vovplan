@@ -119,7 +119,7 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
     const now = performance.now();
     if (now - lastEmit.current >= 50) {
       lastEmit.current = now;
-      emitLiveTransform(projectId, data.id, t.position, t.rotation, t.scale);
+      emitLiveTransform(data.id, t.position, t.rotation, t.scale);
     }
   };
 
