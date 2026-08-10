@@ -11,6 +11,7 @@ mod blocks;
 mod convert;
 mod probe;
 mod rng;
+mod selftest;
 mod tess;
 mod tri;
 mod units;
@@ -99,4 +100,17 @@ pub unsafe extern "C" fn dwg_convert(ptr: *mut u8, len: usize) -> *mut u8 {
         Err(e) => convert::encode_error(&e),
     };
     hand_over(out)
+}
+
+/// Проверяет сам себя на теле с известными размерами.
+///
+/// Нужна, чтобы убеждаться: собранный модуль отвечает исходникам. Побайтовое
+/// сравнение для этого не годится — разные компиляторы дают разные байты при
+/// одном исходнике, и предупреждение горело бы всегда.
+///
+/// # Safety
+/// Возвращённый буфер освобождается через [`dwg_free`] с длиной [`dwg_last_len`].
+#[no_mangle]
+pub unsafe extern "C" fn dwg_selftest() -> *mut u8 {
+    hand_over(selftest::encode(&selftest::run()))
 }
