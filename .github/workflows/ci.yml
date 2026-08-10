@@ -22,6 +22,38 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Модуль чтения DWG собирается здесь, а не берётся из репозитория.
+      # Собранный .wasm в репозитории лежит ради локальной разработки и Docker
+      # (чтобы им не требовался Rust), но полагаться на него нельзя: правку в
+      # tools/dwg-wasm легко закоммитить, забыв пересобрать, — и в прод уехал бы
+      # старый модуль при новых исходниках, молча и без единой ошибки сборки.
+      - name: Rust toolchain для DWG
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Кэш сборки DWG
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            tools/dwg-wasm/target
+          key: dwg-wasm-${{ runner.os }}-${{ hashFiles('tools/dwg-wasm/Cargo.toml', 'tools/dwg-wasm/src/**') }}
+          restore-keys: dwg-wasm-${{ runner.os }}-
+
+      - name: Собрать DWG-модуль
+        run: npm run build:dwg
+
+      # Расхождение — не ошибка сборки: собранный вручную и собранный здесь
+      # .wasm могут отличаться байтами при одном и том же исходнике. Но знать
+      # об этом полезно, поэтому предупреждение в журнале есть.
+      - name: Проверить, что закоммиченный модуль не устарел
+        run: |
+          if ! git diff --quiet -- packages/frontend/src/wasm/dwg.wasm; then
+            echo "::warning::Закоммиченный dwg.wasm отличается от собранного из исходников — пересоберите локально (npm run build:dwg) и закоммитьте"
+          fi
+
       - name: Generate Prisma client
         run: npx turbo db:generate
 

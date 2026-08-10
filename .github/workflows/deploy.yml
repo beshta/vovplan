@@ -38,6 +38,28 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
+      # Образ web собирает фронтенд, а тот подхватывает dwg.wasm из репозитория.
+      # Пересобираем его здесь из исходников: иначе в прод уехал бы модуль,
+      # закоммиченный когда-то, — при уже изменённых tools/dwg-wasm, и ни одна
+      # проверка бы этого не заметила.
+      - name: Rust toolchain для DWG
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Кэш сборки DWG
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            tools/dwg-wasm/target
+          key: dwg-wasm-${{ runner.os }}-${{ hashFiles('tools/dwg-wasm/Cargo.toml', 'tools/dwg-wasm/src/**') }}
+          restore-keys: dwg-wasm-${{ runner.os }}-
+
+      - name: Собрать DWG-модуль
+        run: npm run build:dwg
+
       - name: Логин в GitHub Container Registry
         uses: docker/login-action@v3
         with:
