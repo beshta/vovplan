@@ -16,6 +16,7 @@ import UtilityCreator from './UtilityCreator';
 import FirstPersonView from './FirstPersonView';
 import PeerLayer from '../../collaboration/PeerLayer';
 import { useViewerStore } from '../stores/viewerStore';
+import MeasureTape from './MeasureTape';
 import { detectQuality } from '../utils/deviceProfiler';
 
 /**
@@ -40,16 +41,23 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
   const cameraView = useViewerStore((s) => s.cameraView);
   const fpPoint = useViewerStore((s) => s.fpPoint);
   const setFpPoint = useViewerStore((s) => s.setFpPoint);
+  const measureMode = useViewerStore((s) => s.measureMode);
   // Подписка нужна реактивная: от неё зависит, вешать ли обработчики на
   // рельеф, а значит — участвует ли он в рейкасте вообще
   const groundHandlers = useViewerStore((s) => s.groundHandlers);
 
   /** Нужна ли точка на земле прямо сейчас (рисование или выбор точки спуска) */
-  const groundPicking = !!groundHandlers || (cameraView === 'first-person' && !fpPoint);
+  const groundPicking = !!groundHandlers || measureMode || (cameraView === 'first-person' && !fpPoint);
 
   const groundEvents = {
     onClick: (e: ThreeEvent<MouseEvent>) => {
       const pt: [number, number, number] = [e.point.x, e.point.y, e.point.z];
+      // Рулетка идёт первой: пока мерим, щелчок ничего другого не делает
+      if (useViewerStore.getState().measureMode) {
+        e.stopPropagation();
+        useViewerStore.getState().addMeasurePoint(pt);
+        return;
+      }
       if (cameraView === 'first-person' && !fpPoint) {
         e.stopPropagation();
         setFpPoint(pt);
@@ -106,6 +114,7 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
           сцены по дальности. Дальняя плоскость отодвинута — ландшафт виден
           целиком с любой дистанции. */}
 
+      <MeasureTape />
       <Suspense fallback={null}>
         <PerfProbe />
         <Lighting shadowMapSize={quality.shadowMapSize} sceneSize={sceneSize} />

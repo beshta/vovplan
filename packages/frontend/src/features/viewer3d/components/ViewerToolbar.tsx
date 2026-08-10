@@ -1,6 +1,6 @@
 import {
   Eye, Pencil, PenTool, Wrench, Move, RotateCw, Maximize2,
-  MapPin, MoveUpRight, Minus, Brush, PersonStanding, Map as MapIcon,
+  MapPin, MoveUpRight, Minus, Brush, PersonStanding, Map as MapIcon, Ruler,
   ScanEye, MessageSquareText, EyeOff, Activity } from 'lucide-react';
 import { useViewerStore } from '../stores/viewerStore';
 
@@ -14,6 +14,7 @@ const ANN_PALETTE = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ff
 export default function ViewerToolbar() {
   const {
     mode, setMode,
+    measureMode, setMeasureMode,
     role,
     cameraView, setCameraView,
     showPerf, setShowPerf,
@@ -39,6 +40,14 @@ export default function ViewerToolbar() {
       {/* ── Single left toolbar (позицию задаёт HUD-сетка) ── */}
       <div className="glass flex flex-col gap-1 p-1.5">
         {/* Mode tools */}
+        {/* Рулетка живёт отдельно от режимов: мерить нужно и при просмотре,
+            и посреди правки, не выходя из того, чем занят */}
+        <ToolButton
+          active={measureMode}
+          onClick={() => setMeasureMode(!measureMode)}
+          title="Рулетка — два щелчка по сцене"
+        ><Ruler size={20} /></ToolButton>
+
         <ToolButton active={mode === 'view'} onClick={() => setMode('view')} title="Просмотр">
           <Eye size={20} />
         </ToolButton>

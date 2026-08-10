@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ProjectSettings from './ProjectSettings';
 import { ArrowLeft } from 'lucide-react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -117,28 +118,6 @@ export default function ProjectPage() {
         {tab === 'settings' && isMaster && (
           <ProjectSettings projectId={project.id} project={project} />
         )}
-      </div>
-    </div>
-  );
-}
-
-// ── Settings sub-component ────────────────────
-function ProjectSettings({ projectId, project }: { projectId: string; project: any }) {
-  const rows: [string, string][] = [
-    ['ID проекта', projectId],
-    ['Координаты центра', `${project.centerLat}, ${project.centerLng}`],
-    ['Статус', project.status],
-  ];
-  return (
-    <div className="p-6 max-w-2xl mx-auto overflow-y-auto h-full">
-      <h2 className="font-display text-xl font-bold tracking-tight mb-5 text-strong">Настройки проекта</h2>
-      <div className="glass divide-y divide-slate-900/5 dark:divide-white/5">
-        {rows.map(([k, v]) => (
-          <div key={k} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
-            <span className="text-muted">{k}</span>
-            <span className="font-mono text-strong truncate">{v}</span>
-          </div>
-        ))}
       </div>
     </div>
   );

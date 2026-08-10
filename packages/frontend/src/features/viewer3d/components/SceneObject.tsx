@@ -74,6 +74,13 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
   // Click — выбор объекта; при активном наземном инструменте событие
   // не глотаем (без stopPropagation оно дойдёт до террейна)
   const handleClick = (e: any) => {
+    // Рулеткой чаще всего мерят между объектами, поэтому точку она берёт
+    // и с модели, а не только с рельефа
+    if (useViewerStore.getState().measureMode) {
+      e.stopPropagation();
+      useViewerStore.getState().addMeasurePoint([e.point.x, e.point.y, e.point.z]);
+      return;
+    }
     if (groundToolActive) return;
     e.stopPropagation();
     selectObject(data.id);

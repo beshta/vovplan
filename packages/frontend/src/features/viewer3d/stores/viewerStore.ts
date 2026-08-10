@@ -26,6 +26,12 @@ interface ViewerState {
   setAnnWidth: (w: number) => void;
   setAnnDrawMode: (m: 'pin' | 'arrow' | 'line' | 'freehand') => void;
   utilityDrawMode: boolean;
+  /** Рулетка: включена ли и поставленные точки замера */
+  measureMode: boolean;
+  setMeasureMode: (on: boolean) => void;
+  measurePoints: [number, number, number][];
+  addMeasurePoint: (p: [number, number, number]) => void;
+  clearMeasure: () => void;
   setUtilityDrawMode: (v: boolean) => void;
 
   /** Обработчики кликов по рельефу — регистрирует активный инструмент.
@@ -239,6 +245,16 @@ export const useViewerStore = create<ViewerState>((set) => ({
   setAnnWidth: (annWidth) => set({ annWidth }),
   utilityDrawMode: false,
   setUtilityDrawMode: (utilityDrawMode) => set({ utilityDrawMode }),
+  measureMode: false,
+  // Выключили рулетку — убираем и замер: висящая на сцене лента мешает
+  setMeasureMode: (measureMode) =>
+    set(measureMode ? { measureMode } : { measureMode, measurePoints: [] }),
+  measurePoints: [],
+  // Третий щелчок начинает новый замер, а не продолжает старый: мерить
+  // ломаной приходится редко, а сбрасывать вручную каждый раз — постоянно
+  addMeasurePoint: (p) =>
+    set((st) => ({ measurePoints: st.measurePoints.length >= 2 ? [p] : [...st.measurePoints, p] })),
+  clearMeasure: () => set({ measurePoints: [] }),
   groundHandlers: null,
   setGroundHandlers: (groundHandlers) => set({ groundHandlers }),
 
@@ -388,6 +404,8 @@ export const useViewerStore = create<ViewerState>((set) => ({
       mode: 'view',
       annDrawMode: undefined,
       utilityDrawMode: false,
+      measureMode: false,
+      measurePoints: [],
       utilityDraft: { points: [], type: 'WATER', location: 'UNDERGROUND', depth: 1.5, diameter: 200 },
       // Функции, привязанные к сцене прошлого проекта: рельеф и инструменты
       // регистрируют их заново, а чужие оставлять нельзя
