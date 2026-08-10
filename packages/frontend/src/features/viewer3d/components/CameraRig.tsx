@@ -54,7 +54,18 @@ export default function CameraRig() {
   }, [cameraFlyTarget]);
 
   useFrame((_, delta) => {
-    if (!cameraFlyTarget || !controlsRef.current) return;
+    if (!cameraFlyTarget) return;
+    /*
+     * Без OrbitControls лететь нечем: в режиме от первого лица их нет вовсе,
+     * и на время загрузки сцены (Suspense) тоже. Раньше здесь стоял тихий
+     * выход — вместе с ним не шёл и отсчёт времени ниже, поэтому цель перелёта
+     * переживала смену режима. По возвращении в обзор она каждый кадр тянула
+     * камеру в одну и ту же позу, и повернуть её было нельзя.
+     */
+    if (!controlsRef.current) {
+      clearFlyTarget();
+      return;
+    }
     const pos = new THREE.Vector3(...cameraFlyTarget.position);
     const tgt = new THREE.Vector3(...cameraFlyTarget.target);
     const k = 1 - Math.exp(-6 * delta);
@@ -120,6 +131,18 @@ export default function CameraRig() {
     <OrbitControls
       ref={controlsRef}
       enabled={!cameraLocked}
+      /*
+       * Взялись за камеру — перелёт отменяется.
+       *
+       * Обзорный перелёт запускается при загрузке рельефа и длится до двух
+       * секунд. Всё это время он каждый кадр подтягивал камеру к своей позе:
+       * повернуть удавалось градусов на двадцать, дальше будто мягкая стена
+       * откидывала назад, и отпускало только по истечении срока. Событие
+       * `start` OrbitControls шлёт лишь на настоящий ввод — колесо, перетаскивание,
+       * касание, — а на наши update() изнутри кадра не шлёт, так что перелёт,
+       * которого никто не трогает, доигрывает как прежде.
+       */
+      onStart={clearFlyTarget}
       enableDamping
       dampingFactor={0.08}
       minPolarAngle={0}

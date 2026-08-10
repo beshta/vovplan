@@ -75,6 +75,22 @@ export interface UtilityNetworkData {
   color: string;
 }
 
+/** Тип ограждения площадки */
+export type FenceType = 'FAN_BARRIER' | 'MESH_3D' | 'CONCRETE';
+
+/** Ограждение — ломаная по земле, разбиваемая на секции при отрисовке */
+export interface FenceData {
+  id: string;
+  name: string;
+  type: FenceType;
+  /** Вершины ломаной в метрах сцены: [[x, y, z], ...] */
+  geometry: [number, number, number][];
+  /** Высота в метрах; null — типовая для этого типа */
+  height: number | null;
+  /** Замкнутый контур */
+  closed: boolean;
+}
+
 /** Quality profile based on device capabilities */
 export interface QualityProfile {
   maxAnisotropy: number;

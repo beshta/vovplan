@@ -3,6 +3,7 @@ import { MessageSquareText, MapPin, MoveUpRight, Minus, Brush, MessageCircle } f
 import { useViewerStore } from '../stores/viewerStore';
 import { commentsApi } from '../../../shared/api';
 import { useQueryClient } from '@tanstack/react-query';
+import { stamp } from '../utils/stamp';
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   pin: <MapPin size={14} />,
@@ -133,6 +134,9 @@ export default function AnnotationsList({ projectId }: { projectId: string }) {
                   <span className="font-medium text-slate-700 dark:text-slate-200 truncate">{ann.authorName}</span>
                   {ann.resolved && <span className="text-emerald-400 text-[10px]">✓</span>}
                 </div>
+                {/* Когда поставлена — в списке этого не было вовсе, и понять,
+                    свежая заметка или прошлогодняя, было нельзя */}
+                <div className="text-[10px] text-slate-500 dark:text-slate-400">{stamp(ann.createdAt)}</div>
                 <p className="text-muted truncate">{ann.text}</p>
               </div>
 

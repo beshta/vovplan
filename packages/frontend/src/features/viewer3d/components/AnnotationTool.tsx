@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useViewerStore } from '../stores/viewerStore';
 import { commentsApi } from '../../../shared/api';
@@ -6,10 +6,12 @@ import { commentsApi } from '../../../shared/api';
 /**
  * Annotation drawing tool — captures 3D points via raycasting.
  *
+ * Точки ставятся ДВОЙНЫМ щелчком: одиночный занят вращением камеры.
+ *
  * Modes:
- * - 'pin': single click → create pin annotation
- * - 'arrow': 2 clicks (start + end) → create arrow
- * - 'line': multiple clicks → polyline, Enter to finish
+ * - 'pin': двойной щелчок → метка
+ * - 'arrow': два двойных щелчка (начало + конец) → стрелка
+ * - 'line': ломаная, Enter — завершить
  * - 'freehand': drag → continuous points, release to finish
  *
  * Only active when viewer mode is 'annotate' (SUPER_SPECTATOR).
@@ -32,6 +34,8 @@ export default function AnnotationTool({ projectId, drawMode, onFinished }: Anno
   const color = useViewerStore((s) => s.annColor);
   const width = useViewerStore((s) => s.annWidth);
   const selectAnnotation = useViewerStore((s) => s.selectAnnotation);
+  const setCameraLocked = useViewerStore((s) => s.setCameraLocked);
+  const setAnnDrawMode = useViewerStore((s) => s.setAnnDrawMode);
 
   const saveAnnotation = useCallback(async (pts: [number, number, number][]) => {
     if (pts.length === 0) return;
@@ -109,13 +113,27 @@ export default function AnnotationTool({ projectId, drawMode, onFinished }: Anno
   // ── Регистрация обработчиков кликов по рельефу ──
   useEffect(() => {
     setGroundHandlers({
-      onClick: handleClick,
+      // От руки рисуют протяжкой, точки там не ставят — и подсказка про
+      // двойной щелчок в этом режиме была бы враньём
+      onPlace: drawMode === 'freehand' ? undefined : handleClick,
       onDown: handlePointerDown,
       onMove: handlePointerMove,
       onUp: handlePointerUp,
     });
     return () => setGroundHandlers(null);
   }, [setGroundHandlers, handleClick, handlePointerDown, handlePointerMove, handlePointerUp]);
+
+  /*
+   * От руки рисуют протяжкой — тем же движением, каким вращают камеру.
+   * Пока режим включён, орбита выключена целиком, иначе каждый штрих
+   * заодно разворачивает сцену. Разблокировка — в возврате эффекта, так что
+   * камера освобождается и при смене инструмента, и при выходе из аннотаций.
+   */
+  useEffect(() => {
+    if (drawMode !== 'freehand') return;
+    setCameraLocked(true);
+    return () => setCameraLocked(false);
+  }, [drawMode, setCameraLocked]);
 
   // ── Линия: Enter — завершить, Escape — отменить ──
   useEffect(() => {
@@ -124,17 +142,31 @@ export default function AnnotationTool({ projectId, drawMode, onFinished }: Anno
         saveAnnotation(points);
       } else if (e.key === 'Escape') {
         setPoints([]);
+        // Из режима от руки Escape ещё и выпускает: он единственный держит
+        // камеру, и застрять в нём без выхода с клавиатуры — ловушка
+        if (drawMode === 'freehand') setAnnDrawMode('pin');
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [drawMode, points, saveAnnotation]);
+  }, [drawMode, points, saveAnnotation, setAnnDrawMode]);
 
-  // ── Render preview line ──────────────────────
-  const previewGeom = points.length >= 2 ? (() => {
-    const verts = points.map((p) => new THREE.Vector3(...p));
-    return new THREE.BufferGeometry().setFromPoints(verts);
-  })() : null;
+  /*
+   * Превью-линия.
+   *
+   * Геометрия собиралась прямо в теле компонента и не освобождалась никогда.
+   * При рисовании от руки точка добавляется на каждое движение мыши, то есть
+   * десятки раз в секунду, — и столько же буферов оставалось висеть в
+   * видеопамяти. Отсюда были десятки тысяч геометрий в счётчиках нагрузки.
+   * Теперь буфер один на набор точек, и предыдущий освобождается при смене.
+   */
+  const previewGeom = useMemo(
+    () => (points.length >= 2
+      ? new THREE.BufferGeometry().setFromPoints(points.map((p) => new THREE.Vector3(...p)))
+      : null),
+    [points],
+  );
+  useEffect(() => () => previewGeom?.dispose(), [previewGeom]);
 
   return (
     <group>

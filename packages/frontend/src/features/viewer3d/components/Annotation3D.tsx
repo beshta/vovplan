@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Html, Line } from '@react-three/drei';
 import type { AnnotationData } from '../types';
 import { useViewerStore } from '../stores/viewerStore';
+import { stamp } from '../utils/stamp';
 
 /**
  * Renders a single 3D annotation (arrow, line, freehand, or pin).
@@ -32,16 +33,53 @@ export default function Annotation3D({ data }: { data: AnnotationData }) {
 }
 
 // ── Hover label (shared) ──────────────────────
+/**
+ * Подпись при наведении — вдвое крупнее постоянной.
+ *
+ * Размер задаётся `distanceFactor`, а не шрифтами: он масштабирует всю
+ * плашку целиком, поэтому пропорции остаются те же, что у постоянной.
+ */
 function HoverLabel({ data, position }: { data: AnnotationData; position: [number, number, number] }) {
   return (
-    <Html position={position} center distanceFactor={15} zIndexRange={[20, 0]}>
+    <Html position={position} center distanceFactor={30} zIndexRange={[20, 0]}>
       <div className="bg-slate-900/95 text-white text-xs rounded-lg px-3 py-2 shadow-xl max-w-xs whitespace-normal pointer-events-none">
         <div className="font-semibold text-vovplan-300">{data.authorName}</div>
+        <div className="text-[10px] text-slate-400">{stamp(data.createdAt)}</div>
         <div className="mt-0.5">{data.text}</div>
         {data.resolved && <div className="mt-1 text-emerald-400 text-[10px]">✓ Скрыта</div>}
       </div>
     </Html>
   );
+}
+
+/**
+ * Постоянная подпись аннотации: кто поставил, когда и о чём.
+ *
+ * Раньше это показывалось только при наведении — то есть по аннотации надо
+ * было попасть курсором, чтобы узнать, чья она и не устарела ли. На площадке
+ * важно ровно обратное: кто и когда, видно сразу и у всех разом.
+ */
+function InfoLabel({ data, position }: { data: AnnotationData; position: [number, number, number] }) {
+  return (
+    <Html position={position} center distanceFactor={15} zIndexRange={[19, 0]}>
+      <div
+        className={`bg-slate-900/85 text-white rounded-lg px-2 py-1 shadow-lg max-w-[13rem] whitespace-normal text-center pointer-events-none ${
+          data.resolved ? 'opacity-50' : ''
+        }`}
+      >
+        <div className="text-[11px] font-semibold text-vovplan-300 leading-tight">{data.authorName}</div>
+        <div className="text-[10px] text-slate-400 leading-tight">{stamp(data.createdAt)}</div>
+        {data.text && <div className="text-[11px] leading-snug mt-0.5">{data.text}</div>}
+      </div>
+    </Html>
+  );
+}
+
+/** Подпись висит всегда; при наведении её сменяет крупная и полная */
+function Label({ data, position, hovered }: { data: AnnotationData; position: [number, number, number]; hovered: boolean }) {
+  return hovered
+    ? <HoverLabel data={data} position={position} />
+    : <InfoLabel data={data} position={position} />;
 }
 
 // ── Одна наклонная «ножка» буквы V (цилиндр между двумя точками) ──
@@ -101,7 +139,7 @@ function PinAnnotation({ data, hovered, selected, hoverProps }: { data: Annotati
           opacity={opacity}
         />
       </mesh>
-      {hovered && <HoverLabel data={data} position={labelPos} />}
+      <Label data={data} position={labelPos} hovered={hovered} />
     </group>
   );
 }
@@ -132,7 +170,7 @@ function ArrowAnnotation({ data, opacity, width, hovered, selected, hoverProps }
         <coneGeometry args={[Math.max(width * 0.8, 0.3), Math.max(width * 2, 0.8), 12]} />
         <meshStandardMaterial color={data.color} emissive={data.color} emissiveIntensity={selected ? 0.9 : 0.5} transparent opacity={opacity} />
       </mesh>
-      {hovered && <HoverLabel data={data} position={labelPos} />}
+      <Label data={data} position={labelPos} hovered={hovered} />
     </group>
   );
 }
@@ -144,7 +182,7 @@ function LineAnnotation({ data, opacity, width, hovered, selected, hoverProps }:
   return (
     <group {...hoverProps}>
       <Line points={data.points} color={selected ? '#ffffff' : data.color} lineWidth={width} worldUnits transparent opacity={opacity} />
-      {hovered && <HoverLabel data={data} position={labelPos} />}
+      <Label data={data} position={labelPos} hovered={hovered} />
     </group>
   );
 }
@@ -170,7 +208,7 @@ function FreehandAnnotation({ data, opacity, width, hovered, selected, hoverProp
   return (
     <group {...hoverProps}>
       <Line points={curvePoints} color={selected ? '#ffffff' : data.color} lineWidth={width} worldUnits transparent opacity={opacity} />
-      {hovered && <HoverLabel data={data} position={labelPos} />}
+      <Label data={data} position={labelPos} hovered={hovered} />
     </group>
   );
 }

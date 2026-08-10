@@ -13,6 +13,8 @@ import BuildingsLayer from './BuildingsLayer';
 import NatureLayer from './NatureLayer';
 import PerfProbe from './PerfProbe';
 import UtilityCreator from './UtilityCreator';
+import Fences3D from './Fences3D';
+import FenceCreator from './FenceCreator';
 import FirstPersonView from './FirstPersonView';
 import PeerLayer from '../../collaboration/PeerLayer';
 import { useViewerStore } from '../stores/viewerStore';
@@ -38,6 +40,7 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
   // из-за чего включение инструментов не перерисовывало сцену
   const annDrawMode = useViewerStore((s) => s.annDrawMode);
   const utilityDrawMode = useViewerStore((s) => s.utilityDrawMode);
+  const fenceDrawMode = useViewerStore((s) => s.fenceDrawMode);
   const cameraView = useViewerStore((s) => s.cameraView);
   const fpPoint = useViewerStore((s) => s.fpPoint);
   const setFpPoint = useViewerStore((s) => s.setFpPoint);
@@ -52,22 +55,31 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
   const groundEvents = {
     onClick: (e: ThreeEvent<MouseEvent>) => {
       const pt: [number, number, number] = [e.point.x, e.point.y, e.point.z];
-      // Рулетка идёт первой: пока мерим, щелчок ничего другого не делает
-      if (useViewerStore.getState().measureMode) {
-        e.stopPropagation();
-        useViewerStore.getState().addMeasurePoint(pt);
-        return;
-      }
       if (cameraView === 'first-person' && !fpPoint) {
         e.stopPropagation();
         setFpPoint(pt);
         return;
       }
-      const h = useViewerStore.getState().groundHandlers;
-      if (h?.onClick) {
+      /*
+       * Дальше одиночный щелчок не трогаем: он занят вращением камеры и
+       * выделением. Пока точки ставились им, каждый промах мимо орбиты
+       * дорисовывал лишнюю точку в забор или трассу.
+       */
+    },
+    onDoubleClick: (e: ThreeEvent<MouseEvent>) => {
+      const pt: [number, number, number] = [e.point.x, e.point.y, e.point.z];
+      const state = useViewerStore.getState();
+      // Рулетка идёт первой: пока мерим, щелчок ничего другого не делает
+      if (state.measureMode) {
         e.stopPropagation();
-        h.onClick(pt);
+        state.addMeasurePoint(pt);
+        state.notePlacedPoint();
+        return;
       }
+      if (!state.groundHandlers?.onPlace) return;
+      e.stopPropagation();
+      state.groundHandlers.onPlace(pt);
+      state.notePlacedPoint();
     },
     onPointerDown: (e: ThreeEvent<PointerEvent>) => {
       const h = useViewerStore.getState().groundHandlers;
@@ -106,6 +118,7 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
         selectObject(null);
         useViewerStore.getState().selectUtility(null);
         useViewerStore.getState().selectAnnotation(null);
+        useViewerStore.getState().selectFence(null);
       }}
     >
       {/* Sky background color */}
@@ -157,6 +170,10 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
 
         {/* Utility creator (when in utility-draw mode) — только 3D-превью/клики */}
         {utilityDrawMode && <UtilityCreator />}
+
+        {/* Ограждения площадки + постановка нового */}
+        <Fences3D />
+        {fenceDrawMode && <FenceCreator />}
 
         {/* 3D Annotations (arrows, lines, pins) */}
         {showAnnotations && annotations.map((ann) => (

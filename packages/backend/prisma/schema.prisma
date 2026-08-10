@@ -45,6 +45,12 @@ enum UtilityLocation {
   OVERHEAD
 }
 
+enum FenceType {
+  FAN_BARRIER
+  MESH_3D
+  CONCRETE
+}
+
 // ═══════════════════════════════════════════════
 // User
 // ═══════════════════════════════════════════════
@@ -91,6 +97,7 @@ model Project {
   models      Model3D[]
   objects     SceneObject[]
   utilities   UtilityNetwork[]
+  fences      Fence[]
   comments    Comment[]
   presets     CameraPreset[]
   shareLinks  ShareLink[]
@@ -190,6 +197,29 @@ model UtilityNetwork {
   project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@map("utility_networks")
+}
+
+// ═══════════════════════════════════════════════
+// Fences (ограждение площадки)
+// ═══════════════════════════════════════════════
+
+model Fence {
+  id        String    @id @default(cuid())
+  projectId String
+  name      String
+  type      FenceType
+  /// Ломаная по земле: [[x, y, z], ...] в локальных метрах сцены
+  geometry  Json
+  /// Высота ограждения в метрах; null — типовая для этого типа
+  height    Float?
+  /// Замкнутый контур: последний пролёт идёт от конца обратно к началу
+  closed    Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("fences")
 }
 
 // ═══════════════════════════════════════════════

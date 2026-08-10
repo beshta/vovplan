@@ -41,7 +41,8 @@ export default function UtilityDrawPanel({ projectId }: { projectId: string }) {
         type: draft.type as UtilityType,
         location: draft.location,
         geometry: draft.points,
-        depth: draft.location === 'UNDERGROUND' ? draft.depth : undefined,
+        // Одно поле на оба режима: под землёй это глубина, над землёй — высота
+        depth: draft.depth,
         diameter: draft.diameter,
         material: 'steel',
         color: UTILITY_COLORS[draft.type],
@@ -89,8 +90,11 @@ export default function UtilityDrawPanel({ projectId }: { projectId: string }) {
         {(['UNDERGROUND', 'OVERHEAD'] as const).map((loc) => (
           <button
             key={loc}
-            onClick={() => setDraftField({ location: loc })}
-            className={`flex-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+            // Значение общее для обоих режимов, а диапазоны разные: 1,5 м под
+            // землёй и 1,5 м над ней — разные вещи, и переносить число между
+            // режимами значит подсунуть провод под ноги
+            onClick={() => setDraftField({ location: loc, depth: loc === 'UNDERGROUND' ? 1.5 : 6 })}
+            className={`flex-1 min-w-0 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
               draft.location === loc ? 'bg-vovplan-600 text-white' : 'bg-slate-900/5 text-muted hover:bg-slate-900/10 dark:bg-white/5 dark:hover:bg-white/10'
             }`}
           >
@@ -99,14 +103,23 @@ export default function UtilityDrawPanel({ projectId }: { projectId: string }) {
         ))}
       </div>
 
-      {/* Глубина */}
-      {draft.location === 'UNDERGROUND' && (
-        <label className="block mb-1.5 text-xs text-muted">
-          Глубина: <span className="text-slate-700 dark:text-slate-200">{draft.depth}м</span>
-          <input type="range" min="0.5" max="5" step="0.5" value={draft.depth}
-            onChange={(e) => setDraftField({ depth: parseFloat(e.target.value) })} className="w-full" />
-        </label>
-      )}
+      {/* Глубина или высота — смотря куда проложена.
+          Раньше ползунок был только у подземных, и надземную сеть поднять над
+          землёй было нечем: провод ложился на поверхность, а столбы к нему не
+          появлялись. */}
+      <label className="block mb-1.5 text-xs text-muted">
+        {draft.location === 'UNDERGROUND' ? 'Глубина' : 'Высота над землёй'}:{' '}
+        <span className="text-slate-700 dark:text-slate-200">{draft.depth}м</span>
+        <input
+          type="range"
+          min={draft.location === 'UNDERGROUND' ? 0.5 : 0}
+          max={draft.location === 'UNDERGROUND' ? 5 : 12}
+          step="0.5"
+          value={draft.depth}
+          onChange={(e) => setDraftField({ depth: parseFloat(e.target.value) })}
+          className="w-full"
+        />
+      </label>
 
       {/* Диаметр */}
       <label className="block mb-2 text-xs text-muted">
@@ -118,24 +131,28 @@ export default function UtilityDrawPanel({ projectId }: { projectId: string }) {
       {/* Инфо */}
       <div className="text-xs text-muted mb-2">
         Точек: <span className="text-slate-700 dark:text-slate-200">{draft.points.length}</span> · Длина: <span className="text-slate-700 dark:text-slate-200">{totalLength.toFixed(1)}м</span>
-        {draft.points.length < 2 && <div className="text-[11px] text-vovplan-300 mt-0.5">Кликайте по сцене — минимум 2 точки</div>}
+        {draft.points.length < 2 && <div className="text-[11px] text-vovplan-300 mt-0.5">Двойной клик по сцене — минимум 2 точки</div>}
       </div>
 
-      {/* Кнопки */}
-      <div className="flex gap-1">
+      {/* Кнопки.
+          Тремя в ряд не помещаются: flex-элементы не сжимаются меньше своего
+          содержимого, строка вылезала за колонку панелей, и её резала
+          вертикальная прокрутка — правый край кнопки просто пропадал.
+          Главное действие идёт своей строкой, min-w-0 страхует остальные. */}
+      <div className="flex gap-1 mb-1">
         <button onClick={undoDraftPoint} disabled={draft.points.length === 0}
-          className="flex-1 px-2 py-1.5 bg-white/5 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-medium hover:bg-white/10 disabled:opacity-40 transition-colors">
+          className="flex-1 min-w-0 px-2 py-1.5 bg-white/5 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-medium hover:bg-white/10 disabled:opacity-40 transition-colors">
           <span className="flex items-center justify-center gap-1"><Undo2 size={13} /> Назад</span>
         </button>
         <button onClick={clearDraftPoints} disabled={draft.points.length === 0}
-          className="flex-1 px-2 py-1.5 bg-white/5 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-medium hover:bg-white/10 disabled:opacity-40 transition-colors">
+          className="flex-1 min-w-0 px-2 py-1.5 bg-white/5 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-medium hover:bg-white/10 disabled:opacity-40 transition-colors">
           <span className="flex items-center justify-center gap-1"><Trash2 size={13} /> Очистить</span>
         </button>
-        <button onClick={handleCreate} disabled={draft.points.length < 2}
-          className="flex-1 px-2 py-1.5 bg-vovplan-600 text-white rounded-lg text-xs font-medium hover:bg-vovplan-500 disabled:opacity-40 transition-colors">
-          <span className="flex items-center justify-center gap-1"><Check size={13} /> Создать</span>
-        </button>
       </div>
+      <button onClick={handleCreate} disabled={draft.points.length < 2}
+        className="w-full px-2 py-1.5 bg-vovplan-600 text-white rounded-lg text-xs font-medium hover:bg-vovplan-500 disabled:opacity-40 transition-colors">
+        <span className="flex items-center justify-center gap-1"><Check size={13} /> Создать</span>
+      </button>
     </div>
   );
 }

@@ -56,6 +56,7 @@ afterAll(async () => {
     await prisma.comment.deleteMany({ where: { projectId } });
     await prisma.sceneObject.deleteMany({ where: { projectId } });
     await prisma.utilityNetwork.deleteMany({ where: { projectId } });
+    await prisma.fence.deleteMany({ where: { projectId } });
     await prisma.model3D.deleteMany({ where: { projectId } });
     await prisma.projectMember.deleteMany({ where: { projectId } });
     await prisma.project.deleteMany({ where: { id: projectId } });
@@ -338,6 +339,97 @@ describe('utility networks', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: `/api/projects/${projectId}/utilities/${utilId}`,
+      headers: auth(designerToken),
+    });
+    expect(res.statusCode).toBe(204);
+  });
+});
+
+describe('fences', () => {
+  let fenceId = '';
+
+  it('создание ограждения → 201, контур по умолчанию разомкнут', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/projects/${projectId}/fences`,
+      headers: auth(designerToken),
+      payload: {
+        name: 'Периметр-тест',
+        type: 'MESH_3D',
+        geometry: [[0, 0, 0], [20, 0, 0], [20, 0, 20]],
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    fenceId = body.id;
+    expect(body.closed).toBe(false);
+    // Высоту не передавали — тип сам задаёт типовую, в базе её нет
+    expect(body.height).toBeNull();
+  });
+
+  it('список отдаёт созданное ограждение', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/projects/${projectId}/fences`,
+      headers: auth(designerToken),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.map((f: any) => f.id)).toContain(fenceId);
+  });
+
+  it('замыкание контура и смена типа → 200', async () => {
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/projects/${projectId}/fences/${fenceId}`,
+      headers: auth(designerToken),
+      payload: { closed: true, type: 'CONCRETE', height: 2.5 },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ closed: true, type: 'CONCRETE', height: 2.5 });
+  });
+
+  // Забор в шесть метров — уже не забор, а стена поперёк всей сцены
+  it('высота вне разумного диапазона → 400', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/projects/${projectId}/fences`,
+      headers: auth(designerToken),
+      payload: { name: 'Стена', type: 'CONCRETE', geometry: [[0, 0, 0], [5, 0, 0]], height: 12 },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('одна точка — не ломаная → 400', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/projects/${projectId}/fences`,
+      headers: auth(designerToken),
+      payload: { name: 'Bad', type: 'FAN_BARRIER', geometry: [[0, 0, 0]] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('посторонний не видит и не ставит ограждения → 404', async () => {
+    const list = await app.inject({
+      method: 'GET',
+      url: `/api/projects/${projectId}/fences`,
+      headers: auth(outsiderToken),
+    });
+    expect(list.statusCode).toBe(404);
+
+    const create = await app.inject({
+      method: 'POST',
+      url: `/api/projects/${projectId}/fences`,
+      headers: auth(outsiderToken),
+      payload: { name: 'Чужой', type: 'FAN_BARRIER', geometry: [[0, 0, 0], [5, 0, 0]] },
+    });
+    expect(create.statusCode).toBe(404);
+  });
+
+  it('удаление ограждения → 204', async () => {
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/projects/${projectId}/fences/${fenceId}`,
       headers: auth(designerToken),
     });
     expect(res.statusCode).toBe(204);

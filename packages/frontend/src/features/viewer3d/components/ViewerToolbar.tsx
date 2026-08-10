@@ -1,7 +1,7 @@
 import {
   Eye, Pencil, PenTool, Wrench, Move, RotateCw, Maximize2,
   MapPin, MoveUpRight, Minus, Brush, PersonStanding, Map as MapIcon, Ruler,
-  ScanEye, MessageSquareText, EyeOff, Activity } from 'lucide-react';
+  ScanEye, MessageSquareText, EyeOff, Activity, Fence } from 'lucide-react';
 import { useViewerStore } from '../stores/viewerStore';
 import Tooltip from '../../../shared/Tooltip';
 
@@ -31,6 +31,8 @@ export default function ViewerToolbar() {
   const setAnnColor = useViewerStore((s) => s.setAnnColor);
   const utilityDrawMode = useViewerStore((s) => s.utilityDrawMode);
   const setUtilityDrawMode = useViewerStore((s) => s.setUtilityDrawMode);
+  const fenceDrawMode = useViewerStore((s) => s.fenceDrawMode);
+  const setFenceDrawMode = useViewerStore((s) => s.setFenceDrawMode);
   const selectObject = useViewerStore((s) => s.selectObject);
 
   const canAnnotate = role === 'MASTER' || role === 'DESIGNER' || role === 'SUPER_SPECTATOR';
@@ -46,7 +48,7 @@ export default function ViewerToolbar() {
         <ToolButton
           active={measureMode}
           onClick={() => setMeasureMode(!measureMode)}
-          title="Рулетка — два щелчка по сцене"
+          title="Рулетка — два двойных щелчка по сцене"
         ><Ruler size={20} /></ToolButton>
 
         <ToolButton active={mode === 'view'} onClick={() => setMode('view')} title="Просмотр">
@@ -76,10 +78,23 @@ export default function ViewerToolbar() {
               // Панель создания сети занимает правую зону — снимаем выделение,
               // чтобы инфопанель объекта не оказалась под ней
               if (!utilityDrawMode) selectObject(null);
+              // Выключение остальных инструментов — забота стора: они делят
+              // один обработчик щелчков по земле
               setUtilityDrawMode(!utilityDrawMode);
             }}
             title="Создание инженерных сетей"
           ><Wrench size={20} /></ToolButton>
+        )}
+
+        {canEdit && (
+          <ToolButton
+            active={fenceDrawMode}
+            onClick={() => {
+              if (!fenceDrawMode) selectObject(null);
+              setFenceDrawMode(!fenceDrawMode);
+            }}
+            title="Ограждение площадки"
+          ><Fence size={20} /></ToolButton>
         )}
 
         {/* Transform tools */}

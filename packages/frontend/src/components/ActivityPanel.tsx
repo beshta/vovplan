@@ -1,6 +1,6 @@
 import {
   Activity, Box, Wrench, MapPin, MessageCircle, Package, Mountain,
-  UserPlus, UserMinus, EyeOff, RotateCcw, Trash2, Circle,
+  UserPlus, UserMinus, EyeOff, RotateCcw, Trash2, Circle, Fence,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { activityApi } from '../shared/api';
@@ -17,6 +17,8 @@ const ACTIONS: Record<string, { verb: string; icon: React.ReactNode; tone: strin
   'object.restore':   { verb: 'восстановил объект',     icon: <RotateCcw size={15} />,    tone: '#34d399' },
   'utility.create':   { verb: 'добавил инж. сеть',      icon: <Wrench size={15} />,       tone: '#34d399' },
   'utility.delete':   { verb: 'удалил инж. сеть',       icon: <Trash2 size={15} />,       tone: '#f87171' },
+  'fence.create':     { verb: 'поставил ограждение',    icon: <Fence size={15} />,        tone: '#34d399' },
+  'fence.delete':     { verb: 'убрал ограждение',       icon: <Trash2 size={15} />,       tone: '#f87171' },
   'annotation.create':{ verb: 'добавил аннотацию',      icon: <MapPin size={15} />,       tone: '#60a5fa' },
   'annotation.delete':{ verb: 'удалил аннотацию',       icon: <Trash2 size={15} />,       tone: '#f87171' },
   'comment.create':   { verb: 'оставил комментарий',    icon: <MessageCircle size={15} />,tone: '#60a5fa' },

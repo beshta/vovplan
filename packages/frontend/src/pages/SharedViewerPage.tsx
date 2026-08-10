@@ -23,6 +23,7 @@ export default function SharedViewerPage() {
   const setTerrainMeta = useViewerStore((s) => s.setTerrainMeta);
   const setUtilities = useViewerStore((s) => s.setUtilities);
   const setAnnotations = useViewerStore((s) => s.setAnnotations);
+  const setFences = useViewerStore((s) => s.setFences);
   const flyTo = useViewerStore((s) => s.flyTo);
 
   const { data, isLoading, error } = useQuery({
@@ -35,10 +36,13 @@ export default function SharedViewerPage() {
   // ── Инициализация стора данными публичной сцены ──
   useEffect(() => {
     initFromRole(ProjectRole.EXTERNAL_SPECTATOR);
-    // Гарантированно чистим слои, недоступные внешнему наблюдателю
+    // Гарантированно чистим слои, недоступные внешнему наблюдателю.
+    // Стор переживает уход со страницы: без этого забор из проекта, открытого
+    // в этой же вкладке минуту назад, оказался бы на публичной сцене
     setUtilities([]);
     setAnnotations([]);
-  }, [initFromRole, setUtilities, setAnnotations]);
+    setFences([]);
+  }, [initFromRole, setUtilities, setAnnotations, setFences]);
 
   useEffect(() => {
     if (!data) return;

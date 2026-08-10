@@ -126,8 +126,14 @@ export default function UtilityEditPanel({ projectId }: { projectId: string }) {
           {(['UNDERGROUND', 'OVERHEAD'] as const).map((loc) => (
             <button
               key={loc}
-              onClick={() => { setLocation(loc); applyLocal({ location: loc }); save({ location: loc }); }}
-              className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              onClick={() => {
+                // Смена среды меняет и смысл числа: 1,5 м под землёй и над
+                // ней — разные вещи, поэтому берём типовое для нового режима
+                const d = loc === 'UNDERGROUND' ? 1.5 : 6;
+                setLocation(loc); setDepth(d);
+                applyLocal({ location: loc, depth: d }); save({ location: loc, depth: d });
+              }}
+              className={`flex-1 min-w-0 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 location === loc ? 'bg-vovplan-600 text-white' : 'bg-slate-900/5 text-muted hover:bg-slate-900/10 dark:bg-white/5 dark:hover:bg-white/10'
               }`}
             >
@@ -136,18 +142,23 @@ export default function UtilityEditPanel({ projectId }: { projectId: string }) {
           ))}
         </div>
 
-        {/* Глубина (подземные) */}
-        {location === 'UNDERGROUND' && (
-          <label className="block text-xs text-muted">
-            Глубина: <span className="text-slate-700 dark:text-slate-200">{depth}м</span>
-            <input
-              type="range" min="0.5" max="5" step="0.5" value={depth}
-              onChange={(e) => { const v = parseFloat(e.target.value); setDepth(v); applyLocal({ depth: v }); }}
-              onMouseUp={() => save({ depth })} onTouchEnd={() => save({ depth })}
-              className="w-full mt-1"
-            />
-          </label>
-        )}
+        {/* Глубина или высота — смотря куда проложена сеть.
+            Ползунок был только у подземных, и поднять надземную над землёй
+            было нечем: провод лежал на поверхности, столбы не появлялись. */}
+        <label className="block text-xs text-muted">
+          {location === 'UNDERGROUND' ? 'Глубина' : 'Высота над землёй'}:{' '}
+          <span className="text-slate-700 dark:text-slate-200">{depth}м</span>
+          <input
+            type="range"
+            min={location === 'UNDERGROUND' ? 0.5 : 0}
+            max={location === 'UNDERGROUND' ? 5 : 12}
+            step="0.5"
+            value={depth}
+            onChange={(e) => { const v = parseFloat(e.target.value); setDepth(v); applyLocal({ depth: v }); }}
+            onMouseUp={() => save({ depth })} onTouchEnd={() => save({ depth })}
+            className="w-full mt-1"
+          />
+        </label>
 
         {/* Диаметр */}
         <label className="block text-xs text-muted">

@@ -187,6 +187,15 @@ export function emitUtilityChanged(
   fastify.io?.to(roomOf(projectId)).emit('utility:changed', utility);
 }
 
+/** Broadcast a persisted fence change (create/update/delete) to the project room. */
+export function emitFenceChanged(
+  fastify: FastifyInstance,
+  projectId: string,
+  fence: unknown,
+) {
+  fastify.io?.to(roomOf(projectId)).emit('fence:changed', fence);
+}
+
 /** Broadcast a terrain change. Payload carries the new terrainUrl (null = removed). */
 export function emitTerrainChanged(
   fastify: FastifyInstance,

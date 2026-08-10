@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Package, Construction, Footprints, X, Camera, Globe } from 'lucide-react';
+import { Package, Construction, Footprints, X, Camera, Globe, MousePointerClick, Brush } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ProjectRole } from '@vovplan/shared';
 import { useViewerStore } from './stores/viewerStore';
-import { sceneApi, modelsApi, utilitiesApi, projectsApi, commentsApi } from '../../shared/api';
+import { sceneApi, modelsApi, utilitiesApi, fencesApi, projectsApi, commentsApi } from '../../shared/api';
 import type { Model3DPayload, UtilityNetworkPayload, CommentPayload } from '../../shared/api';
 import Scene from './components/Scene';
 import ViewerToolbar from './components/ViewerToolbar';
@@ -12,6 +12,7 @@ import ModelLibrary from './components/ModelLibrary';
 import NavigationHelp from './components/NavigationHelp';
 import UtilityLayersPanel from './components/UtilityLayersPanel';
 import UtilityDrawPanel from './components/UtilityDrawPanel';
+import FenceDrawPanel from './components/FenceDrawPanel';
 import TerrainPanel from './components/TerrainPanel';
 import AnnotationsList from './components/AnnotationsList';
 import UtilityEditPanel from './components/UtilityEditPanel';
@@ -41,6 +42,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const setObjects = useViewerStore((s) => s.setObjects);
   const setModelCache = useViewerStore((s) => s.setModelCache);
   const setUtilities = useViewerStore((s) => s.setUtilities);
+  const setFences = useViewerStore((s) => s.setFences);
   const setTerrainUrl = useViewerStore((s) => s.setTerrainUrl);
   const setTerrainMeta = useViewerStore((s) => s.setTerrainMeta);
   const setAnnotations = useViewerStore((s) => s.setAnnotations);
@@ -49,7 +51,15 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const setCameraView = useViewerStore((s) => s.setCameraView);
   const fpPoint = useViewerStore((s) => s.fpPoint);
   const utilityDrawMode = useViewerStore((s) => s.utilityDrawMode);
+  const fenceDrawMode = useViewerStore((s) => s.fenceDrawMode);
   const showPerf = useViewerStore((s) => s.showPerf);
+  // Подсказку показывает сам факт, что активный инструмент ждёт точку —
+  // перечислять инструменты здесь значит забыть про следующий
+  const drawingPoints = useViewerStore((s) => !!s.groundHandlers?.onPlace || s.measureMode);
+  const placedPoints = useViewerStore((s) => s.placedPoints);
+  const mode = useViewerStore((s) => s.mode);
+  const annDrawMode = useViewerStore((s) => s.annDrawMode);
+  const setAnnDrawMode = useViewerStore((s) => s.setAnnDrawMode);
   const setMapImportOpen = useViewerStore((s) => s.setMapImportOpen);
 
   const userName = useAuthStore((s) => s.user?.displayName ?? s.user?.email ?? 'Гость');
@@ -110,6 +120,13 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const { data: utilitiesData } = useQuery({
     queryKey: ['utilities', projectId],
     queryFn: () => utilitiesApi.list(projectId),
+    enabled: !!projectId,
+  });
+
+  // ── Load fences (ограждение площадки) ──
+  const { data: fencesData } = useQuery({
+    queryKey: ['fences', projectId],
+    queryFn: () => fencesApi.list(projectId),
     enabled: !!projectId,
   });
 
@@ -182,6 +199,12 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
       })),
     );
   }, [utilitiesData, setUtilities]);
+
+  // ── Sync fences → viewer store ──
+  useEffect(() => {
+    if (!fencesData?.data) return;
+    setFences(fencesData.data);
+  }, [fencesData, setFences]);
 
   // ── Sync terrainUrl + meta → viewer store ──
   useEffect(() => {
@@ -306,6 +329,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
             <div className="flex flex-col gap-2 min-h-0 w-64">
               <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 items-start pr-0.5">
                 {utilityDrawMode && canEdit && <UtilityDrawPanel projectId={projectId} />}
+                {fenceDrawMode && canEdit && <FenceDrawPanel projectId={projectId} />}
                 <UtilityLayersPanel />
                 {canEdit && <TerrainPanel projectId={projectId} centerLat={projectData?.centerLat} centerLng={projectData?.centerLng} />}
                 {showPerf && <PerfPanel />}
@@ -319,13 +343,43 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
 
           {/* ── Центр: подсказки сверху, пресеты снизу ── */}
           <div className="flex-1 min-w-0 flex flex-col items-center justify-between py-1">
-            <div className="pointer-events-auto">
+            <div className="pointer-events-auto flex flex-col items-center gap-1.5">
+              {/* Рисование от руки держит камеру. Плашка обязана быть заметной
+                  и обязана иметь выход: иначе человек, не знающий про Escape,
+                  решит, что сцена сломалась. */}
+              {mode === 'annotate' && annDrawMode === 'freehand' && (
+                <div className="glass flex items-center gap-2 pl-3 pr-1.5 py-1.5 ring-2 ring-red-500/50">
+                  <Brush size={16} className="text-red-400 shrink-0" />
+                  <span className="text-xs text-strong">
+                    Рисование от руки: камера заблокирована — <span className="text-muted">Escape</span> или крестик
+                  </span>
+                  <button
+                    onClick={() => setAnnDrawMode('pin')}
+                    title="Выйти из рисования от руки"
+                    aria-label="Выйти из рисования от руки"
+                    className="shrink-0 p-1.5 rounded-lg bg-red-500 text-white hover:bg-red-400 transition-colors"
+                  >
+                    <X size={20} strokeWidth={3} />
+                  </button>
+                </div>
+              )}
+
               {cameraView === 'first-person' && (
                 <div className="glass-chip text-xs whitespace-nowrap">
                   <Footprints size={14} />
                   {fpPoint
                     ? (isTouch ? 'Проведите пальцем — осмотр · джойстик слева — ходьба' : 'Зажмите мышь — осмотр по сторонам · WASD — ходьба')
                     : 'Кликните точку на земле, куда «спуститься»'}
+                </div>
+              )}
+
+              {/* Точка ставится двойным щелчком — одиночный вращает камеру.
+                  Через три точки подсказка уходит: правило уже усвоено, а
+                  надпись посреди экрана мешает смотреть на площадку. */}
+              {drawingPoints && placedPoints < 3 && (
+                <div className="glass-chip text-xs whitespace-nowrap">
+                  <MousePointerClick size={14} />
+                  {isTouch ? 'Двойное касание по земле — поставить точку' : 'Двойной клик по земле — поставить точку'}
                 </div>
               )}
             </div>

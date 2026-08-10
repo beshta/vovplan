@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ViewerMode, CameraView, TransformMode, SceneObjectData, AnnotationData, UtilityNetworkData } from '../types';
+import type { ViewerMode, CameraView, TransformMode, SceneObjectData, AnnotationData, UtilityNetworkData, FenceData, FenceType } from '../types';
 import { ProjectRole } from '@vovplan/shared';
 
 interface ViewerState {
@@ -34,15 +34,27 @@ interface ViewerState {
   clearMeasure: () => void;
   setUtilityDrawMode: (v: boolean) => void;
 
-  /** Обработчики кликов по рельефу — регистрирует активный инструмент.
+  /** Обработчики указателя на рельефе — регистрирует активный инструмент.
       Scene рейкастит сам террейн и зовёт их с точной точкой попадания. */
   groundHandlers: {
-    onClick?: (pt: [number, number, number]) => void;
+    /**
+     * Поставить точку. Зовётся по ДВОЙНОМУ щелчку: одиночный занят вращением
+     * камеры, и на нём каждый промах мимо орбиты дорисовывал лишнюю точку.
+     */
+    onPlace?: (pt: [number, number, number]) => void;
     onDown?: (pt: [number, number, number]) => void;
     onMove?: (pt: [number, number, number]) => void;
     onUp?: () => void;
   } | null;
   setGroundHandlers: (h: ViewerState['groundHandlers']) => void;
+  /**
+   * Сколько точек поставлено с включения инструмента.
+   *
+   * Нужен подсказке про двойной щелчок: после трёх точек человек уже понял,
+   * и висящая надпись только мешает.
+   */
+  placedPoints: number;
+  notePlacedPoint: () => void;
 
   // ── Selection ─────────────────────────────
   selectedObjectId: string | null;
@@ -99,6 +111,28 @@ interface ViewerState {
   // ── Utility networks (инженерные сети) ─────
   utilities: UtilityNetworkData[];
   setUtilities: (u: UtilityNetworkData[]) => void;
+
+  // ── Ограждения площадки ────────────────────
+  fences: FenceData[];
+  setFences: (f: FenceData[]) => void;
+  showFences: boolean;
+  setShowFences: (v: boolean) => void;
+  selectedFenceId: string | null;
+  selectFence: (id: string | null) => void;
+  fenceDrawMode: boolean;
+  setFenceDrawMode: (v: boolean) => void;
+  /** Черновик рисуемого ограждения (общий для 3D-превью и HUD-панели) */
+  fenceDraft: {
+    points: [number, number, number][];
+    type: FenceType;
+    /** null — типовая высота выбранного типа */
+    height: number | null;
+    closed: boolean;
+  };
+  addFencePoint: (pt: [number, number, number]) => void;
+  undoFencePoint: () => void;
+  clearFenceDraft: () => void;
+  setFenceDraftField: (patch: Partial<ViewerState['fenceDraft']>) => void;
 
   // ── X-Ray mode ─────────────────────────────
   xrayMode: boolean;
@@ -212,11 +246,32 @@ interface TransformHistoryEntry {
   newScale: [number, number, number];
 }
 
+/**
+ * Инструменты рисования делят один обработчик двойного щелчка по земле, и
+ * включённые вместе отбирают его друг у друга: панели висят обе, а точка
+ * уходит тому, кто зарегистрировался последним. Поэтому взаимное исключение
+ * живёт в сторе, а не в обработчиках кнопок — там о нём забудут.
+ */
+function editModeFor(role: ProjectRole): ViewerMode {
+  return role === 'MASTER' ? 'master-edit'
+    : role === 'DESIGNER' ? 'partition-edit'
+    : 'view';
+}
+
+/** Пустой черновик ограждения — нужен и при старте, и при сбросе вьювера */
+const EMPTY_FENCE_DRAFT: ViewerState['fenceDraft'] = {
+  points: [],
+  type: 'MESH_3D',
+  height: null,
+  closed: false,
+};
+
 export const useViewerStore = create<ViewerState>((set) => ({
   // Mode & role
   mode: 'view',
   role: ProjectRole.SPECTATOR,
-  setMode: (mode) => set({ mode }),
+  setMode: (mode) =>
+    set(mode === 'annotate' ? { mode, utilityDrawMode: false, fenceDrawMode: false } : { mode }),
   initFromRole: (role) => {
     const mode: ViewerMode =
       role === 'MASTER' ? 'master-edit' :
@@ -244,11 +299,15 @@ export const useViewerStore = create<ViewerState>((set) => ({
   annWidth: 0.4,
   setAnnWidth: (annWidth) => set({ annWidth }),
   utilityDrawMode: false,
-  setUtilityDrawMode: (utilityDrawMode) => set({ utilityDrawMode }),
+  setUtilityDrawMode: (utilityDrawMode) =>
+    set((s) => (utilityDrawMode
+      ? { utilityDrawMode, fenceDrawMode: false, mode: s.mode === 'annotate' ? editModeFor(s.role) : s.mode }
+      : { utilityDrawMode })),
   measureMode: false,
-  // Выключили рулетку — убираем и замер: висящая на сцене лента мешает
+  // Выключили рулетку — убираем и замер: висящая на сцене лента мешает.
+  // Включили — это начало нового измерения, подсказка про двойной щелчок нужна
   setMeasureMode: (measureMode) =>
-    set(measureMode ? { measureMode } : { measureMode, measurePoints: [] }),
+    set(measureMode ? { measureMode, placedPoints: 0 } : { measureMode, measurePoints: [] }),
   measurePoints: [],
   // Третий щелчок начинает новый замер, а не продолжает старый: мерить
   // ломаной приходится редко, а сбрасывать вручную каждый раз — постоянно
@@ -256,7 +315,10 @@ export const useViewerStore = create<ViewerState>((set) => ({
     set((st) => ({ measurePoints: st.measurePoints.length >= 2 ? [p] : [...st.measurePoints, p] })),
   clearMeasure: () => set({ measurePoints: [] }),
   groundHandlers: null,
-  setGroundHandlers: (groundHandlers) => set({ groundHandlers }),
+  // Смена инструмента — это начало нового рисования: подсказка нужна снова
+  setGroundHandlers: (groundHandlers) => set({ groundHandlers, placedPoints: 0 }),
+  placedPoints: 0,
+  notePlacedPoint: () => set((s) => ({ placedPoints: s.placedPoints + 1 })),
 
   // Selection
   selectedObjectId: null,
@@ -265,7 +327,13 @@ export const useViewerStore = create<ViewerState>((set) => ({
   selectedUtilityId: null,
   selectUtility: (selectedUtilityId) => set({ selectedUtilityId }),
   selectedAnnotationId: null,
-  selectAnnotation: (selectedAnnotationId) => set({ selectedAnnotationId }),
+  // Открылись настройки аннотации — режимы рисования выключаются: их панели
+  // занимают ту же левую колонку и продолжают ловить щелчки по земле, так что
+  // до выбранной аннотации мышью уже не добраться
+  selectAnnotation: (selectedAnnotationId) =>
+    set(selectedAnnotationId
+      ? { selectedAnnotationId, utilityDrawMode: false, fenceDrawMode: false }
+      : { selectedAnnotationId }),
 
   // Transform
   transformMode: 'translate',
@@ -313,6 +381,24 @@ export const useViewerStore = create<ViewerState>((set) => ({
   // Utility networks
   utilities: [],
   setUtilities: (utilities) => set({ utilities }),
+
+  // Ограждения площадки
+  fences: [],
+  setFences: (fences) => set({ fences }),
+  showFences: true,
+  setShowFences: (showFences) => set({ showFences }),
+  selectedFenceId: null,
+  selectFence: (selectedFenceId) => set({ selectedFenceId }),
+  fenceDrawMode: false,
+  setFenceDrawMode: (fenceDrawMode) =>
+    set((s) => (fenceDrawMode
+      ? { fenceDrawMode, utilityDrawMode: false, mode: s.mode === 'annotate' ? editModeFor(s.role) : s.mode }
+      : { fenceDrawMode })),
+  fenceDraft: { ...EMPTY_FENCE_DRAFT },
+  addFencePoint: (pt) => set((s) => ({ fenceDraft: { ...s.fenceDraft, points: [...s.fenceDraft.points, pt] } })),
+  undoFencePoint: () => set((s) => ({ fenceDraft: { ...s.fenceDraft, points: s.fenceDraft.points.slice(0, -1) } })),
+  clearFenceDraft: () => set((s) => ({ fenceDraft: { ...s.fenceDraft, points: [] } })),
+  setFenceDraftField: (patch) => set((s) => ({ fenceDraft: { ...s.fenceDraft, ...patch } })),
 
   // X-Ray mode
   xrayMode: false,
@@ -401,16 +487,20 @@ export const useViewerStore = create<ViewerState>((set) => ({
       selectedObjectId: null,
       selectedUtilityId: null,
       selectedAnnotationId: null,
+      selectedFenceId: null,
       mode: 'view',
       annDrawMode: undefined,
       utilityDrawMode: false,
+      fenceDrawMode: false,
       measureMode: false,
       measurePoints: [],
       utilityDraft: { points: [], type: 'WATER', location: 'UNDERGROUND', depth: 1.5, diameter: 200 },
+      fenceDraft: { ...EMPTY_FENCE_DRAFT },
       // Функции, привязанные к сцене прошлого проекта: рельеф и инструменты
       // регистрируют их заново, а чужие оставлять нельзя
       groundSampler: null,
       groundHandlers: null,
+      placedPoints: 0,
       mapImportOpen: false,
       history: [],
       historyIndex: -1,

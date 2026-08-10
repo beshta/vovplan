@@ -11,6 +11,7 @@ import projectRoutes from './modules/projects/routes.js';
 import sceneRoutes from './modules/scene/routes.js';
 import modelRoutes from './modules/models/routes.js';
 import utilityRoutes from './modules/utilities/routes.js';
+import fenceRoutes from './modules/fences/routes.js';
 import terrainRoutes from './modules/terrain/routes.js';
 import commentRoutes from './modules/comments/routes.js';
 import shareRoutes from './modules/share/routes.js';
@@ -58,6 +59,7 @@ export async function buildServer(opts: { logger?: boolean } = {}): Promise<Fast
   await fastify.register(sceneRoutes, { prefix: '/api/projects' });
   await fastify.register(modelRoutes, { prefix: '/api/projects' });
   await fastify.register(utilityRoutes, { prefix: '/api/projects' });
+  await fastify.register(fenceRoutes, { prefix: '/api/projects' });
   await fastify.register(terrainRoutes, { prefix: '/api/projects' });
   await fastify.register(commentRoutes, { prefix: '/api/projects' });
   await fastify.register(shareRoutes, { prefix: '/api/projects' });

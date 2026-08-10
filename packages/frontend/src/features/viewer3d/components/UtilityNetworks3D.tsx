@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import { useViewerStore } from '../stores/viewerStore';
 import type { UtilityNetworkData } from '../types';
@@ -62,6 +62,14 @@ function UtilityPipe({ data, xray, selected, onSelect }: { data: UtilityNetworkD
 
     return { curve, tubeGeometry };
   }, [data.geometry, data.depth, data.diameter, data.location]);
+
+  /*
+   * Труба пересобирается на каждое изменение диаметра или глубины — то есть
+   * на каждый шаг ползунка в панели правки. Старую надо освобождать: без
+   * этого за одно перетаскивание в видеопамяти оседали десятки труб по
+   * несколько тысяч треугольников каждая.
+   */
+  useEffect(() => () => tubeGeometry?.dispose(), [tubeGeometry]);
 
   if (!tubeGeometry) return null;
 

@@ -286,6 +286,51 @@ export const utilitiesApi = {
     apiFetch<void>(`/api/projects/${projectId}/utilities/${id}`, { method: 'DELETE' }),
 };
 
+// ── Fences API (ограждение площадки) ──────────
+export type FenceType = 'FAN_BARRIER' | 'MESH_3D' | 'CONCRETE';
+
+export interface FencePayload {
+  id: string;
+  name: string;
+  type: FenceType;
+  geometry: [number, number, number][];
+  /** null — типовая высота для этого типа */
+  height: number | null;
+  closed: boolean;
+}
+
+export const fencesApi = {
+  list: (projectId: string) =>
+    apiFetch<{ data: FencePayload[] }>(`/api/projects/${projectId}/fences`),
+
+  create: (projectId: string, data: {
+    name: string;
+    type: FenceType;
+    geometry: [number, number, number][];
+    height?: number;
+    closed?: boolean;
+  }) =>
+    apiFetch<FencePayload>(`/api/projects/${projectId}/fences`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (projectId: string, id: string, data: Partial<{
+    name: string;
+    type: FenceType;
+    geometry: [number, number, number][];
+    height: number;
+    closed: boolean;
+  }>) =>
+    apiFetch<FencePayload>(`/api/projects/${projectId}/fences/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  remove: (projectId: string, id: string) =>
+    apiFetch<void>(`/api/projects/${projectId}/fences/${id}`, { method: 'DELETE' }),
+};
+
 // ── Terrain API (DEM heightmap) ───────────────
 /** Метаданные импортированного реального рельефа */
 export interface TerrainMeta {

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { Html } from '@react-three/drei';
 import { useViewerStore } from '../stores/viewerStore';
@@ -21,7 +21,7 @@ export default function UtilityCreator() {
   const setGroundHandlers = useViewerStore((s) => s.setGroundHandlers);
 
   useEffect(() => {
-    setGroundHandlers({ onClick: (pt) => addDraftPoint(pt) });
+    setGroundHandlers({ onPlace: (pt) => addDraftPoint(pt) });
     return () => setGroundHandlers(null);
   }, [setGroundHandlers, addDraftPoint]);
 
@@ -33,9 +33,15 @@ export default function UtilityCreator() {
     return sum + Math.sqrt((pt[0] - p[0]) ** 2 + (pt[1] - p[1]) ** 2 + (pt[2] - p[2]) ** 2);
   }, 0);
 
-  const previewGeom = points.length >= 2
-    ? new THREE.BufferGeometry().setFromPoints(points.map((p) => new THREE.Vector3(...p)))
-    : null;
+  // Буфер один на набор точек, предыдущий освобождается при смене: собранная
+  // прямо в теле компонента геометрия оставалась в видеопамяти навсегда
+  const previewGeom = useMemo(
+    () => (points.length >= 2
+      ? new THREE.BufferGeometry().setFromPoints(points.map((p) => new THREE.Vector3(...p)))
+      : null),
+    [points],
+  );
+  useEffect(() => () => previewGeom?.dispose(), [previewGeom]);
 
   return (
     <>
@@ -54,7 +60,7 @@ export default function UtilityCreator() {
       {points.length > 0 && (
         <Html position={points[points.length - 1]} center distanceFactor={20} zIndexRange={[20, 0]}>
           <div className="bg-slate-900/90 text-white text-xs rounded-lg px-2 py-1 shadow-xl whitespace-nowrap pointer-events-none">
-            {totalLength > 0 ? `${totalLength.toFixed(1)}м` : 'кликайте по сцене'}
+            {totalLength > 0 ? `${totalLength.toFixed(1)}м` : 'двойной клик по земле'}
           </div>
         </Html>
       )}

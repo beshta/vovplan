@@ -12,6 +12,7 @@ import { useViewerStore } from '../viewer3d/stores/viewerStore';
  * - object:changed   → refetch persisted scene objects (role-aware on the server)
  * - comment:changed  → refetch persisted comments/annotations
  * - utility:changed  → refetch utility networks
+ * - fence:changed    → refetch fences
  * - terrain:changed  → apply new terrainUrl (or null on removal) + refetch project
  * - model:changed    → refetch the project model library
  */
@@ -74,6 +75,10 @@ export function useRealtime(projectId: string, userName: string) {
       queryClient.invalidateQueries({ queryKey: ['utilities', projectId] });
     });
 
+    socket.on('fence:changed', () => {
+      queryClient.invalidateQueries({ queryKey: ['fences', projectId] });
+    });
+
     socket.on('terrain:changed', (p: { terrainUrl: string | null; terrainMeta?: unknown }) => {
       // Применяем напрямую (включая удаление) + подтягиваем свежий проект
       useViewerStore.getState().setTerrainUrl(p.terrainUrl);
@@ -99,6 +104,7 @@ export function useRealtime(projectId: string, userName: string) {
       socket.off('object:changed');
       socket.off('comment:changed');
       socket.off('utility:changed');
+      socket.off('fence:changed');
       socket.off('terrain:changed');
       socket.off('model:changed');
       socket.off('activity:new');
