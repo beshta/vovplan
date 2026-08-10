@@ -40,6 +40,43 @@ npm run dev          # backend :4000 (nodemon+tsx, SQLite) + frontend :5173 (vit
 
 ---
 
+## Сделано в последней сессии (после DWG)
+
+**Правка рельефа** — три ползунка в панели «Ландшафт»: сглаживание (радиус в
+метрах), выравнивание к медиане, вертикальный масштаб. Причина: открытые высоты
+идут сеткой 30 м, на участке 200 м это 13 точек поперёк, и мелкий рельеф там не
+измерен, а додуман. Замер показал: у площадки перепад 8,8 м на 240 м при
+максимальном уклоне 12° — данные верные, но грубые, и z15 у AWS terrarium это
+потолок (z16 отдаёт 404). Математика вынесена в
+`features/viewer3d/utils/heightGrid.ts` и покрыта тестами — ошибка там не падает,
+а молча рисует другую местность. Настройка хранится в `terrainMeta.adjust`
+(отдельная колонка не окупала правку обеих схем Prisma), общая для проекта,
+разлетается по сокету.
+
+**Производительность.** `utils/instancing.ts` схлопывает повторяющиеся меши в
+`InstancedMesh` после загрузки GLB. На чертеже: 14 819 вызовов отрисовки → 516,
+23 кадра/с → 144. Треугольников столько же — упиралось именно в вызовы. Там же
+`localSize()` — габариты по осям объекта (через 8 углов коробки, не по всем
+вершинам).
+
+**Починено:** белый экран при скрытии объекта (ранний выход стоял до `useEffect`
+и `useFrame` — React получал меньше хуков и падало всё дерево); поворот
+накручивался в 57 раз за заход (черновик заполнялся радианами, применялся как
+градусы); единицы модели и масштаб были связаны и перебивали друг друга;
+левая колонка панелей была уже вложенной панели сети и обрезала её.
+
+**Добавлено:** рулетка (`MeasureTape.tsx`, насечки 1 м / 0,5 м, кнопка в
+тулбаре, точку берёт и с модели); окончательное удаление объекта (бэкенд это
+умел с самого начала, кнопки не было); живые настройки проекта
+(`pages/ProjectSettings.tsx` — название, описание, состояние; выгрузка сцены
+помечена премиумом и выключена); свои подсказки при наведении
+(`shared/Tooltip.tsx` — системные не следуют теме).
+
+**Тесты фронтенда появились** (`vitest` в `packages/frontend`, скрипт `test`).
+Были только на бэкенде.
+
+---
+
 ## Бэклог — ранжирование от простого к сложному
 
 Правило пользователя: **делать по одной задаче за подход и спрашивать перед следующей.**
@@ -93,7 +130,9 @@ npm run dev          # backend :4000 (nodemon+tsx, SQLite) + frontend :5173 (vit
 
 - **Вьювер 3D**: `packages/frontend/src/features/viewer3d/` — `Scene.tsx` (Canvas), `DemTerrain.tsx` (3 режима рельефа + userData.isTerrain для рейкаста), `SceneObject.tsx` (объекты + привязка к земле), `Annotation3D.tsx` (метки-V, drei Line), `UtilityNetworks3D.tsx` + `UtilityCreator.tsx` (3D) / `UtilityDrawPanel.tsx` (HUD-контролы).
 - **HUD-панели** (вне Canvas, работают в фоне): `ViewerToolbar`, `ObjectInfoPanel`, `UtilityEditPanel`, `AnnotationEditPanel`, `AnnotationsList`, `SceneObjectsList`, `TerrainPanel`, `PresetsBar`, `PresenceBar`.
-- **Стор**: `features/viewer3d/stores/viewerStore.ts` (zustand — режимы, выбор, черновики, basemap, terrainMeta).
+- **Утилиты вьювера**: `features/viewer3d/utils/` — `instancing.ts` (схлопывание повторов в `InstancedMesh` + `localSize` для габаритов), `heightGrid.ts` (правка высот, есть тесты), `deviceProfiler.ts`, `noise.ts`.
+- **Общее**: `shared/Tooltip.tsx` (подсказки в оформлении приложения, портал в body), `shared/dwg.ts` + `shared/dwgWorker.ts` (чтение DWG в отдельном потоке).
+- **Стор**: `features/viewer3d/stores/viewerStore.ts` (zustand — режимы, выбор, черновики, basemap, terrainMeta, `measureMode`/`measurePoints`, `objectSizes`).
 - **API-клиент**: `packages/frontend/src/shared/api.ts` (важно: `apiFetch` ставит Content-Type только при наличии body — иначе fastify 400 на DELETE).
 - **Backend модули**: `packages/backend/src/modules/{auth,projects,scene,models,utilities,terrain,comments,share}/` + `realtime/index.ts` (Socket.io + emit-хелперы) + `app.ts` (buildServer для тестов).
 
