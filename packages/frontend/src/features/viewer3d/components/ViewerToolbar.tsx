@@ -3,6 +3,7 @@ import {
   MapPin, MoveUpRight, Minus, Brush, PersonStanding, Map as MapIcon, Ruler,
   ScanEye, MessageSquareText, EyeOff, Activity } from 'lucide-react';
 import { useViewerStore } from '../stores/viewerStore';
+import Tooltip from '../../../shared/Tooltip';
 
 const ANN_PALETTE = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ffffff'];
 
@@ -116,13 +117,14 @@ export default function ViewerToolbar() {
             {/* Палитра цвета для новых аннотаций */}
             <div className="grid grid-cols-3 gap-1 px-0.5 pt-1">
               {ANN_PALETTE.map((c) => (
+                <Tooltip key={c} label={`Цвет: ${c}`}>
                 <button
-                  key={c}
                   onClick={() => setAnnColor(c)}
                   className={`w-2.5 h-2.5 rounded-full transition-transform ${annColor === c ? 'ring-2 ring-white scale-125' : ''}`}
                   style={{ backgroundColor: c }}
-                  title={`Цвет: ${c}`}
+                  aria-label={`Цвет: ${c}`}
                 />
+                </Tooltip>
               ))}
             </div>
           </>
@@ -179,12 +181,14 @@ function ToolButton({
   title: string;
 }) {
   return (
-    <button
-      onClick={onClick}
-      title={title}
-      className={`tool-btn ${active ? 'tool-btn-active' : ''}`}
-    >
-      {children}
-    </button>
+    <Tooltip label={title}>
+      <button
+        onClick={onClick}
+        aria-label={title}
+        className={`tool-btn ${active ? 'tool-btn-active' : ''}`}
+      >
+        {children}
+      </button>
+    </Tooltip>
   );
 }
