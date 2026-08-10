@@ -300,7 +300,10 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
             <div className="pointer-events-auto self-start">
               <ViewerToolbar />
             </div>
-            <div className="flex flex-col gap-2 min-h-0 w-56">
+            {/* Ширина колонки — по самой широкой панели внутри (рисование
+                сети, w-64). Была w-56, и панель обрезалась по правому краю:
+                вертикальная прокрутка режет и по горизонтали тоже. */}
+            <div className="flex flex-col gap-2 min-h-0 w-64">
               <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 items-start pr-0.5">
                 {utilityDrawMode && canEdit && <UtilityDrawPanel projectId={projectId} />}
                 <UtilityLayersPanel />

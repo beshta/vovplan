@@ -42,8 +42,13 @@ export default function UtilityNetworks3D() {
 function UtilityPipe({ data, xray, selected, onSelect }: { data: UtilityNetworkData; xray: boolean; selected: boolean; onSelect: () => void }) {
   // Build a CatmullRom curve through the geometry points
   const { curve, tubeGeometry } = useMemo(() => {
-    // For underground networks, subtract burial depth from y coordinate
-    const depthOffset = data.location === 'UNDERGROUND' && data.depth ? -data.depth : 0;
+    /*
+     * Смещение по вертикали: под землю — вниз, по воздуху — вверх.
+     * Раньше высота надземной сети не применялась вовсе: провод лежал на
+     * земле, а столбы стояли отдельно на своей высоте.
+     */
+    const h = data.depth ?? 0;
+    const depthOffset = data.location === 'UNDERGROUND' ? -h : h;
     const points = data.geometry.map(
       ([x, y, z]) => new THREE.Vector3(x, y + depthOffset, z),
     );
@@ -84,14 +89,20 @@ function UtilityPipe({ data, xray, selected, onSelect }: { data: UtilityNetworkD
         />
       </mesh>
 
-      {/* For overhead networks: add support poles at each point */}
-      {data.location === 'OVERHEAD' &&
-        data.geometry.map((pt, i) => (
-          <mesh key={`pole-${i}`} position={[pt[0], pt[1] + 3, pt[2]]}>
-            <cylinderGeometry args={[0.08, 0.1, 6, 6]} />
-            <meshStandardMaterial color="#4a4a4a" roughness={0.8} />
-          </mesh>
-        ))}
+      {/* Опоры — только у сетей, поднятых над землёй.
+          При нулевой высоте прокладка идёт прямо по поверхности: так кладут
+          временный кабель на площадке, и столбы там взяться неоткуда. */}
+      {data.location === 'OVERHEAD' && (data.depth ?? 0) > 0.1 &&
+        data.geometry.map((pt, i) => {
+          const top = data.depth ?? 0;
+          return (
+            <mesh key={`pole-${i}`} position={[pt[0], pt[1] + top / 2, pt[2]]}>
+              {/* Столб доходит ровно до провода, а не торчит над ним */}
+              <cylinderGeometry args={[0.08, 0.1, top, 6]} />
+              <meshStandardMaterial color="#4a4a4a" roughness={0.8} />
+            </mesh>
+          );
+        })}
 
       {/* Label marker at midpoint */}
       {curve && (
