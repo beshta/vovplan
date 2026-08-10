@@ -10,7 +10,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       // SW только в проде: в dev он мешает HMR и кэширует лишнее
       devOptions: { enabled: false },
-      includeAssets: ['apple-touch-icon.png'],
+      includeAssets: ['apple-touch-icon.png', 'favicon.svg'],
       manifest: {
         name: 'VOVPLAN — 3D платформа проектов',
         short_name: 'VOVPLAN',
