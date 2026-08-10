@@ -88,17 +88,51 @@ export default defineConfig({
          */
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
+          const p = id.replace(/\\/g, '/');
+
           // Загрузчики форматов (FBX, OBJ, STL...) и экспортёр GLB грузятся по
           // требованию — только когда человек добавляет модель. Если отправить
           // их в общий чанк three, правило перебьёт ленивую загрузку, и вес
           // лягут на всех: чанк three раздувался с 854К до 1.3М.
-          if (/three[\\/]examples[\\/]jsm[\\/](loaders|exporters)[\\/](?!GLTFLoader)/.test(id)) return;
+          if (/three\/examples\/jsm\/(loaders|exporters)\/(?!GLTFLoader)/.test(p)) return;
           // fflate распаковывает сжатые FBX и 3MF — нужна только им. В общем
           // чанке она висела бы на всех, включая тех, кто заходит на лендинг.
-          if (id.includes('fflate')) return;
-          if (id.includes('three') || id.includes('@react-three')) return 'three';
-          if (id.includes('react') || id.includes('scheduler')) return 'react';
-          if (id.includes('leaflet')) return 'leaflet';
+          if (/node_modules\/fflate\//.test(p)) return;
+
+          /*
+           * Дальше решаем по ИМЕНИ пакета, а не по подстроке в пути.
+           *
+           * Подстрока однажды уронила прод в белый экран. `includes('react')`
+           * затягивал в чанк react ещё и lucide-react, react-router-dom,
+           * @tanstack/react-query — а они зависят от пакетов, лежащих в
+           * vendor. Выходило кольцо: react импортирует vendor, vendor
+           * импортирует react. Кто из двух вычислится первым, зависит от
+           * графа модулей; проигравший видит экспорты другого пустыми, и
+           * приложение падает на `Cannot read properties of undefined
+           * (reading 'useLayoutEffect')` ещё до первой отрисовки.
+           */
+          const pkg = /node_modules\/(@[^/]+\/[^/]+|[^/]+)/.exec(p)?.[1];
+          if (!pkg) return 'vendor';
+
+          // Ядро React: только пакеты, которые сами ни от чего снаружи не
+          // зависят. Этот чанк обязан быть листом графа — тогда кольцу
+          // неоткуда взяться.
+          if (['react', 'react-dom', 'react-is', 'scheduler', 'use-sync-external-store'].includes(pkg)) {
+            return 'react';
+          }
+
+          // Семья three: сама библиотека, её спутники и мост к React
+          if (
+            pkg === 'three' ||
+            pkg.startsWith('three-') ||
+            pkg.startsWith('troika-three') ||
+            pkg.startsWith('@react-three') ||
+            pkg.startsWith('@react-spring')
+          ) {
+            return 'three';
+          }
+
+          if (pkg === 'leaflet') return 'leaflet';
           return 'vendor';
         },
       },
