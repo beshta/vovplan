@@ -96,7 +96,7 @@ impl Mesh {
     /// копии деталей задаются матрицами в осях чертежа, и деталь, повёрнутая
     /// заранее, с ними уже не сойдётся. Поворот делается один раз на корне
     /// собранной модели.
-    fn push_tri(&mut self, a: V3, b: V3, c: V3, flip: bool) {
+    pub fn push_tri(&mut self, a: V3, b: V3, c: V3, flip: bool) {
         let raw = cross(sub(b, a), sub(c, a));
         let l = len(raw);
         if l < 1e-20 {

@@ -61,21 +61,30 @@ pub fn convert(bytes: Vec<u8>) -> Result<Converted, String> {
     let mut seen: HashMap<u64, Option<u32>> = HashMap::new();
     let (mut ok, mut failed) = (0usize, 0usize);
 
-    blocks::for_each_body(&doc, &mut |id, acis, at| {
+    let seen = blocks::for_each_body(&doc, &mut |id, shape, at| {
         // Деталь режем один раз; дальше от копии нужна только матрица
         let part = *seen.entry(id).or_insert_with(|| {
-            let Some(sat) = acis.parse() else {
-                failed += 1;
-                return None;
-            };
-            ok += 1;
             let mut mesh = Mesh::default();
-            // Режем в координатах самой детали: место копии добавится матрицей
-            let placement = {
-                let (m, t, s) = sat.placement();
-                Xform::from_acis(m, t, s)
-            };
-            tess::tessellate(&sat, &placement, &mut mesh);
+            match shape {
+                blocks::Shape::Acis(acis) => {
+                    let Some(sat) = acis.parse() else {
+                        failed += 1;
+                        return None;
+                    };
+                    ok += 1;
+                    // Режем в координатах самой детали: место копии добавится матрицей
+                    let placement = {
+                        let (m, t, s) = sat.placement();
+                        Xform::from_acis(m, t, s)
+                    };
+                    tess::tessellate(&sat, &placement, &mut mesh);
+                }
+                // У сетки резать нечего — вершины и грани уже готовы
+                blocks::Shape::Mesh(src) => {
+                    ok += 1;
+                    crate::mesh::build(src, &mut mesh);
+                }
+            }
             if mesh.positions.is_empty() {
                 return None;
             }
@@ -89,7 +98,37 @@ pub fn convert(bytes: Vec<u8>) -> Result<Converted, String> {
     });
 
     if parts.is_empty() {
-        return Err("в чертеже не нашлось объёмной геометрии".into());
+        /*
+         * Раньше здесь была одна фраза на три совершенно разные беды, и по ней
+         * нельзя было понять, что делать: экспортировать чертёж иначе, прислать
+         * файл на разбор или чинить тесселяцию. Теперь отказ говорит, что
+         * именно увидел обход.
+         */
+        return Err(if ok == 0 && failed == 0 {
+            let shapes = seen.shapes();
+            let made_of = if shapes.is_empty() {
+                "и ничего похожего на объём тоже".to_string()
+            } else {
+                format!("объём в нём сделан так: {shapes}")
+            };
+            format!(
+                "тел ACIS (3DSOLID, REGION, BODY) в чертеже нет — {made_of}. \
+                 Просмотрено {} объектов, из них {} не тех видов, что мы читаем. \
+                 Пересохраните из AutoCAD с преобразованием в тела (CONVTOSOLID) \
+                 либо экспортируйте FBX/OBJ.",
+                seen.entities, seen.unhandled,
+            )
+        } else if ok == 0 {
+            format!(
+                "тел найдено {failed}, но ни одно не удалось разобрать — \
+                 похоже, в чертеже ACIS той версии, которую мы ещё не понимаем",
+            )
+        } else {
+            format!(
+                "тел разобрано {ok} (не поддалось {failed}), но ни одно не дало \
+                 ни одного треугольника — это уже наша ошибка в тесселяции",
+            )
+        });
     }
 
     // Приводим к метрам сцены. Масштабируем координаты деталей и сдвиги копий,

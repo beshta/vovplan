@@ -121,7 +121,10 @@ pub fn report(bytes: Vec<u8>) -> String {
     let mut detail = String::new();
     let mut shown = 0;
     let mut strays = 0usize;
-    blocks::for_each_body(&doc, &mut |_id, acis, at| {
+    blocks::for_each_body(&doc, &mut |_id, shape, at| {
+        // Сверка положения — про тела ACIS: у готовых сеток нет ни матриц
+        // размещения, ни записей, по которым тут считают габарит
+        let blocks::Shape::Acis(acis) = shape else { return };
         let Some(sat) = acis.parse() else { return };
         let (mut lo, mut hi) = ([f64::MAX; 3], [f64::MIN; 3]);
         let mut n_tr = 0;
@@ -179,7 +182,8 @@ pub fn report(bytes: Vec<u8>) -> String {
     });
 
     let mut stats = Stats::new();
-    blocks::for_each_body(&doc, &mut |_id, acis, at| {
+    blocks::for_each_body(&doc, &mut |_id, shape, at| {
+        let blocks::Shape::Acis(acis) = shape else { return };
         if acis.is_binary {
             stats.binary_bodies += 1;
         } else {

@@ -9,6 +9,7 @@
 
 mod blocks;
 mod convert;
+mod mesh;
 mod probe;
 mod rng;
 mod selftest;
