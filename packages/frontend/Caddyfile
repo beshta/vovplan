@@ -3,6 +3,25 @@
 :80 {
 	encode gzip zstd
 
+	# Заголовки безопасности на всё, что отдаётся с этого адреса.
+	#
+	# frame-ancestors и X-Frame-Options задаются только заголовком — метатегом
+	# их не поставить, поэтому сама политика содержимого живёт в index.html, а
+	# запрет показа в чужом окне здесь. Без него страницу можно засунуть в
+	# невидимый iframe и ловить клики пользователя по чужой кнопке.
+	#
+	# nosniff важнее всего для /uploads: там лежат файлы, загруженные людьми, и
+	# угадывание типа по содержимому позволило бы выдать один за другой.
+	header {
+		X-Frame-Options "DENY"
+		Content-Security-Policy "frame-ancestors 'none'"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()"
+		# Заголовок сервера ничего не даёт пользователю, а версию подсказывает
+		-Server
+	}
+
 	# API, WebSocket и загруженные файлы — на backend (Caddy сам апгрейдит WS)
 	@backend path /api/* /socket.io/* /uploads/*
 	handle @backend {

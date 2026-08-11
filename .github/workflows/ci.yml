@@ -52,6 +52,15 @@ jobs:
       - name: Проверить работу DWG-модуля
         run: npm run test:dwg
 
+      # Ошибка в Caddyfile роняет весь сайт: веб-контейнер просто не стартует,
+      # а до этого момента заметить её нечем — локально Caddy обычно не стоит.
+      # Деплой идёт только после успешного CI, поэтому битый конфиг сюда и
+      # упрётся, не доехав до прода.
+      - name: Проверить Caddyfile
+        run: |
+          docker run --rm -v "$PWD/packages/frontend:/etc/caddy:ro" caddy:2-alpine \
+            caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile
+
       - name: Generate Prisma client
         run: npx turbo db:generate
 

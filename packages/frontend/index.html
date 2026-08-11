@@ -4,6 +4,40 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#0b1020" />
+    <!--
+      Политика содержимого. Пока в режиме отчёта: нарушения пишутся в консоль,
+      но ничего не блокируется. Боевой режим включается сменой имени на
+      Content-Security-Policy — только после того, как проект прощёлкан живьём
+      и в консоли пусто. Ошибка здесь выглядит как белый экран, а мы это уже
+      проходили.
+
+      Живёт в разметке, а не в заголовках Caddy, чтобы действовать одинаково в
+      разработке, в предпросмотре сборки и на проде — иначе проверить её до
+      выкатки нечем. Запрет показа в чужом окне (frame-ancestors) метатегом
+      задать нельзя, он идёт заголовком в Caddyfile.
+
+      Откуда что:
+        wasm-unsafe-eval — модуль чтения чертежей DWG собран в WebAssembly;
+        unsafe-inline для стилей — React расставляет style={{…}} по элементам,
+          и drei вставляет свои стили для подписей в сцене;
+        blob: — рабочий поток разбора чертежей и текстуры, собранные в canvas;
+        tile.openstreetmap.org — подложка карты при выборе участка.
+      Шрифты и всё остальное — свои, поэтому default-src 'self'.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy-Report-Only"
+      content="default-src 'self';
+               script-src 'self' 'wasm-unsafe-eval';
+               style-src 'self' 'unsafe-inline';
+               img-src 'self' data: blob: https://tile.openstreetmap.org;
+               font-src 'self' data:;
+               connect-src 'self' https://tile.openstreetmap.org;
+               worker-src 'self' blob:;
+               media-src 'self' blob:;
+               object-src 'none';
+               base-uri 'self';
+               form-action 'self'"
+    />
     <!-- Вектор для всех современных браузеров, PNG — запасной для старых -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192.png" />
