@@ -8,7 +8,12 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { registerSchema, loginSchema } from '@vovplan/shared';
 import prisma from '../../db/prisma.js';
-import { rateLimit, rateLimitReset } from '../../utils/rateLimit.js';
+import {
+  rateLimit,
+  rateLimitReset,
+  rateLimitAccount,
+  rateLimitAccountReset,
+} from '../../utils/rateLimit.js';
 
 const updateProfileSchema = z.object({
   displayName: z.string().min(2, 'Имя должно быть не короче 2 символов').max(60).optional(),
@@ -25,7 +30,16 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
   // ── POST /api/auth/register ───────────────
   fastify.post('/register', async (request, reply) => {
-    rateLimit(request, 'register', 5, 15 * 60_000);
+    /*
+     * Порог поднят с пяти намеренно. Счёт идёт по адресу источника, а за
+     * обратным прокси он один на всех — прежние пять означали, что во всём
+     * сервисе может зарегистрироваться пять человек за пятнадцать минут, и
+     * один желающий закрывал регистрацию совсем.
+     *
+     * От массовой накрутки учёток адрес всё равно не защищает. Это делает
+     * подтверждение почты, которого пока нет.
+     */
+    rateLimit(request, 'register', 60, 15 * 60_000);
 
     const parsed = registerSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -65,8 +79,19 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
   // ── POST /api/auth/login ──────────────────
   fastify.post('/login', async (request, reply) => {
-    // Без ограничения пароль можно подбирать бесконечно
-    rateLimit(request, 'login', 10, 5 * 60_000);
+    /*
+     * Два счётчика, и главный из них — второй.
+     *
+     * По адресу источника считать почти бесполезно: за обратным прокси все
+     * запросы приходят с одного адреса, и лимит становится общим на всех.
+     * Раньше он был единственным и стоял на десяти попытках — то есть любой
+     * желающий десятью неудачными входами закрывал вход всему сервису на пять
+     * минут. Здесь порог щедрый, это защита от потока, а не от подбора.
+     *
+     * Подбор пароля останавливает счётчик по учётной записи: он не зависит ни
+     * от прокси, ни от числа адресов у злоумышленника.
+     */
+    rateLimit(request, 'login', 60, 5 * 60_000);
 
     const parsed = loginSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -78,6 +103,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
 
     const { email, password } = parsed.data;
+    rateLimitAccount('login', email, 8, 15 * 60_000);
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
@@ -98,7 +124,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
 
     const accessToken = fastify.jwt.sign({ userId: user.id, email: user.email });
+    // Успешный вход снимает подозрения с обоих счётчиков
     rateLimitReset(request, 'login');
+    rateLimitAccountReset('login', email);
 
     return reply.send({
       user: {
@@ -148,8 +176,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
   // ── POST /api/auth/password — смена пароля ──
   fastify.post('/password', { preHandler: [fastify.authenticate] }, async (request, reply) => {
-    // Здесь проверяется текущий пароль — тоже поддаётся подбору
-    rateLimit(request, 'password', 10, 5 * 60_000);
+    // Здесь проверяется текущий пароль — тоже поддаётся подбору. Считаем по
+    // самому пользователю: он уже известен из токена, и это точнее адреса
+    rateLimitAccount('password', request.user.userId, 10, 15 * 60_000);
 
     const parsed = changePasswordSchema.safeParse(request.body);
     if (!parsed.success) {

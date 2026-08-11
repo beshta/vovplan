@@ -31,23 +31,11 @@ function cleanup(now: number) {
   }
 }
 
-/**
- * Проверяет и увеличивает счётчик. Бросает 429, если лимит исчерпан.
- *
- * @param scope    имя эндпоинта — у каждого свой счётчик
- * @param limit    сколько запросов разрешено в окне
- * @param windowMs длина окна, мс
- */
-export function rateLimit(
-  request: FastifyRequest,
-  scope: string,
-  limit: number,
-  windowMs: number,
-): void {
+/** Общая механика: увеличить счётчик по ключу, бросить 429 при переполнении */
+function hit(key: string, limit: number, windowMs: number): void {
   const now = Date.now();
   cleanup(now);
 
-  const key = `${scope}:${request.ip}`;
   const bucket = buckets.get(key);
 
   if (!bucket || bucket.resetAt <= now) {
@@ -66,9 +54,52 @@ export function rateLimit(
   }
 }
 
-/** Сбросить счётчик — вызывается после успешного входа */
+/**
+ * Счётчик по адресу источника.
+ *
+ * Работает как защита от простого потока запросов, но НЕ как защита от
+ * подбора пароля: за обратным прокси все запросы приходят с одного адреса,
+ * и лимит становится общим на всех сразу. Поэтому пороги здесь щедрые —
+ * жёсткий счёт ведётся по учётной записи (`rateLimitAccount`), а к
+ * заголовкам прокси доверия пока нет.
+ *
+ * @param scope    имя эндпоинта — у каждого свой счётчик
+ * @param limit    сколько запросов разрешено в окне
+ * @param windowMs длина окна, мс
+ */
+export function rateLimit(
+  request: FastifyRequest,
+  scope: string,
+  limit: number,
+  windowMs: number,
+): void {
+  hit(`${scope}:ip:${request.ip}`, limit, windowMs);
+}
+
+/**
+ * Счётчик по учётной записи — то, что реально мешает подбирать пароль.
+ *
+ * Не зависит ни от прокси, ни от того, с какого адреса идут попытки: злоумышленник
+ * с тысячей адресов упирается в тот же предел. Ключ приводится к нижнему регистру
+ * и очищается от пробелов, иначе счётчик обходится сменой регистра в почте.
+ */
+export function rateLimitAccount(
+  scope: string,
+  account: string,
+  limit: number,
+  windowMs: number,
+): void {
+  hit(`${scope}:acct:${account.trim().toLowerCase()}`, limit, windowMs);
+}
+
+/** Сбросить счётчик по адресу — вызывается после успешного входа */
 export function rateLimitReset(request: FastifyRequest, scope: string): void {
-  buckets.delete(`${scope}:${request.ip}`);
+  buckets.delete(`${scope}:ip:${request.ip}`);
+}
+
+/** Сбросить счётчик учётной записи — успешный вход снимает подозрения */
+export function rateLimitAccountReset(scope: string, account: string): void {
+  buckets.delete(`${scope}:acct:${account.trim().toLowerCase()}`);
 }
 
 /** Только для тестов: очистить все счётчики между кейсами */

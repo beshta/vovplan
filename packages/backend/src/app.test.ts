@@ -547,40 +547,10 @@ describe('Фаза 7: пресеты камеры + share-ссылки', () => {
   });
 });
 
-describe('ограничение частоты (защита от подбора пароля)', () => {
-  // Несуществующий email: вход отвечает 401 сразу, не доходя до bcrypt.
-  // С реальным пользователем каждая попытка стоила бы проверки хэша (bcrypt
-  // намеренно медленный), и на медленных раннерах тест упирался в таймаут.
-  const unknown = { email: `nobody.${marker}@test.vovplan.io`, password: 'подбор' };
-
-  it('после 10 неудачных входов отдаёт 429', async () => {
-    const attempt = () => app.inject({ method: 'POST', url: '/api/auth/login', payload: unknown });
-
-    for (let i = 0; i < 10; i++) {
-      expect((await attempt()).statusCode).toBe(401);
-    }
-    const blocked = await attempt();
-    expect(blocked.statusCode).toBe(429);
-    expect(JSON.parse(blocked.body).message).toContain('Слишком много попыток');
-  });
-
-  it('успешный вход сбрасывает счётчик', async () => {
-    for (let i = 0; i < 9; i++) {
-      await app.inject({ method: 'POST', url: '/api/auth/login', payload: unknown });
-    }
-    // Единственная проверка хэша во всём блоке
-    const ok = await app.inject({
-      method: 'POST', url: '/api/auth/login',
-      payload: { email: emailOf('master'), password: PASSWORD },
-    });
-    expect(ok.statusCode).toBe(200);
-
-    // Счётчик обнулён — снова доступны все 10 попыток
-    for (let i = 0; i < 10; i++) {
-      expect((await app.inject({ method: 'POST', url: '/api/auth/login', payload: unknown })).statusCode).toBe(401);
-    }
-  });
-});
+// Ограничение попыток входа проверяется в rateLimit.test.ts — целиком, вместе
+// с привязкой счёта к учётной записи. Здесь этого блока больше нет намеренно:
+// пороги, записанные в двух местах, разъезжаются при первой же правке, что и
+// произошло, когда счёт перевели с адреса на учётную запись.
 
 describe('правка рельефа', () => {
   /**
