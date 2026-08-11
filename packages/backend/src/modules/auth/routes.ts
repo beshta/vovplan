@@ -68,13 +68,21 @@ export default async function authRoutes(fastify: FastifyInstance) {
     // Create user
     const user = await prisma.user.create({
       data: { email, passwordHash, displayName },
-      select: { id: true, email: true, displayName: true, avatarUrl: true, createdAt: true },
+      select: {
+        id: true, email: true, displayName: true, avatarUrl: true, createdAt: true,
+        tokenVersion: true,
+      },
     });
 
-    // Generate JWT
-    const accessToken = fastify.jwt.sign({ userId: user.id, email: user.email });
+    // Поколение токена вшивается в него: хук сверит его с базой на каждом запросе
+    const accessToken = fastify.jwt.sign({
+      userId: user.id,
+      email: user.email,
+      ver: user.tokenVersion,
+    });
 
-    return reply.code(201).send({ user, accessToken });
+    const { tokenVersion: _ignored, ...safeUser } = user;
+    return reply.code(201).send({ user: safeUser, accessToken });
   });
 
   // ── POST /api/auth/login ──────────────────
@@ -123,7 +131,11 @@ export default async function authRoutes(fastify: FastifyInstance) {
       });
     }
 
-    const accessToken = fastify.jwt.sign({ userId: user.id, email: user.email });
+    const accessToken = fastify.jwt.sign({
+      userId: user.id,
+      email: user.email,
+      ver: user.tokenVersion,
+    });
     // Успешный вход снимает подозрения с обоих счётчиков
     rateLimitReset(request, 'login');
     rateLimitAccountReset('login', email);
@@ -206,12 +218,32 @@ export default async function authRoutes(fastify: FastifyInstance) {
       });
     }
 
-    await prisma.user.update({
+    /*
+     * Смена пароля выгоняет все прежние сессии.
+     *
+     * Ради этого поколение и заводилось: пароль меняют чаще всего именно
+     * потому, что подозревают чужой доступ, — а прежний токен без отзыва
+     * работал бы ещё неделю, и смена пароля угонщику не мешала.
+     *
+     * Текущей вкладке сразу выдаётся токен нового поколения, иначе человек
+     * выгонял бы заодно и себя.
+     */
+    const updated = await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash: await bcrypt.hash(newPassword, 12) },
+      data: {
+        passwordHash: await bcrypt.hash(newPassword, 12),
+        tokenVersion: { increment: 1 },
+      },
+      select: { id: true, email: true, tokenVersion: true },
     });
 
-    return reply.send({ ok: true });
+    const accessToken = fastify.jwt.sign({
+      userId: updated.id,
+      email: updated.email,
+      ver: updated.tokenVersion,
+    });
+
+    return reply.send({ ok: true, accessToken });
   });
 
   // ── POST /api/auth/avatar — загрузка аватара ──

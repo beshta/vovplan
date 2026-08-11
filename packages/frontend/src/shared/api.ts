@@ -58,8 +58,20 @@ export const authApi = {
   updateProfile: (data: { displayName?: string }) =>
     apiFetch<User>('/api/auth/me', { method: 'PATCH', body: JSON.stringify(data) }),
 
-  changePassword: (data: { currentPassword: string; newPassword: string }) =>
-    apiFetch<{ ok: true }>('/api/auth/password', { method: 'POST', body: JSON.stringify(data) }),
+  /*
+   * Смена пароля обесценивает все прежние токены — в этом её смысл: пароль
+   * меняют, когда подозревают чужой доступ. Взамен приходит токен нового
+   * поколения для текущей вкладки, и его надо сохранить сразу, иначе
+   * следующий же запрос получит 401 и человек выгонит сам себя.
+   */
+  changePassword: async (data: { currentPassword: string; newPassword: string }) => {
+    const res = await apiFetch<{ ok: true; accessToken: string }>('/api/auth/password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (res.accessToken) setToken(res.accessToken);
+    return res;
+  },
 
   uploadAvatar: (file: File) => {
     const form = new FormData();

@@ -14,6 +14,7 @@ declare module 'fastify' {
 interface SocketUser {
   userId: string;
   email: string;
+  ver: number;
 }
 
 interface PresencePeer {
@@ -63,13 +64,29 @@ export function setupRealtime(fastify: FastifyInstance): SocketServer {
   });
 
   // ── Auth: verify JWT from handshake ──
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     const token: string | undefined =
       socket.handshake.auth?.token ?? (socket.handshake.query?.token as string | undefined);
     if (!token) return next(new Error('UNAUTHORIZED'));
     try {
       const payload = fastify.jwt.verify<SocketUser>(token);
-      (socket.data as { user: SocketUser }).user = { userId: payload.userId, email: payload.email };
+
+      // Поколение токена сверяется и здесь: одной подписи мало, иначе
+      // отозванный токен — после смены пароля или бана — всё равно открывал
+      // бы соединение и продолжал получать поток проекта
+      const account = await prisma.user.findUnique({
+        where: { id: payload.userId },
+        select: { tokenVersion: true },
+      });
+      if (!account || account.tokenVersion !== payload.ver) {
+        return next(new Error('UNAUTHORIZED'));
+      }
+
+      (socket.data as { user: SocketUser }).user = {
+        userId: payload.userId,
+        email: payload.email,
+        ver: payload.ver,
+      };
       next();
     } catch {
       next(new Error('UNAUTHORIZED'));
