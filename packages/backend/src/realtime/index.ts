@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { config } from '../config/index.js';
 import prisma from '../db/prisma.js';
 import { getUserRole } from '../utils/permissions.js';
+import { signUploadUrl, signTerrainMeta } from '../utils/signedUrl.js';
 
 // ── Type augmentation: fastify.io for route broadcasts ──
 declare module 'fastify' {
@@ -254,13 +255,22 @@ export function emitFenceChanged(
   fastify.io?.to(roomOf(projectId)).emit('fence:changed', fence);
 }
 
-/** Broadcast a terrain change. Payload carries the new terrainUrl (null = removed). */
+/**
+ * Broadcast a terrain change. Payload carries the new terrainUrl (null = removed).
+ *
+ * Подпись ставится здесь, а не у вызывающих: событие уходит прямо в браузер,
+ * который пойдёт по этим ссылкам за текстурами, и забыть подписать одну из
+ * четырёх точек вызова слишком легко.
+ */
 export function emitTerrainChanged(
   fastify: FastifyInstance,
   projectId: string,
   payload: { terrainUrl: string | null; terrainMeta?: unknown },
 ) {
-  fastify.io?.to(roomOf(projectId)).emit('terrain:changed', payload);
+  fastify.io?.to(roomOf(projectId)).emit('terrain:changed', {
+    terrainUrl: signUploadUrl(payload.terrainUrl),
+    terrainMeta: signTerrainMeta(payload.terrainMeta ?? null),
+  });
 }
 
 /** Broadcast a model-library change (upload/delete) to the project room. */

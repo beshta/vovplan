@@ -9,6 +9,12 @@ import { ProjectRole, ProjectStatus } from '@prisma/client';
 import prisma from '../../db/prisma.js';
 import { logActivity } from '../../utils/activity.js';
 import { getUserRole, requirePermission, requireMaster } from '../../utils/permissions.js';
+import { signUploadUrl, signTerrainMeta } from '../../utils/signedUrl.js';
+
+/** Участник проекта: аватар уходит подписанной ссылкой, как и любой файл */
+function toMemberDTO(m: any) {
+  return { ...m, user: { ...m.user, avatarUrl: signUploadUrl(m.user.avatarUrl) } };
+}
 
 // Shape mapper: Prisma row → API response
 function toProjectDTO(row: any, myRole?: string) {
@@ -19,10 +25,13 @@ function toProjectDTO(row: any, myRole?: string) {
     bounds: row.bounds,
     centerLat: row.centerLat,
     centerLng: row.centerLng,
-    terrainUrl: row.terrainUrl,
-    terrainMeta: row.terrainMeta ?? null,
-    iconUrl: row.iconUrl ?? null,
-    previewUrl: row.previewUrl ?? null,
+    // Все ссылки на файлы уходят наружу подписанными: без подписи раздача
+    // отдаст 403. Единственное место сборки ответа по проекту — здесь, поэтому
+    // и подпись одна на всех
+    terrainUrl: signUploadUrl(row.terrainUrl),
+    terrainMeta: signTerrainMeta(row.terrainMeta ?? null),
+    iconUrl: signUploadUrl(row.iconUrl),
+    previewUrl: signUploadUrl(row.previewUrl),
     status: row.status,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -199,7 +208,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
       orderBy: { createdAt: 'asc' },
     });
 
-    return reply.send({ data: members });
+    return reply.send({ data: members.map(toMemberDTO) });
   });
 
   // ── POST /api/projects/:id/members — invite member ──
@@ -244,7 +253,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
     });
 
     logActivity(fastify, { projectId: id, actorId: request.user.userId, action: 'member.invite', targetName: userToAdd.displayName });
-    return reply.code(201).send(member);
+    return reply.code(201).send(toMemberDTO(member));
   });
 
   // ── PATCH /api/projects/:id/members/:userId — change role ──
@@ -263,7 +272,7 @@ export default async function projectRoutes(fastify: FastifyInstance) {
       },
     });
 
-    return reply.send(updated);
+    return reply.send(toMemberDTO(updated));
   });
 
   // ── DELETE /api/projects/:id/members/:userId — remove member ──

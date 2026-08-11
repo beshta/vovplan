@@ -8,6 +8,7 @@ import prisma from '../../db/prisma.js';
 import { getUserRole, requirePermission } from '../../utils/permissions.js';
 import { emitModelChanged } from '../../realtime/index.js';
 import { logActivity } from '../../utils/activity.js';
+import { signUploadUrl } from '../../utils/signedUrl.js';
 
 const UPLOADS_ROOT = join(process.cwd(), 'uploads');
 
@@ -44,11 +45,11 @@ export default async function modelRoutes(fastify: FastifyInstance) {
     const data = models.map((m) => ({
       id: m.id,
       name: m.name,
-      glbUrl: m.glbUrl,
-      lod0Url: m.lod0Url ?? null,
-      lod1Url: m.lod1Url ?? null,
-      lod2Url: m.lod2Url ?? null,
-      thumbnailUrl: m.thumbnailUrl ?? null,
+      glbUrl: signUploadUrl(m.glbUrl),
+      lod0Url: signUploadUrl(m.lod0Url),
+      lod1Url: signUploadUrl(m.lod1Url),
+      lod2Url: signUploadUrl(m.lod2Url),
+      thumbnailUrl: signUploadUrl(m.thumbnailUrl),
       fileSize: m.fileSize,
       format: m.format,
       uploadedBy: m.uploadedBy.displayName,
@@ -154,11 +155,11 @@ export default async function modelRoutes(fastify: FastifyInstance) {
     const payload = {
       id: model.id,
       name: model.name,
-      glbUrl: model.glbUrl,
-      lod0Url: model.lod0Url ?? null,
-      lod1Url: model.lod1Url ?? null,
-      lod2Url: model.lod2Url ?? null,
-      thumbnailUrl: model.thumbnailUrl ?? null,
+      glbUrl: signUploadUrl(model.glbUrl),
+      lod0Url: signUploadUrl(model.lod0Url),
+      lod1Url: signUploadUrl(model.lod1Url),
+      lod2Url: signUploadUrl(model.lod2Url),
+      thumbnailUrl: signUploadUrl(model.thumbnailUrl),
       fileSize: model.fileSize,
       format: model.format,
       uploadedBy: model.uploadedBy.displayName,

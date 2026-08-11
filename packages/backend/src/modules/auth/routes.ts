@@ -14,6 +14,7 @@ import {
   rateLimitAccount,
   rateLimitAccountReset,
 } from '../../utils/rateLimit.js';
+import { signUploadUrl } from '../../utils/signedUrl.js';
 
 const updateProfileSchema = z.object({
   displayName: z.string().min(2, 'Имя должно быть не короче 2 символов').max(60).optional(),
@@ -25,6 +26,11 @@ const changePasswordSchema = z.object({
 });
 
 const AVATAR_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+/** Профиль наружу: аватар уходит подписанной ссылкой, как и любой файл */
+function toUserDTO<T extends { avatarUrl: string | null }>(user: T) {
+  return { ...user, avatarUrl: signUploadUrl(user.avatarUrl) };
+}
 
 export default async function authRoutes(fastify: FastifyInstance) {
 
@@ -82,7 +88,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     });
 
     const { tokenVersion: _ignored, ...safeUser } = user;
-    return reply.code(201).send({ user: safeUser, accessToken });
+    return reply.code(201).send({ user: toUserDTO(safeUser), accessToken });
   });
 
   // ── POST /api/auth/login ──────────────────
@@ -141,13 +147,13 @@ export default async function authRoutes(fastify: FastifyInstance) {
     rateLimitAccountReset('login', email);
 
     return reply.send({
-      user: {
+      user: toUserDTO({
         id: user.id,
         email: user.email,
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
         createdAt: user.createdAt,
-      },
+      }),
       accessToken,
     });
   });
@@ -163,7 +169,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       return reply.code(404).send({ error: 'NOT_FOUND', message: 'Пользователь не найден', statusCode: 404 });
     }
 
-    return reply.send(user);
+    return reply.send(toUserDTO(user));
   });
 
   // ── PATCH /api/auth/me — настройки профиля ──
@@ -183,7 +189,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       select: { id: true, email: true, displayName: true, avatarUrl: true, createdAt: true },
     });
 
-    return reply.send(user);
+    return reply.send(toUserDTO(user));
   });
 
   // ── POST /api/auth/password — смена пароля ──
@@ -277,6 +283,6 @@ export default async function authRoutes(fastify: FastifyInstance) {
       select: { id: true, email: true, displayName: true, avatarUrl: true, createdAt: true },
     });
 
-    return reply.send(user);
+    return reply.send(toUserDTO(user));
   });
 }

@@ -20,6 +20,7 @@ import activityRoutes from './modules/activity/routes.js';
 import { inviteRoutes, publicInviteRoutes } from './modules/invites/routes.js';
 import snapshotRoutes from './modules/snapshots/routes.js';
 import { setupRealtime } from './realtime/index.js';
+import { verifyUploadSignature } from './utils/signedUrl.js';
 
 /**
  * Build the Fastify app without listening.
@@ -41,12 +42,40 @@ export async function buildServer(opts: { logger?: boolean } = {}): Promise<Fast
     },
   });
 
-  // ── Static file serving (uploaded models) ──
+  /*
+   * ── Раздача загруженных файлов ──
+   *
+   * Раньше здесь не было никакой проверки: модели, текстуры рельефа и аватары
+   * любого проекта скачивал кто угодно, зная ссылку, — а ссылки утекают через
+   * публичные share-ссылки навсегда.
+   *
+   * Проверять токен нельзя: браузер не прикладывает `Authorization`, когда
+   * грузит картинку в `<img>` или модель загрузчиком three.js. Поэтому право
+   * доступа лежит в самой ссылке — подписью со сроком годности, которую
+   * выдают маршруты API вместе с данными.
+   *
+   * Плагин раздачи заворачивается в отдельную область видимости, чтобы хук
+   * висел только на нём и не трогал остальные маршруты.
+   */
   const uploadsDir = join(process.cwd(), 'uploads');
-  await fastify.register(fastifyStatic, {
-    root: uploadsDir,
-    prefix: '/uploads/',
-    decorateReply: false,
+  await fastify.register(async (scope) => {
+    scope.addHook('onRequest', async (request, reply) => {
+      const [path] = request.url.split('?');
+      const { exp, sig } = request.query as { exp?: string; sig?: string };
+      if (!verifyUploadSignature(decodeURIComponent(path), exp, sig)) {
+        return reply.code(403).send({
+          error: 'FORBIDDEN',
+          message: 'Ссылка недействительна или устарела',
+          statusCode: 403,
+        });
+      }
+    });
+
+    await scope.register(fastifyStatic, {
+      root: uploadsDir,
+      prefix: '/uploads/',
+      decorateReply: false,
+    });
   });
 
   // ── Health check ───────────────────────────

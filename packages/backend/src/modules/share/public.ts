@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import prisma from '../../db/prisma.js';
+import { signUploadUrl, signTerrainMeta } from '../../utils/signedUrl.js';
 
 /**
  * Публичный доступ по share-токену — БЕЗ аутентификации.
@@ -49,8 +50,8 @@ export default async function publicShareRoutes(fastify: FastifyInstance) {
       project: {
         name: project.name,
         description: project.description ?? '',
-        terrainUrl: project.terrainUrl ?? null,
-        terrainMeta: project.terrainMeta ?? null,
+        terrainUrl: signUploadUrl(project.terrainUrl),
+        terrainMeta: signTerrainMeta(project.terrainMeta),
       },
       objects: objects.map((o) => ({
         id: o.id,
@@ -64,9 +65,9 @@ export default async function publicShareRoutes(fastify: FastifyInstance) {
       })),
       models: models.map((m) => ({
         id: m.id,
-        glbUrl: m.glbUrl,
-        lod1Url: m.lod1Url ?? null,
-        lod2Url: m.lod2Url ?? null,
+        glbUrl: signUploadUrl(m.glbUrl),
+        lod1Url: signUploadUrl(m.lod1Url),
+        lod2Url: signUploadUrl(m.lod2Url),
       })),
       presets: presets.map((p) => ({
         id: p.id,
