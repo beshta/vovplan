@@ -36,6 +36,8 @@ export default function MembersPanel({ projectId, isMaster }: { projectId: strin
   const [error, setError] = useState('');
 
   const [linkRole, setLinkRole] = useState<string>('SPECTATOR');
+  const [linkUses, setLinkUses] = useState<'one' | 'many'>('one');
+  const [linkDays, setLinkDays] = useState<string>('14');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const { data: membersData, isLoading } = useQuery({
@@ -50,7 +52,12 @@ export default function MembersPanel({ projectId, isMaster }: { projectId: strin
   });
 
   const createInvite = useMutation({
-    mutationFn: () => invitesApi.create(projectId, { role: linkRole }),
+    mutationFn: () => invitesApi.create(projectId, {
+      role: linkRole,
+      expiresDays: Number(linkDays),
+      // «на многих» — просто без ограничения по числу входов
+      maxUses: linkUses === 'one' ? 1 : undefined,
+    }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['invites', projectId] }),
   });
   const removeInvite = useMutation({
@@ -133,6 +140,22 @@ export default function MembersPanel({ projectId, isMaster }: { projectId: strin
             <select value={linkRole} onChange={(e) => setLinkRole(e.target.value)} className="input-field text-sm w-auto">
               {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
             </select>
+            {/* Одноразовая — выбор по умолчанию: ссылка для конкретного
+                человека и закрывается сразу после него */}
+            <select
+              value={linkUses}
+              onChange={(e) => setLinkUses(e.target.value as 'one' | 'many')}
+              className="input-field text-sm w-auto"
+            >
+              <option value="one">на одного</option>
+              <option value="many">на многих</option>
+            </select>
+            <select value={linkDays} onChange={(e) => setLinkDays(e.target.value)} className="input-field text-sm w-auto">
+              <option value="1">на сутки</option>
+              <option value="7">на неделю</option>
+              <option value="14">на 2 недели</option>
+              <option value="90">на 3 месяца</option>
+            </select>
             <button onClick={() => createInvite.mutate()} disabled={createInvite.isPending} className="btn-secondary text-sm">
               Создать ссылку
             </button>
@@ -145,13 +168,26 @@ export default function MembersPanel({ projectId, isMaster }: { projectId: strin
             <ul className="mt-3 space-y-2">
               {invitesData!.data.map((inv) => {
                 const expired = inv.expiresAt && new Date(inv.expiresAt) < new Date();
+                const spent = inv.maxUses !== null && inv.usedCount >= inv.maxUses;
+                // Что со ссылкой сейчас — одной строкой. Без этого нельзя
+                // понять, действует она ещё или её пора отозвать
+                const state = expired
+                  ? 'истекла'
+                  : spent
+                    ? 'использована'
+                    : inv.maxUses !== null
+                      ? `осталось ${inv.maxUses - inv.usedCount}`
+                      : inv.expiresAt
+                        ? `до ${new Date(inv.expiresAt).toLocaleDateString('ru-RU')}`
+                        : 'бессрочная';
+                const dead = expired || spent;
                 return (
-                  <li key={inv.id} className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2">
+                  <li key={inv.id} className={`flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2 ${dead ? 'opacity-50' : ''}`}>
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: `${roleColor(inv.role)}33`, color: roleColor(inv.role) }}>
                       {ROLE_LABELS[inv.role as ProjectRole]}
                     </span>
                     <span className="text-xs text-slate-500 dark:text-slate-400 truncate flex-1 min-w-0">{inviteUrl(inv.token)}</span>
-                    {expired && <span className="text-[10px] text-red-300 shrink-0">истекла</span>}
+                    <span className={`text-[10px] shrink-0 ${dead ? 'text-red-300' : 'text-slate-500 dark:text-slate-400'}`}>{state}</span>
                     <button onClick={() => copyLink(inv)} className="shrink-0 text-muted hover:text-strong transition-colors flex items-center gap-1 text-xs" title="Копировать">
                       {copiedId === inv.id ? <><Check size={13} className="text-emerald-400" /> ок</> : <Copy size={14} />}
                     </button>

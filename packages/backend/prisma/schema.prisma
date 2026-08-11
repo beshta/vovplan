@@ -317,9 +317,13 @@ model ActivityEvent {
 model Invite {
   id          String      @id @default(cuid())
   projectId   String
-  token       String      @unique // url-safe, многоразовая ссылка
+  token       String      @unique // url-safe случайный токен
   role        ProjectRole // роль, с которой присоединяется перешедший
-  expiresAt   DateTime?   // null = бессрочная
+  expiresAt   DateTime?   // null = бессрочная (осталось у ссылок, созданных до ограничения)
+  /// Сколько раз по ссылке можно войти. null — без ограничения
+  maxUses     Int?
+  /// Сколько раз уже вошли. Считается атомарно при приёме
+  usedCount   Int         @default(0)
   createdById String
   createdAt   DateTime    @default(now())
 

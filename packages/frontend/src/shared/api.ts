@@ -464,13 +464,17 @@ export interface InvitePayload {
   token: string;
   role: string;
   expiresAt: string | null;
+  /** Сколько раз можно войти; null — без ограничения */
+  maxUses: number | null;
+  /** Сколько раз уже вошли */
+  usedCount: number;
   createdAt: string;
 }
 
 export const invitesApi = {
   list: (projectId: string) =>
     apiFetch<{ data: InvitePayload[] }>(`/api/projects/${projectId}/invites`),
-  create: (projectId: string, data: { role: string; expiresDays?: number }) =>
+  create: (projectId: string, data: { role: string; expiresDays?: number; maxUses?: number }) =>
     apiFetch<InvitePayload>(`/api/projects/${projectId}/invites`, { method: 'POST', body: JSON.stringify(data) }),
   remove: (projectId: string, id: string) =>
     apiFetch<void>(`/api/projects/${projectId}/invites/${id}`, { method: 'DELETE' }),

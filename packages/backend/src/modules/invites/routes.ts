@@ -19,9 +19,20 @@ import { logActivity } from '../../utils/activity.js';
  *   POST /api/invites/:token/accept  — принять (auth): текущий пользователь входит в проект
  */
 
+/**
+ * Срок по умолчанию, если его не задали.
+ *
+ * Раньше по умолчанию ссылка была бессрочной: одна утёкшая переписка — и
+ * посторонний заходит в проект хоть через год. Две недели покрывают обычный
+ * сценарий «отправил коллеге, он зашёл», а кому нужно дольше — задаёт явно.
+ */
+const DEFAULT_EXPIRES_DAYS = 14;
+
 const createSchema = z.object({
   role: z.enum(['DESIGNER', 'SUPER_SPECTATOR', 'SPECTATOR', 'EXTERNAL_SPECTATOR']),
   expiresDays: z.number().int().min(1).max(365).optional(),
+  /** Сколько человек может войти по ссылке. Не задано — без ограничения */
+  maxUses: z.number().int().min(1).max(1000).optional(),
 });
 
 function dto(inv: any) {
@@ -30,9 +41,15 @@ function dto(inv: any) {
     token: inv.token,
     role: inv.role,
     expiresAt: inv.expiresAt ? inv.expiresAt.toISOString() : null,
+    maxUses: inv.maxUses ?? null,
+    usedCount: inv.usedCount ?? 0,
     createdAt: inv.createdAt.toISOString(),
   };
 }
+
+/** Исчерпана ли ссылка по числу входов */
+const isExhausted = (inv: { maxUses: number | null; usedCount: number }) =>
+  inv.maxUses !== null && inv.usedCount >= inv.maxUses;
 
 /** Авторизованные роуты под /api/projects */
 export async function inviteRoutes(fastify: FastifyInstance) {
@@ -55,14 +72,16 @@ export async function inviteRoutes(fastify: FastifyInstance) {
       return reply.code(400).send({ error: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message, statusCode: 400 });
     }
 
+    const days = parsed.data.expiresDays ?? DEFAULT_EXPIRES_DAYS;
     const invite = await prisma.invite.create({
       data: {
         projectId,
         token: randomBytes(18).toString('base64url'),
         role: parsed.data.role as ProjectRole,
-        expiresAt: parsed.data.expiresDays
-          ? new Date(Date.now() + parsed.data.expiresDays * 86400_000)
-          : null,
+        // Срок теперь есть всегда: бессрочная ссылка по умолчанию — это
+        // открытая дверь, о которой через месяц никто не помнит
+        expiresAt: new Date(Date.now() + days * 86400_000),
+        maxUses: parsed.data.maxUses ?? null,
         createdById: request.user.userId,
       },
     });
@@ -97,6 +116,9 @@ export async function publicInviteRoutes(fastify: FastifyInstance) {
     if (invite.expiresAt && invite.expiresAt < new Date()) {
       return reply.code(410).send({ error: 'GONE', message: 'Срок действия приглашения истёк', statusCode: 410 });
     }
+    if (isExhausted(invite)) {
+      return reply.code(410).send({ error: 'GONE', message: 'По этой ссылке уже вошли', statusCode: 410 });
+    }
     return reply.send({ projectName: invite.project.name, role: invite.role });
   });
 
@@ -113,11 +135,31 @@ export async function publicInviteRoutes(fastify: FastifyInstance) {
       return reply.code(410).send({ error: 'GONE', message: 'Срок действия приглашения истёк', statusCode: 410 });
     }
 
-    // Уже участник? — просто отдаём projectId (идемпотентно)
+    // Уже участник? — просто отдаём projectId (идемпотентно).
+    // Проверка идёт до списания входа: повторный переход по своей же ссылке
+    // не должен съедать её у следующего.
     const existing = await prisma.projectMember.findUnique({
       where: { projectId_userId: { projectId: invite.projectId, userId } },
     });
     if (!existing) {
+      /*
+       * Вход списывается условным обновлением, а не «прочитал, сравнил,
+       * записал». Двое, перешедшие по одноразовой ссылке одновременно, оба
+       * прошли бы проверку и оба вошли: между чтением и записью успевает
+       * вклиниться чужая запись. Здесь же условие проверяет сама база, и
+       * второму обновить нечего.
+       */
+      const claimed = await prisma.invite.updateMany({
+        where: {
+          id: invite.id,
+          ...(invite.maxUses !== null ? { usedCount: { lt: invite.maxUses } } : {}),
+        },
+        data: { usedCount: { increment: 1 } },
+      });
+      if (claimed.count === 0) {
+        return reply.code(410).send({ error: 'GONE', message: 'По этой ссылке уже вошли', statusCode: 410 });
+      }
+
       await prisma.projectMember.create({
         data: { projectId: invite.projectId, userId, role: invite.role },
       });
