@@ -72,13 +72,15 @@ export const config = {
     expiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
   },
 
-  s3: {
-    endpoint: process.env.S3_ENDPOINT ?? 'http://localhost:9000',
-    accessKey: process.env.S3_ACCESS_KEY ?? 'vovplan',
-    secretKey: process.env.S3_SECRET_KEY ?? 'vovplan123',
-    bucket: process.env.S3_BUCKET ?? 'vovplan-assets',
-    region: process.env.S3_REGION ?? 'us-east-1',
-  },
+  /*
+   * Настроек S3 здесь больше нет.
+   *
+   * Ими никто не пользовался: файлы лежат на диске в uploads/ и раздаются
+   * подписанными ссылками. Зато в конфиге стояли рабочие ключ и пароль по
+   * умолчанию — мёртвая настройка, которая выглядит как живой секрет. При
+   * переезде в объектное хранилище вернуть её недолго, и уже без значений
+   * по умолчанию, как сделано с JWT_SECRET.
+   */
 
   cors: {
     origins: (process.env.CORS_ORIGINS ?? 'http://localhost:5173,http://127.0.0.1:5173').split(','),

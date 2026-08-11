@@ -29,7 +29,7 @@ export default async function publicShareRoutes(fastify: FastifyInstance) {
       }),
       prisma.sceneObject.findMany({
         where: { projectId: link.projectId, visible: true },
-        include: { author: { select: { displayName: true } } },
+        // Автор не выбирается намеренно: см. отказ от authorName ниже
         orderBy: { createdAt: 'asc' },
       }),
       prisma.model3D.findMany({
@@ -53,11 +53,19 @@ export default async function publicShareRoutes(fastify: FastifyInstance) {
         terrainUrl: signUploadUrl(project.terrainUrl),
         terrainMeta: signTerrainMeta(project.terrainMeta),
       },
+      /*
+       * Имя автора здесь больше не отдаётся.
+       *
+       * Модуль обещает не выдавать данные участников, но выдавал: у каждого
+       * объекта ехало имя того, кто его поставил. Ссылку отправляют заказчику
+       * или подрядчику, и состав команды — не то, что он должен узнать заодно
+       * со сценой. Внешнему наблюдателю имена всё равно негде показать: панели
+       * свойств в публичном просмотре нет.
+       */
       objects: objects.map((o) => ({
         id: o.id,
         modelId: o.modelId ?? '',
         name: o.name,
-        authorName: o.author.displayName,
         position: o.position as [number, number, number],
         rotation: o.rotation as [number, number, number],
         scale: o.scale as [number, number, number],

@@ -10,6 +10,7 @@ import prisma from '../../db/prisma.js';
 import { logActivity } from '../../utils/activity.js';
 import { getUserRole, requirePermission, requireMaster } from '../../utils/permissions.js';
 import { signUploadUrl, signTerrainMeta } from '../../utils/signedUrl.js';
+import { findUserByEmail } from '../../utils/email.js';
 
 /** Участник проекта: аватар уходит подписанной ссылкой, как и любой файл */
 function toMemberDTO(m: any) {
@@ -228,7 +229,9 @@ export default async function projectRoutes(fastify: FastifyInstance) {
 
     const { email, role } = parsed.data;
 
-    const userToAdd = await prisma.user.findUnique({ where: { email } });
+    // Приглашение по почте не должно спотыкаться о регистр: мастер набирает
+    // адрес руками, и «Ivan@…» обязан найти того же человека, что «ivan@…»
+    const userToAdd = await findUserByEmail(email);
     if (!userToAdd) {
       return reply.code(404).send({ error: 'NOT_FOUND', message: 'Пользователь не найден', statusCode: 404 });
     }

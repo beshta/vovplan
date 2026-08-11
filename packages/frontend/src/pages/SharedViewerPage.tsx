@@ -53,7 +53,7 @@ export default function SharedViewerPage() {
         modelId: o.modelId,
         name: o.name,
         authorId: '',
-        authorName: o.authorName,
+        authorName: '',
         position: o.position,
         rotation: o.rotation,
         scale: o.scale,

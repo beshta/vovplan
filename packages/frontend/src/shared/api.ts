@@ -539,7 +539,8 @@ export interface SharedViewPayload {
     id: string;
     modelId: string;
     name: string;
-    authorName: string;
+    // Имени автора здесь нет намеренно: публичная ссылка не выдаёт состав
+    // команды тому, кому её переслали
     position: [number, number, number];
     rotation: [number, number, number];
     scale: [number, number, number];

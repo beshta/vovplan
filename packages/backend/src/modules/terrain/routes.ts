@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import prisma from '../../db/prisma.js';
 import { requirePermission } from '../../utils/permissions.js';
+import { rateLimitAccount } from '../../utils/rateLimit.js';
 import { emitTerrainChanged } from '../../realtime/index.js';
 import { signUploadUrl, signTerrainMeta } from '../../utils/signedUrl.js';
 import { logActivity } from '../../utils/activity.js';
@@ -108,6 +109,18 @@ export default async function terrainRoutes(fastify: FastifyInstance) {
     const { projectId } = request.params as { projectId: string };
 
     await requirePermission(request, projectId, 'project:update');
+
+    /*
+     * Импорт — самая дорогая операция сервиса: десятки тайлов высот, снимков и
+     * запрос в Overpass на каждый вызов. Без ограничителя один участник в цикле
+     * забивает и диск, и канал, а заодно приводит нас к бану по адресу у OSM и
+     * Overpass — они этого не прощают, и тогда карта отвалится у всех.
+     *
+     * Считаем по учётной записи, а не по адресу: за обратным прокси адрес у
+     * всех один. Двенадцать импортов в час — это заметно больше, чем нужно
+     * живому человеку, и заметно меньше, чем нужно для вреда.
+     */
+    rateLimitAccount('terrain-import', request.user.userId, 12, 60 * 60_000);
 
     const parsed = importSchema.safeParse(request.body);
     if (!parsed.success) {

@@ -15,6 +15,7 @@ import {
   rateLimitAccountReset,
 } from '../../utils/rateLimit.js';
 import { signUploadUrl } from '../../utils/signedUrl.js';
+import { normalizeEmail, findUserByEmail } from '../../utils/email.js';
 
 const updateProfileSchema = z.object({
   displayName: z.string().min(2, 'Имя должно быть не короче 2 символов').max(60).optional(),
@@ -56,10 +57,12 @@ export default async function authRoutes(fastify: FastifyInstance) {
       });
     }
 
-    const { email, password, displayName } = parsed.data;
+    const { password, displayName } = parsed.data;
+    const email = normalizeEmail(parsed.data.email);
 
-    // Check if user already exists
-    const existing = await prisma.user.findUnique({ where: { email } });
+    // Ищем и по приведённой, и по введённой: иначе на «Vova@Mail.ru» завёлся
+    // бы второй аккаунт поверх уже существующего «vova@mail.ru»
+    const existing = await findUserByEmail(parsed.data.email);
     if (existing) {
       return reply.code(409).send({
         error: 'CONFLICT',
@@ -119,7 +122,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
     const { email, password } = parsed.data;
     rateLimitAccount('login', email, 8, 15 * 60_000);
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    // Регистр в адресе значения не имеет: «Vova@Mail.ru» и «vova@mail.ru» —
+    // один ящик. Поиск учитывает и старые записи, заведённые до нормализации
+    const user = await findUserByEmail(email);
     if (!user) {
       return reply.code(401).send({
         error: 'INVALID_CREDENTIALS',
