@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import ProjectSettings from './ProjectSettings';
+import { useViewerStore } from '../features/viewer3d/stores/viewerStore';
 import { ArrowLeft } from 'lucide-react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -116,7 +117,16 @@ export default function ProjectPage() {
         {tab === 'versions' && <SnapshotsPanel projectId={project.id} isMaster={isMaster} canEdit={project.myRole === 'MASTER' || project.myRole === 'DESIGNER'} />}
         {tab === 'share' && isMaster && <SharePanel projectId={project.id} />}
         {tab === 'settings' && isMaster && (
-          <ProjectSettings projectId={project.id} project={project} />
+          <ProjectSettings
+            projectId={project.id}
+            project={project}
+            // Выгрузка живёт в 3D-сцене: файл собирается из того, что сейчас
+            // в браузере, и без открытой сцены собирать нечего
+            onOpenExport={() => {
+              useViewerStore.getState().setExportOpen(true);
+              setTab('viewer');
+            }}
+          />
         )}
       </div>
     </div>

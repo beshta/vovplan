@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Download, Lock, Save } from 'lucide-react';
+import { Download, Save } from 'lucide-react';
 import { projectsApi } from '../shared/api';
 
 /**
@@ -20,9 +20,12 @@ const STATUSES: { value: string; label: string; hint: string }[] = [
 export default function ProjectSettings({
   projectId,
   project,
+  onOpenExport,
 }: {
   projectId: string;
   project: any;
+  /** Увести к 3D-сцене с раскрытой панелью выгрузки */
+  onOpenExport: () => void;
 }) {
   const queryClient = useQueryClient();
   const canEdit = project.myRole === 'MASTER';
@@ -122,28 +125,20 @@ export default function ProjectSettings({
         {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
       </section>
 
-      {/* Выгрузка сцены. Кнопка на месте, но работа за ней настоящая и
-          небесплатная: собрать рельеф, текстуры и все модели в один файл —
-          это минуты процессорного времени и сотни мегабайт трафика. Поэтому
-          она отмечена как платная, а не притворяется бесплатной. */}
+      {/* Выгрузка сцены.
+          Здесь только указатель: файл собирается из того, что сейчас загружено
+          в браузере, поэтому собирать его можно лишь при открытой 3D-сцене.
+          Раньше на этом месте стояла заглушка «Премиум» с заблокированной
+          кнопкой — теперь выгрузка есть и работает, и врать про замок нельзя. */}
       <section className="glass p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-strong">Выгрузка сцены</h3>
-          <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[11px] font-medium">
-            Премиум
-          </span>
-        </div>
+        <h3 className="text-sm font-semibold text-strong">Выгрузка сцены</h3>
         <p className="text-xs text-muted leading-relaxed">
-          Рельеф, текстуры, расставленные модели и сети — одним файлом glTF.
-          Открывается в Blender, 3ds&nbsp;Max, SketchUp и любом просмотрщике.
+          Расставленные модели, ограждения и сети — одним файлом glTF, рельеф по
+          выбору. Открывается в Blender, 3ds&nbsp;Max, SketchUp и любом просмотрщике.
         </p>
-        <button
-          disabled
-          title="Появится вместе с платными планами"
-          className="btn-secondary w-full text-sm opacity-60 cursor-not-allowed"
-        >
+        <button onClick={onOpenExport} className="btn-secondary w-full text-sm">
           <span className="flex items-center justify-center gap-1.5">
-            <Lock size={14} /> <Download size={15} /> Скачать сцену
+            <Download size={15} /> Открыть выгрузку в 3D-сцене
           </span>
         </button>
       </section>
