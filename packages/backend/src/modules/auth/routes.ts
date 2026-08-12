@@ -23,6 +23,7 @@ import {
   RESET_TTL_MS,
 } from '../../utils/emailToken.js';
 import { sendMail, verifyEmailLetter, resetPasswordLetter } from '../../utils/mail.js';
+import { IMAGE_LIMIT } from '../../utils/uploadLimits.js';
 
 const updateProfileSchema = z.object({
   displayName: z.string().min(2, 'Имя должно быть не короче 2 символов').max(60).optional(),
@@ -412,7 +413,14 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
   // ── POST /api/auth/avatar — загрузка аватара ──
   fastify.post('/avatar', { preHandler: [fastify.authenticate] }, async (request, reply) => {
-    const data = await request.file();
+    /*
+     * Свой предел, уже общего. Аватар читается в память целиком и оттуда
+     * отдаётся в sharp: с общим пределом в триста мегабайт любой участник
+     * занимал бы столько же оперативной памяти одним запросом, а несколькими
+     * подряд ронял бы бэкенд. Картинке 256×256 восьми мегабайт хватает с
+     * запасом на любой снимок с телефона.
+     */
+    const data = await request.file({ limits: { fileSize: IMAGE_LIMIT } });
     if (!data) {
       return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Файл не загружен', statusCode: 400 });
     }

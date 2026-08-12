@@ -10,6 +10,7 @@ import { rateLimitAccount } from '../../utils/rateLimit.js';
 import { emitTerrainChanged } from '../../realtime/index.js';
 import { signUploadUrl, signTerrainMeta } from '../../utils/signedUrl.js';
 import { logActivity } from '../../utils/activity.js';
+import { TERRAIN_LIMIT } from '../../utils/uploadLimits.js';
 import { importRealTerrain } from './importer.js';
 import { writeFileSync } from 'node:fs';
 
@@ -36,7 +37,8 @@ export default async function terrainRoutes(fastify: FastifyInstance) {
     // Permission check: only DESIGNER+ can upload terrain
     await requirePermission(request, projectId, 'project:update');
 
-    const data = await request.file();
+    // Карта высот пишется потоком, но трёхсот мегабайт ей не нужно и близко
+    const data = await request.file({ limits: { fileSize: TERRAIN_LIMIT } });
     if (!data) {
       return reply.code(400).send({ error: 'Файл не загружен' });
     }

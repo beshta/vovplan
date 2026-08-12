@@ -20,6 +20,7 @@ import activityRoutes from './modules/activity/routes.js';
 import { inviteRoutes, publicInviteRoutes } from './modules/invites/routes.js';
 import snapshotRoutes from './modules/snapshots/routes.js';
 import { setupRealtime } from './realtime/index.js';
+import { MAX_UPLOAD, mb } from './utils/uploadLimits.js';
 import { verifyUploadSignature } from './utils/signedUrl.js';
 
 /**
@@ -36,10 +37,12 @@ export async function buildServer(opts: { logger?: boolean } = {}): Promise<Fast
   await fastify.register(authPlugin);
 
   // ── File upload (multipart) ────────────────
+  /*
+   * Общий предел — по самой тяжёлой нужде (модели). Маршруты, читающие файл
+   * в память целиком, сужают его для себя: см. utils/uploadLimits.
+   */
   await fastify.register(multipart, {
-    limits: {
-      fileSize: 100 * 1024 * 1024, // 100 MB per file
-    },
+    limits: { fileSize: MAX_UPLOAD },
   });
 
   /*
@@ -107,6 +110,19 @@ export async function buildServer(opts: { logger?: boolean } = {}): Promise<Fast
 
     if (statusCode >= 500) {
       request.log.error({ err: error }, 'Internal server error');
+    }
+
+    /*
+     * Ошибки чужих плагинов приходят по-английски и техническим языком.
+     * Превышение размера файла человек видел как «request file too large» —
+     * без единого намёка, какой предел и насколько он превышен.
+     */
+    if (error.code === 'FST_REQ_FILE_TOO_LARGE') {
+      return reply.code(413).send({
+        error: 'FILE_TOO_LARGE',
+        message: `Файл слишком большой. Предел — ${mb(MAX_UPLOAD)} на один файл.`,
+        statusCode: 413,
+      });
     }
 
     reply.code(statusCode).send({

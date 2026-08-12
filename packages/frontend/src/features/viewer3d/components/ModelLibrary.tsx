@@ -4,6 +4,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { modelsApi, type Model3DPayload } from '../../../shared/api';
 import { convertToGlb, unsupportedReason, ACCEPT_EXTENSIONS } from '../../../shared/modelConvert';
 
+/** Держать в согласии с utils/uploadLimits.ts на бэкенде */
+const MODEL_LIMIT = 300 * 1024 * 1024;
+const humanMb = (bytes: number) => `${Math.round(bytes / 1024 / 1024)} МБ`;
+
 interface Props {
   projectId: string;
   onPlaceObject?: (model: Model3DPayload) => void;
@@ -70,6 +74,25 @@ export default function ModelLibrary({ projectId, onPlaceObject }: Props) {
     const name = uploadName || file.name.replace(/\.[^.]+$/, '');
     try {
       const glb = await convertToGlb(file, setStage);
+
+      /*
+       * Размер проверяем здесь, а не после отправки.
+       *
+       * Сервер откажет всё равно, но человек к тому моменту уже отправит
+       * сотни мегабайт — на медленном канале это минуты ожидания ради
+       * сообщения об отказе. Размер известен сразу после сборки, и сказать
+       * о нём надо сразу.
+       */
+      if (glb.size > MODEL_LIMIT) {
+        setUploadError(
+          `Модель весит ${humanMb(glb.size)} — это больше предела в ${humanMb(MODEL_LIMIT)}. ` +
+            'Упростите геометрию или разбейте на части.',
+        );
+        setStage('');
+        e.target.value = '';
+        return;
+      }
+
       // Стадию не сбрасываем: отправка идёт дальше, и `onSuccess` погасит
       // её сам. Раньше сброс стоял в `finally` и срабатывал сразу после
       // `mutate`, из-за чего долгая отправка выглядела как «Загрузка...»

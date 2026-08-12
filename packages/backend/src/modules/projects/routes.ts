@@ -10,6 +10,7 @@ import prisma from '../../db/prisma.js';
 import { logActivity } from '../../utils/activity.js';
 import { getUserRole, requirePermission, requireMaster } from '../../utils/permissions.js';
 import { signUploadUrl, signTerrainMeta } from '../../utils/signedUrl.js';
+import { IMAGE_LIMIT } from '../../utils/uploadLimits.js';
 import { findUserByEmail } from '../../utils/email.js';
 
 /** Участник проекта: аватар уходит подписанной ссылкой, как и любой файл */
@@ -149,7 +150,8 @@ export default async function projectRoutes(fastify: FastifyInstance) {
     const { id } = request.params as { id: string };
     await requirePermission(request, id, 'project:update');
 
-    const data = await request.file();
+    // Значок и превью тоже читаются в память целиком — предел свой, узкий
+    const data = await request.file({ limits: { fileSize: IMAGE_LIMIT } });
     if (!data) {
       return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Файл не загружен', statusCode: 400 });
     }

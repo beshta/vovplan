@@ -8,6 +8,7 @@ import prisma from '../../db/prisma.js';
 import { getUserRole, requirePermission } from '../../utils/permissions.js';
 import { emitModelChanged } from '../../realtime/index.js';
 import { logActivity } from '../../utils/activity.js';
+import { MODEL_LIMIT, mb } from '../../utils/uploadLimits.js';
 import { signUploadUrl } from '../../utils/signedUrl.js';
 
 const UPLOADS_ROOT = join(process.cwd(), 'uploads');
@@ -122,7 +123,7 @@ export default async function modelRoutes(fastify: FastifyInstance) {
     };
 
     if (truncated) {
-      return fail(413, 'Файл слишком большой — не больше 100 МБ');
+      return fail(413, `Файл слишком большой — не больше ${mb(MODEL_LIMIT)}`);
     }
     if (wrongType && !filePath) {
       return fail(400, 'Поддерживаются только .glb и .gltf');
