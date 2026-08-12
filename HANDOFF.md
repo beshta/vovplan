@@ -34,6 +34,22 @@ npm run dev          # backend :4000 (nodemon+tsx, SQLite) + frontend :5173 (vit
 
 **Фаза 9 (прод-деплой): ✅ РАЗВЁРНУТО — https://vovplan.com.** Стек в `docker-compose.prod.yml` (postgres+postgis / backend / web=caddy) на VPS 45.153.188.82 (Beget). Системный **nginx** держит 80/443 (TLS certbot) и проксирует на контейнер Caddy `127.0.0.1:8080` — на VPS есть другие сайты. Backend собирается через `packages/backend/build.mjs` (esbuild → CJS-бандл).
 
+**Настройки системного nginx, которых нет в репозитории.** Он не под контролем
+версий, поэтому его правки надо помнить отдельно — иначе при переезде на новый
+сервер они потеряются молча:
+
+- `client_max_body_size` — предел размера запроса. Должен быть **не меньше
+  предела загрузки модели** из `utils/uploadLimits.ts` плюс запас на служебные
+  части multipart. Сейчас в коде 300 МБ, значит в nginx нужно `320m`. Если
+  меньше — большая модель упрётся в nginx и не дойдёт до приложения вовсе, а
+  человек увидит его собственную страницу ошибки, не нашу.
+- `server_tokens off;` — чтобы не выдавать точную версию nginx (сейчас
+  представляется как `nginx/1.24.0 (Ubuntu)`).
+
+**Диск VPS ~14 ГБ** — при пределе модели в 300 МБ он забивается быстро.
+Загруженные модели лежат в docker-томе `uploads`, чистки по сроку нет.
+Смотреть: `df -h /` и `docker system df -v | grep uploads`.
+
 **Деплой автоматический:** `.github/workflows/deploy.yml` собирает образы на раннере, публикует в GHCR и по SSH обновляет VPS (`docker compose pull` + `up -d`), затем проверяет 200. Триггер — зелёный CI или кнопка Actions → Deploy. Сборку вынесли в облако из-за диска: на VPS оставалось до 4 ГБ кэша buildkit в `/var/lib/containerd`, куда обычный `docker system prune` не достаёт (нужен `docker buildx prune -af`). Детали — memory `vovplan-prod-deploy`.
 
 **Бэкапы:** cron под `beshta` ежедневно в 3:00 (`scripts/backup-db.sh` → `backups/`, хранит 14, лог `backup.log`). В дамп входит только база; тома `vovplan_uploads` — отдельно. **Фаза 9 закрыта полностью.**
