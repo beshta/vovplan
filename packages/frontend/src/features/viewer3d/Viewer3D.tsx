@@ -13,6 +13,7 @@ import NavigationHelp from './components/NavigationHelp';
 import UtilityLayersPanel from './components/UtilityLayersPanel';
 import UtilityDrawPanel from './components/UtilityDrawPanel';
 import FenceDrawPanel from './components/FenceDrawPanel';
+import ExportScenePanel from './components/ExportScenePanel';
 import TerrainPanel from './components/TerrainPanel';
 import AnnotationsList from './components/AnnotationsList';
 import UtilityEditPanel from './components/UtilityEditPanel';
@@ -52,6 +53,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
   const fpPoint = useViewerStore((s) => s.fpPoint);
   const utilityDrawMode = useViewerStore((s) => s.utilityDrawMode);
   const fenceDrawMode = useViewerStore((s) => s.fenceDrawMode);
+  const exportOpen = useViewerStore((s) => s.exportOpen);
   const showPerf = useViewerStore((s) => s.showPerf);
   // Подсказку показывает сам факт, что активный инструмент ждёт точку —
   // перечислять инструменты здесь значит забыть про следующий
@@ -330,6 +332,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
               <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 items-start pr-0.5">
                 {utilityDrawMode && canEdit && <UtilityDrawPanel projectId={projectId} />}
                 {fenceDrawMode && canEdit && <FenceDrawPanel projectId={projectId} />}
+                {exportOpen && <ExportScenePanel projectName={projectData?.name ?? 'сцена'} />}
                 <UtilityLayersPanel />
                 {canEdit && <TerrainPanel projectId={projectId} centerLat={projectData?.centerLat} centerLng={projectData?.centerLng} />}
                 {showPerf && <PerfPanel />}

@@ -227,6 +227,16 @@ interface ViewerState {
   cameraGetter: (() => { position: [number, number, number]; target: [number, number, number] }) | null;
   setCameraGetter: (fn: (() => { position: [number, number, number]; target: [number, number, number] }) | null) => void;
 
+  /**
+   * Доступ к самой сцене three — регистрируется изнутри Canvas.
+   * Нужен выгрузке в файл: снаружи до объектов сцены не дотянуться.
+   */
+  sceneGetter: (() => import('three').Object3D) | null;
+  setSceneGetter: (fn: ViewerState['sceneGetter']) => void;
+  /** Открыта ли панель выгрузки сцены в файл */
+  exportOpen: boolean;
+  setExportOpen: (v: boolean) => void;
+
   // ── Undo / Redo history ───────────────────
   history: TransformHistoryEntry[];
   historyIndex: number;
@@ -492,6 +502,7 @@ export const useViewerStore = create<ViewerState>((set) => ({
       annDrawMode: undefined,
       utilityDrawMode: false,
       fenceDrawMode: false,
+      exportOpen: false,
       measureMode: false,
       measurePoints: [],
       utilityDraft: { points: [], type: 'WATER', location: 'UNDERGROUND', depth: 1.5, diameter: 200 },
@@ -512,6 +523,10 @@ export const useViewerStore = create<ViewerState>((set) => ({
   clearFlyTarget: () => set({ cameraFlyTarget: null }),
   cameraGetter: null,
   setCameraGetter: (cameraGetter) => set({ cameraGetter }),
+  sceneGetter: null,
+  setSceneGetter: (sceneGetter) => set({ sceneGetter }),
+  exportOpen: false,
+  setExportOpen: (exportOpen) => set({ exportOpen }),
 
   // Undo / Redo history
   history: [],

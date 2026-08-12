@@ -12,6 +12,7 @@ import SceneGrid from './SceneGrid';
 import BuildingsLayer from './BuildingsLayer';
 import NatureLayer from './NatureLayer';
 import PerfProbe from './PerfProbe';
+import SceneAccess from './SceneAccess';
 import UtilityCreator from './UtilityCreator';
 import Fences3D from './Fences3D';
 import FenceCreator from './FenceCreator';
@@ -127,9 +128,16 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
           сцены по дальности. Дальняя плоскость отодвинута — ландшафт виден
           целиком с любой дистанции. */}
 
-      <MeasureTape />
+      {/* Служебное содержимое сцены. Помечено здесь, одной группой на всё:
+          рулетка, сетка-подложка, черновики, курсоры коллег и разметка — это
+          рабочие приспособления, и в выгруженном файле проекта им не место.
+          Пометку читает exportScene. */}
+      <group userData={{ noExport: true }}>
+        <MeasureTape />
+      </group>
       <Suspense fallback={null}>
         <PerfProbe />
+        <SceneAccess />
         <Lighting shadowMapSize={quality.shadowMapSize} sceneSize={sceneSize} />
         <CameraRig />
         {/* Группа-приёмник кликов по рельефу: R3F-события всплывают от
@@ -157,7 +165,9 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
         </group>
 
         {/* Coordinate grid + ruler */}
-        <SceneGrid size={sceneSize} />
+        <group userData={{ noExport: true }}>
+          <SceneGrid size={sceneSize} />
+        </group>
 
         {/* Здания OSM (только для импортированного реального ландшафта) */}
         {terrainMeta?.buildingsUrl && <BuildingsLayer meta={terrainMeta} />}
@@ -168,26 +178,31 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
         {/* Engineering utility networks */}
         <UtilityNetworks3D />
 
-        {/* Utility creator (when in utility-draw mode) — только 3D-превью/клики */}
-        {utilityDrawMode && <UtilityCreator />}
-
-        {/* Ограждения площадки + постановка нового */}
+        {/* Ограждения площадки */}
         <Fences3D />
-        {fenceDrawMode && <FenceCreator />}
 
-        {/* 3D Annotations (arrows, lines, pins) */}
-        {showAnnotations && annotations.map((ann) => (
-          <Annotation3D key={ann.id} data={ann} />
-        ))}
+        {/* Черновики и разметка — в выгрузку не идут */}
+        <group userData={{ noExport: true }}>
+          {/* Utility creator (when in utility-draw mode) — только 3D-превью/клики */}
+          {utilityDrawMode && <UtilityCreator />}
+          {fenceDrawMode && <FenceCreator />}
 
-        {/* Annotation drawing tool */}
-        {mode === 'annotate' && (
-          <AnnotationTool
-            projectId={projectId}
-            drawMode={annDrawMode}
-            onFinished={() => {}}
-          />
-        )}
+          {/* 3D Annotations (arrows, lines, pins). Содержание аннотации — её
+              подпись, а подпись это HTML: в GLB она не попадёт при всём
+              желании, и выгружать одни голые указатели бессмысленно. */}
+          {showAnnotations && annotations.map((ann) => (
+            <Annotation3D key={ann.id} data={ann} />
+          ))}
+
+          {/* Annotation drawing tool */}
+          {mode === 'annotate' && (
+            <AnnotationTool
+              projectId={projectId}
+              drawMode={annDrawMode}
+              onFinished={() => {}}
+            />
+          )}
+        </group>
 
         {/* First-person: спуск камеры к выбранной точке (клик ловит группа террейна) */}
         {cameraView === 'first-person' && <FirstPersonView targetPoint={fpPoint} />}
@@ -199,7 +214,11 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
 
         {/* Real-time collaboration: peer cursors + local cursor emit.
             В публичном shared-режиме сокета нет — слой отключён. */}
-        {!shared && <PeerLayer currentUserId={currentUserId} />}
+        {!shared && (
+          <group userData={{ noExport: true }}>
+            <PeerLayer currentUserId={currentUserId} />
+          </group>
+        )}
       </Suspense>
     </Canvas>
   );

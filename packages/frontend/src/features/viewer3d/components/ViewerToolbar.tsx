@@ -1,7 +1,7 @@
 import {
   Eye, Pencil, PenTool, Wrench, Move, RotateCw, Maximize2,
   MapPin, MoveUpRight, Minus, Brush, PersonStanding, Map as MapIcon, Ruler,
-  ScanEye, MessageSquareText, EyeOff, Activity, Fence } from 'lucide-react';
+  ScanEye, MessageSquareText, EyeOff, Activity, Fence, Download } from 'lucide-react';
 import { useViewerStore } from '../stores/viewerStore';
 import Tooltip from '../../../shared/Tooltip';
 
@@ -33,6 +33,8 @@ export default function ViewerToolbar() {
   const setUtilityDrawMode = useViewerStore((s) => s.setUtilityDrawMode);
   const fenceDrawMode = useViewerStore((s) => s.fenceDrawMode);
   const setFenceDrawMode = useViewerStore((s) => s.setFenceDrawMode);
+  const exportOpen = useViewerStore((s) => s.exportOpen);
+  const setExportOpen = useViewerStore((s) => s.setExportOpen);
   const selectObject = useViewerStore((s) => s.selectObject);
 
   const canAnnotate = role === 'MASTER' || role === 'DESIGNER' || role === 'SUPER_SPECTATOR';
@@ -159,6 +161,12 @@ export default function ViewerToolbar() {
           onClick={() => setXrayMode(!xrayMode)}
           title="X-Ray (просвет подземных сетей)"
         ><ScanEye size={20} /></ToolButton>
+
+        <ToolButton
+          active={exportOpen}
+          onClick={() => setExportOpen(!exportOpen)}
+          title="Скачать сцену файлом"
+        ><Download size={20} /></ToolButton>
 
         <ToolButton
           active={showPerf}
