@@ -73,6 +73,14 @@ export default function LoginPage() {
         <button type="submit" disabled={isLoading} className="btn-primary w-full py-2.5">
           {isLoading ? 'Вход...' : 'Войти'}
         </button>
+
+        {/* Под кнопкой, а не рядом с полем пароля: ищут её именно после
+            неудачной попытки войти */}
+        <p className="text-center text-sm">
+          <Link to="/forgot" className="text-muted hover:text-vovplan-600 hover:underline">
+            Забыли пароль?
+          </Link>
+        </p>
       </form>
     </AuthLayout>
   );

@@ -7,6 +7,7 @@ import { useAuthStore } from '../shared/authStore';
 import { ROLE_LABELS, type Project } from '@vovplan/shared';
 import ProjectCardMenu from '../components/ProjectCardMenu';
 import { track } from '../shared/analytics';
+import VerifyEmailBanner from '../components/VerifyEmailBanner';
 
 export default function DashboardPage() {
   const { user, logout } = useAuthStore();
@@ -31,6 +32,10 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen surface-page">
+      {/* Напоминание о неподтверждённом адресе — над шапкой, чтобы его
+          нельзя было не заметить, но без блокировки работы */}
+      <VerifyEmailBanner />
+
       {/* ── Шапка ── */}
       <header className="sticky top-0 z-20 border-b surface-bar">
         <div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between">

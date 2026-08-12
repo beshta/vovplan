@@ -85,6 +85,26 @@ export const config = {
   cors: {
     origins: (process.env.CORS_ORIGINS ?? 'http://localhost:5173,http://127.0.0.1:5173').split(','),
   },
+
+  /**
+   * Адрес, по которому сервис виден снаружи. Из него собираются ссылки в
+   * письмах: подставлять туда адрес бэкенда нельзя, человек должен попасть
+   * на страницу, а не на голый ответ API.
+   */
+  publicUrl: (process.env.PUBLIC_URL ?? 'http://localhost:5173').replace(/\/+$/, ''),
+
+  /**
+   * Почта. Через SMTP, а не через API конкретного сервиса: SMTP есть у всех,
+   * и смена провайдера — это правка переменных, а не кода.
+   * Без host письма не отправляются, а печатаются в лог.
+   */
+  smtp: {
+    host: process.env.SMTP_HOST ?? '',
+    port: parseInt(process.env.SMTP_PORT ?? '587', 10),
+    user: process.env.SMTP_USER ?? '',
+    pass: process.env.SMTP_PASS ?? '',
+    from: process.env.SMTP_FROM ?? 'VOVPLAN <noreply@vovplan.com>',
+  },
 } as const;
 
 export type Config = typeof config;

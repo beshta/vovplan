@@ -78,6 +78,31 @@ export const authApi = {
     form.append('file', file);
     return apiFetch<User>('/api/auth/avatar', { method: 'POST', body: form });
   },
+
+  // ── Подтверждение адреса и восстановление пароля ──
+
+  /** Подтвердить адрес по токену из письма. Вход при этом не нужен */
+  verifyEmail: (token: string) =>
+    apiFetch<{ ok: true }>('/api/auth/verify', { method: 'POST', body: JSON.stringify({ token }) }),
+
+  /** Прислать письмо подтверждения заново */
+  resendVerification: () =>
+    apiFetch<{ ok: true; already?: boolean }>('/api/auth/verify/resend', { method: 'POST' }),
+
+  /**
+   * Запросить письмо для смены пароля.
+   * Ответ одинаковый и для существующего адреса, и для несуществующего:
+   * иначе форма превращается в проверялку, кто зарегистрирован в сервисе.
+   */
+  forgotPassword: (email: string) =>
+    apiFetch<{ ok: true }>('/api/auth/password/forgot', { method: 'POST', body: JSON.stringify({ email }) }),
+
+  /** Задать новый пароль по токену из письма */
+  resetPassword: (token: string, newPassword: string) =>
+    apiFetch<{ ok: true }>('/api/auth/password/reset', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPassword }),
+    }),
 };
 
 // ── Analytics API ─────────────────────────────

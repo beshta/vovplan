@@ -66,6 +66,9 @@ model User {
   /// Поколение выданных токенов. Увеличение обесценивает все выпущенные
   /// раньше: JWT сам по себе отозвать нельзя, он действителен до срока.
   tokenVersion Int              @default(0)
+  /// Когда подтверждён адрес почты. null — не подтверждён.
+  /// Дата, а не флаг: полезно знать, когда именно, и это ничего не стоит.
+  emailVerified DateTime?
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
@@ -74,8 +77,36 @@ model User {
   comments     Comment[]
   objects      SceneObject[]
   activity     ActivityEvent[]
+  emailTokens  EmailToken[]
 
   @@map("users")
+}
+
+// ═══════════════════════════════════════════════
+// Одноразовые токены из писем
+// ═══════════════════════════════════════════════
+
+enum EmailTokenPurpose {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+}
+
+model EmailToken {
+  id        String            @id @default(cuid())
+  userId    String
+  /// SHA-256 от токена, а не сам токен: у того, кто прочитает базу, не должно
+  /// оказаться в руках готового ключа к смене чужого пароля
+  tokenHash String            @unique
+  purpose   EmailTokenPurpose
+  expiresAt DateTime
+  /// Когда использован. Второй раз тот же токен не сработает
+  usedAt    DateTime?
+  createdAt DateTime          @default(now())
+
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("email_tokens")
 }
 // ═══════════════════════════════════════════════
 // Project

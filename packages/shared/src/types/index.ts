@@ -24,6 +24,8 @@ export interface User {
   displayName: string;
   avatarUrl: string | null;
   createdAt: string;
+  /** Когда подтверждён адрес почты; null — ещё не подтверждён */
+  emailVerified: string | null;
 }
 
 export interface AuthResponse {

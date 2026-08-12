@@ -16,6 +16,13 @@ import {
 } from '../../utils/rateLimit.js';
 import { signUploadUrl } from '../../utils/signedUrl.js';
 import { normalizeEmail, findUserByEmail } from '../../utils/email.js';
+import {
+  issueEmailToken,
+  claimEmailToken,
+  VERIFY_TTL_MS,
+  RESET_TTL_MS,
+} from '../../utils/emailToken.js';
+import { sendMail, verifyEmailLetter, resetPasswordLetter } from '../../utils/mail.js';
 
 const updateProfileSchema = z.object({
   displayName: z.string().min(2, 'Имя должно быть не короче 2 символов').max(60).optional(),
@@ -24,6 +31,15 @@ const updateProfileSchema = z.object({
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Введите текущий пароль'),
   newPassword: z.string().min(8, 'Новый пароль должен быть не короче 8 символов'),
+});
+
+const forgotSchema = z.object({
+  email: z.string().email('Некорректный email'),
+});
+
+const resetSchema = z.object({
+  token: z.string().min(1),
+  newPassword: z.string().min(8, 'Пароль должен быть не короче 8 символов'),
 });
 
 const AVATAR_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
@@ -79,9 +95,20 @@ export default async function authRoutes(fastify: FastifyInstance) {
       data: { email, passwordHash, displayName },
       select: {
         id: true, email: true, displayName: true, avatarUrl: true, createdAt: true,
-        tokenVersion: true,
+        tokenVersion: true, emailVerified: true,
       },
     });
+
+    /*
+     * Письмо шлём, но вход не задерживаем.
+     *
+     * Требовать подтверждения до первого входа — значит терять людей на
+     * ровном месте: письмо задержалось, ушло в спам, человек закрыл вкладку.
+     * Адрес подтверждается по ходу, а от неподтверждённых закрываются
+     * отдельные вещи — приглашения на их адрес и лимиты бесплатного тарифа.
+     */
+    const verifyToken = await issueEmailToken(user.id, 'VERIFY_EMAIL', VERIFY_TTL_MS);
+    await sendMail(request.log, verifyEmailLetter(user.email, verifyToken));
 
     // Поколение токена вшивается в него: хук сверит его с базой на каждом запросе
     const accessToken = fastify.jwt.sign({
@@ -92,6 +119,131 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
     const { tokenVersion: _ignored, ...safeUser } = user;
     return reply.code(201).send({ user: toUserDTO(safeUser), accessToken });
+  });
+
+  // ── POST /api/auth/verify — подтвердить адрес по ссылке из письма ──
+  fastify.post('/verify', async (request, reply) => {
+    // Токен — 256 бит, перебором не берётся, но ограничитель убирает
+    // возможность заваливать базу запросами
+    rateLimit(request, 'verify', 60, 15 * 60_000);
+
+    const token = (request.body as { token?: string })?.token ?? '';
+    const userId = await claimEmailToken(token, 'VERIFY_EMAIL');
+    if (!userId) {
+      return reply.code(400).send({
+        error: 'INVALID_TOKEN',
+        message: 'Ссылка недействительна или устарела. Запросите письмо заново.',
+        statusCode: 400,
+      });
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { emailVerified: new Date() },
+    });
+
+    return reply.send({ ok: true });
+  });
+
+  // ── POST /api/auth/verify/resend — отправить письмо заново ──
+  fastify.post('/verify/resend', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    const me = await prisma.user.findUnique({
+      where: { id: request.user.userId },
+      select: { id: true, email: true, emailVerified: true },
+    });
+    if (!me) {
+      return reply.code(404).send({ error: 'NOT_FOUND', message: 'Пользователь не найден', statusCode: 404 });
+    }
+    if (me.emailVerified) return reply.send({ ok: true, already: true });
+
+    // По учётной записи, а не по адресу источника: иначе один человек
+    // рассылает себе письма пачками, и почтовый провайдер считает нас спамом
+    rateLimitAccount('verify-resend', me.id, 5, 60 * 60_000);
+
+    const token = await issueEmailToken(me.id, 'VERIFY_EMAIL', VERIFY_TTL_MS);
+    await sendMail(request.log, verifyEmailLetter(me.email, token));
+    return reply.send({ ok: true });
+  });
+
+  // ── POST /api/auth/password/forgot — письмо со ссылкой на смену ──
+  fastify.post('/password/forgot', async (request, reply) => {
+    rateLimit(request, 'forgot', 60, 15 * 60_000);
+
+    const parsed = forgotSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({
+        error: 'VALIDATION_ERROR',
+        message: parsed.error.issues[0]?.message ?? 'Некорректные данные',
+        statusCode: 400,
+      });
+    }
+
+    const user = await findUserByEmail(parsed.data.email);
+
+    /*
+     * Ответ одинаковый, есть такой адрес или нет.
+     *
+     * Иначе форма восстановления превращается в проверялку: перебирая адреса,
+     * посторонний узнаёт, кто зарегистрирован в сервисе. Для человека разницы
+     * нет — он в любом случае идёт смотреть почту.
+     */
+    if (user) {
+      // Ограничение по учётной записи здесь важнее прочего: без него чужой
+      // ящик заваливают письмами «смените пароль» бесконечно
+      try {
+        rateLimitAccount('forgot', user.id, 3, 60 * 60_000);
+        const token = await issueEmailToken(user.id, 'RESET_PASSWORD', RESET_TTL_MS);
+        await sendMail(request.log, resetPasswordLetter(user.email, token));
+      } catch {
+        // Лимит исчерпан — молчим ровно так же, как при несуществующем адресе
+      }
+    }
+
+    return reply.send({ ok: true });
+  });
+
+  // ── POST /api/auth/password/reset — задать новый пароль по токену ──
+  fastify.post('/password/reset', async (request, reply) => {
+    rateLimit(request, 'reset', 60, 15 * 60_000);
+
+    const parsed = resetSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({
+        error: 'VALIDATION_ERROR',
+        message: parsed.error.issues[0]?.message ?? 'Некорректные данные',
+        statusCode: 400,
+      });
+    }
+
+    const userId = await claimEmailToken(parsed.data.token, 'RESET_PASSWORD');
+    if (!userId) {
+      return reply.code(400).send({
+        error: 'INVALID_TOKEN',
+        message: 'Ссылка недействительна или устарела. Запросите новую.',
+        statusCode: 400,
+      });
+    }
+
+    /*
+     * Вместе с паролем обесцениваем все выданные токены доступа.
+     *
+     * Пароль меняют обычно потому, что к учётной записи кто-то получил доступ.
+     * Оставить его сессию живой значит не решить ровно ту задачу, ради которой
+     * пароль и меняли.
+     *
+     * Заодно считаем адрес подтверждённым: человек только что доказал, что
+     * читает этот ящик, — ровно то же, что доказывает письмо подтверждения.
+     */
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash: await bcrypt.hash(parsed.data.newPassword, 12),
+        tokenVersion: { increment: 1 },
+        emailVerified: new Date(),
+      },
+    });
+
+    return reply.send({ ok: true });
   });
 
   // ── POST /api/auth/login ──────────────────
@@ -158,6 +310,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
         createdAt: user.createdAt,
+        emailVerified: user.emailVerified,
       }),
       accessToken,
     });
@@ -167,7 +320,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
   fastify.get('/me', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     const user = await prisma.user.findUnique({
       where: { id: request.user.userId },
-      select: { id: true, email: true, displayName: true, avatarUrl: true, createdAt: true },
+      select: { id: true, email: true, displayName: true, avatarUrl: true, createdAt: true, emailVerified: true },
     });
 
     if (!user) {
@@ -191,7 +344,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     const user = await prisma.user.update({
       where: { id: request.user.userId },
       data: parsed.data,
-      select: { id: true, email: true, displayName: true, avatarUrl: true, createdAt: true },
+      select: { id: true, email: true, displayName: true, avatarUrl: true, createdAt: true, emailVerified: true },
     });
 
     return reply.send(toUserDTO(user));
@@ -285,7 +438,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     const user = await prisma.user.update({
       where: { id: request.user.userId },
       data: { avatarUrl },
-      select: { id: true, email: true, displayName: true, avatarUrl: true, createdAt: true },
+      select: { id: true, email: true, displayName: true, avatarUrl: true, createdAt: true, emailVerified: true },
     });
 
     return reply.send(toUserDTO(user));
