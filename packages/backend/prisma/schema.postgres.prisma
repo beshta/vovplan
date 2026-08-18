@@ -69,6 +69,22 @@ model User {
   /// Когда подтверждён адрес почты. null — не подтверждён.
   /// Дата, а не флаг: полезно знать, когда именно, и это ничего не стоит.
   emailVerified DateTime?
+
+  /// Хозяин сервиса: доступ к админке. В базе, а не в переменной окружения —
+  /// список почт в env нельзя ни изменить без выкатки, ни сверить с журналом.
+  isAdmin      Boolean          @default(false)
+  /// Когда заблокирован. null — активен. Вход и все запросы отклоняются.
+  bannedAt     DateTime?
+  /// Причина блокировки — видна в админке, в журнале и самому человеку
+  banReason    String?
+  /// Секрет для кодов из приложения-аутентификатора (base32).
+  /// null — второй фактор не подключён.
+  totpSecret   String?
+  /// Когда второй фактор подтверждён первым верным кодом. До этого секрет
+  /// выдан, но не работает: иначе опечатка при переносе в приложение
+  /// заперла бы хозяина снаружи собственной админки.
+  totpEnabled  DateTime?
+
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
@@ -78,8 +94,62 @@ model User {
   objects      SceneObject[]
   activity     ActivityEvent[]
   emailTokens  EmailToken[]
+  backupCodes  TotpBackupCode[]
+  adminActions AdminAction[]
 
   @@map("users")
+}
+
+// ═══════════════════════════════════════════════
+// Админка хозяина сервиса
+// ═══════════════════════════════════════════════
+
+/**
+ * Запасной вход при потере телефона.
+ *
+ * Без них подключённый второй фактор означает: сломался или потерялся
+ * телефон — и хозяин заперт снаружи собственного сервиса навсегда, потому
+ * что снять второй фактор может только он сам. Коды выдаются один раз при
+ * подключении и хранятся хешами, как пароли.
+ */
+model TotpBackupCode {
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String    @unique
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("totp_backup_codes")
+}
+
+/**
+ * Журнал действий администратора. Только на добавление.
+ *
+ * Записи не меняются и не удаляются никогда — в этом весь смысл: журнал,
+ * который можно подчистить, не отвечает на вопрос «кто это сделал».
+ * Маршрутов правки и удаления у него нет и не должно появиться.
+ */
+model AdminAction {
+  id           String   @id @default(cuid())
+  actorId      String
+  /// admin.ban, admin.unban, admin.grant-admin, admin.revoke-admin…
+  action       String
+  targetUserId String?
+  /// Имя и почта на момент действия: пользователя могут удалить,
+  /// а запись в журнале обязана остаться читаемой
+  targetLabel  String?
+  /// Подробности — что именно изменилось
+  details      Json?
+  ip           String?
+  createdAt    DateTime @default(now())
+
+  actor        User     @relation(fields: [actorId], references: [id])
+
+  @@index([createdAt])
+  @@map("admin_actions")
 }
 
 // ═══════════════════════════════════════════════
