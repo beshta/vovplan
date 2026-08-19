@@ -10,6 +10,9 @@ import { bootstrapAdmin } from './utils/bootstrapAdmin.js';
  * администраторов ещё нет, и повторный вызов с другой почтой уже ничего не
  * делает. Иначе переменная окружения стала бы способом захватывать аккаунты
  * при каждом деплое.
+ *
+ * Чужих администраторов из соседних файлов тестов не трогаем: снять всем
+ * `isAdmin` — значит уронить параллельный набор в CI.
  */
 
 const marker = `boottest-${Date.now()}`;
@@ -39,15 +42,28 @@ describe('bootstrap первого хозяина', () => {
     await expect(bootstrapAdmin(undefined, '')).resolves.toBeUndefined();
   });
 
-  it('выдаёт права только если хозяев ещё нет', async () => {
+  it('не выдаёт права, если хозяин уже есть', async () => {
+    const holder = await makeUser('holder');
+    await prisma.user.update({ where: { id: holder.id }, data: { isAdmin: true } });
+    const target = await makeUser('target');
+
+    await bootstrapAdmin(undefined, target.email);
+
+    const skipped = await prisma.user.findUnique({ where: { id: target.id } });
+    expect(skipped?.isAdmin).toBe(false);
+  });
+
+  it('выдаёт права, когда хозяев нет', async () => {
     const existing = await prisma.user.findMany({
       where: { isAdmin: true },
       select: { id: true },
     });
-    await prisma.user.updateMany({ where: { isAdmin: true }, data: { isAdmin: false } });
+    await prisma.user.updateMany({
+      where: { isAdmin: true },
+      data: { isAdmin: false },
+    });
 
     const candidate = await makeUser('first');
-    const other = await makeUser('other');
     const warn = vi.fn();
     const info = vi.fn();
 
@@ -66,9 +82,9 @@ describe('bootstrap первого хозяина', () => {
       });
       expect(logged?.details).toMatchObject({ via: 'BOOTSTRAP_ADMIN_EMAIL' });
 
+      const other = await makeUser('other');
       await bootstrapAdmin({ info, warn }, other.email);
-      const skipped = await prisma.user.findUnique({ where: { id: other.id } });
-      expect(skipped?.isAdmin).toBe(false);
+      expect((await prisma.user.findUnique({ where: { id: other.id } }))?.isAdmin).toBe(false);
     } finally {
       await prisma.user.update({ where: { id: candidate.id }, data: { isAdmin: false } });
       if (existing.length > 0) {
