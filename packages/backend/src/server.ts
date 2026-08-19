@@ -1,5 +1,6 @@
 import { config } from './config/index.js';
 import { buildServer } from './app.js';
+import { bootstrapAdmin } from './utils/bootstrapAdmin.js';
 
 async function start() {
   try {
@@ -8,6 +9,8 @@ async function start() {
     await server.listen({ port: config.port, host: config.host });
     server.log.info(`🚀 VOVPLAN backend running at http://${config.host}:${config.port}`);
     server.log.info(`   Environment: ${config.nodeEnv}`);
+
+    await bootstrapAdmin(server.log);
 
     /*
      * Ненастроенная почта в продакшне — не повод не запускаться: уже

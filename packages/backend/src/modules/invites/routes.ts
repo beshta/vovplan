@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { ProjectRole } from '@prisma/client';
 import prisma from '../../db/prisma.js';
 import { requireMaster } from '../../utils/permissions.js';
+import { assertRoleAllowed } from '../../utils/accountLevel.js';
 import { logActivity } from '../../utils/activity.js';
 
 /**
@@ -142,6 +143,10 @@ export async function publicInviteRoutes(fastify: FastifyInstance) {
       where: { projectId_userId: { projectId: invite.projectId, userId } },
     });
     if (!existing) {
+      // Потолок уровня — до списания входа: отказ после списания сжёг бы
+      // одноразовую ссылку впустую, и следующему она бы уже не досталась
+      await assertRoleAllowed(userId, invite.role);
+
       /*
        * Вход списывается условным обновлением, а не «прочитал, сравнил,
        * записал». Двое, перешедшие по одноразовой ссылке одновременно, оба

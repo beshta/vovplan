@@ -1,4 +1,4 @@
-import type { User, AuthResponse, Project, ProjectMember } from '@vovplan/shared';
+import type { User, AuthResponse, Project, ProjectMember, AccountLevel } from '@vovplan/shared';
 
 const API_URL = import.meta.env.VITE_API_URL ?? '';
 const TOKEN_KEY = 'vovplan_token';
@@ -14,6 +14,70 @@ export function setToken(token: string): void {
 
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+}
+
+// ── Пропуск в админку ─────────────────────────
+/**
+ * Хранится в sessionStorage, а не в localStorage, и это не мелочь.
+ *
+ * Пропуск живёт полчаса и означает право заблокировать кого угодно. В
+ * localStorage он пережил бы и закрытие вкладки, и перезагрузку машины,
+ * оставаясь лежать в браузере до истечения срока. sessionStorage умирает
+ * вместе с вкладкой — ровно то поведение, которого ждёшь от «я зашёл в
+ * админку на минуту».
+ */
+const ADMIN_PASS_KEY = 'vovplan_admin_pass';
+
+interface AdminPass {
+  token: string;
+  /** Когда истекает, по часам браузера */
+  until: number;
+}
+
+function readPass(): AdminPass | null {
+  const raw = sessionStorage.getItem(ADMIN_PASS_KEY);
+  if (!raw) return null;
+  try {
+    const pass = JSON.parse(raw) as AdminPass;
+    // Просроченный убираем сразу: отправлять его на сервер — это гарантированный
+    // отказ в ответ на действие, которое человек уже начал делать
+    if (pass.until <= Date.now()) {
+      sessionStorage.removeItem(ADMIN_PASS_KEY);
+      return null;
+    }
+    return pass;
+  } catch {
+    sessionStorage.removeItem(ADMIN_PASS_KEY);
+    return null;
+  }
+}
+
+export const getAdminPass = (): string | null => readPass()?.token ?? null;
+export const adminPassUntil = (): number | null => readPass()?.until ?? null;
+
+export const setAdminPass = (token: string, ttlMs: number): void =>
+  sessionStorage.setItem(ADMIN_PASS_KEY, JSON.stringify({ token, until: Date.now() + ttlMs }));
+
+export const clearAdminPass = (): void => sessionStorage.removeItem(ADMIN_PASS_KEY);
+
+// ── Ошибка ответа ─────────────────────────────
+/**
+ * Ошибка с кодом от сервера.
+ *
+ * Раньше наверх уходил голый `Error` с одним текстом, и различать случаи
+ * приходилось поиском подстроки в сообщении — это ломается от любой правки
+ * формулировки. Админке различать необходимо: `STEP_UP_REQUIRED` значит
+ * «спроси код заново и повтори», а не «покажи красную плашку».
+ */
+export class ApiError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
 }
 
 // ── Fetch wrapper ─────────────────────────────
@@ -34,11 +98,18 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  // Пропуск подкладывается сам и только для админских адресов: заставлять
+  // каждый вызов админки помнить про заголовок — верный способ однажды забыть.
+  if (path.startsWith('/api/admin')) {
+    const pass = getAdminPass();
+    if (pass) headers['X-Admin-Token'] = pass;
+  }
+
   const res = await fetch(`${API_URL}${path}`, { ...options, headers });
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: 'Ошибка сети' }));
-    throw new Error(body.message ?? `Ошибка ${res.status}`);
+    throw new ApiError(body.error ?? 'ERROR', body.message ?? `Ошибка ${res.status}`, res.status);
   }
 
   if (res.status === 204) return undefined as T;
@@ -126,6 +197,9 @@ export const projectsApi = {
   list: () => apiFetch<{ data: Project[] }>('/api/projects'),
 
   get: (id: string) => apiFetch<Project>(`/api/projects/${id}`),
+
+  /** Сколько своих проектов занято и сколько всего можно. `limit: null` — без счёта */
+  quota: () => apiFetch<{ used: number; limit: number | null }>('/api/projects/quota'),
 
   create: (data: {
     name: string;
@@ -559,7 +633,12 @@ export const sharesApi = {
 
 // ── Public shared view (без авторизации) ──────
 export interface SharedViewPayload {
-  project: { name: string; description: string; terrainUrl: string | null };
+  project: {
+    name: string;
+    description: string;
+    terrainUrl: string | null;
+    terrainMeta: TerrainMeta | null;
+  };
   objects: {
     id: string;
     modelId: string;
@@ -572,12 +651,27 @@ export interface SharedViewPayload {
     description: string;
   }[];
   models: { id: string; glbUrl: string; lod1Url: string | null; lod2Url: string | null }[];
+  fences: FencePayload[];
   presets: { id: string; name: string; position: [number, number, number]; target: [number, number, number] }[];
   startPresetId: string | null;
 }
 
 export const sharedApi = {
   get: (token: string) => apiFetch<SharedViewPayload>(`/api/shared/${token}`),
+};
+
+/**
+ * Открытые проекты: короткий адрес и витрина на главной.
+ *
+ * Отдают то же самое, что share-ссылка, — на сервере это буквально один
+ * сборщик, — поэтому и тип общий. Разница только в том, чем открывается
+ * дверь: там секретный токен, здесь решение хозяина сервиса.
+ */
+export const publicApi = {
+  project: (id: string) => apiFetch<SharedViewPayload>(`/api/public/projects/${id}`),
+  /** Витрина. `project: null` — ничего не выбрано, лендинг рисует свою сцену */
+  featured: () =>
+    apiFetch<(SharedViewPayload & { projectId: string }) | { project: null }>('/api/public/featured'),
 };
 
 // ── Comments / Annotations API ────────────────
@@ -633,4 +727,123 @@ export const commentsApi = {
 
   remove: (projectId: string, id: string) =>
     apiFetch<void>(`/api/projects/${projectId}/comments/${id}`, { method: 'DELETE' }),
+};
+
+// ── Админка ───────────────────────────────────
+export interface AdminSummary {
+  users: { total: number; week: number; month: number; banned: number; admins: number };
+  projects: number;
+  deletedProjects: number;
+  publicProjects: number;
+  terrainImports: number;
+  /** Сумма размеров папок в uploads/ */
+  storageBytes: number;
+  /** Сколько людей на каждом уровне. Платных тарифов нет — это факт, не биллинг */
+  levels: Record<AccountLevel, number>;
+}
+
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  displayName: string;
+  createdAt: string;
+  emailVerified: boolean;
+  isAdmin: boolean;
+  accountLevel: AccountLevel;
+  bannedAt: string | null;
+  banReason: string | null;
+  /** В скольких проектах состоит */
+  projects: number;
+}
+
+export interface AdminProjectRow {
+  id: string;
+  name: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  isPublic: boolean;
+  isFeatured: boolean;
+  owner: { id: string; displayName: string; email: string } | null;
+  members: number;
+  objects: number;
+  models: number;
+  /** Сколько занимают загруженные файлы проекта */
+  bytes: number;
+}
+
+export type AdminProjectFilter = 'all' | 'public' | 'featured' | 'deleted';
+
+export interface AdminAuditRow {
+  id: string;
+  action: string;
+  actorName: string;
+  actorEmail: string;
+  targetLabel: string | null;
+  details: Record<string, unknown> | null;
+  ip: string | null;
+  createdAt: string;
+}
+
+export interface AdminPage<T> {
+  data: T[];
+  page: number;
+  total: number;
+}
+
+export const adminApi = {
+  /** Вход: доступно с обычным токеном, пропуск не нужен — его тут и получают */
+  status: () => apiFetch<{ totpEnabled: boolean; totpPending: boolean }>('/api/admin/auth/status'),
+  totpSetup: () =>
+    apiFetch<{ secret: string; uri: string; qr: string }>('/api/admin/auth/totp/setup', { method: 'POST' }),
+  totpEnable: (code: string) =>
+    apiFetch<{ backupCodes: string[] }>('/api/admin/auth/totp/enable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+  session: (code: string) =>
+    apiFetch<{ adminToken: string; expiresIn: number }>('/api/admin/auth/session', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
+  // Всё ниже требует пропуска — он подставляется в apiFetch сам
+  summary: () => apiFetch<AdminSummary>('/api/admin/summary'),
+  users: (query: string, page: number) =>
+    apiFetch<AdminPage<AdminUserRow>>(
+      `/api/admin/users?page=${page}&query=${encodeURIComponent(query)}`,
+    ),
+  audit: (page: number) => apiFetch<AdminPage<AdminAuditRow>>(`/api/admin/audit?page=${page}`),
+
+  ban: (id: string, reason: string) =>
+    apiFetch<{ ok: true }>(`/api/admin/users/${id}/ban`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+  unban: (id: string) => apiFetch<{ ok: true }>(`/api/admin/users/${id}/unban`, { method: 'POST' }),
+  grant: (id: string) => apiFetch<{ ok: true }>(`/api/admin/users/${id}/admin`, { method: 'POST' }),
+  revoke: (id: string) => apiFetch<{ ok: true }>(`/api/admin/users/${id}/admin`, { method: 'DELETE' }),
+  setLevel: (id: string, level: AccountLevel) =>
+    apiFetch<{ ok: true }>(`/api/admin/users/${id}/level`, {
+      method: 'PATCH',
+      body: JSON.stringify({ level }),
+    }),
+
+  projects: (query: string, filter: AdminProjectFilter, page: number) =>
+    apiFetch<AdminPage<AdminProjectRow>>(
+      `/api/admin/projects?page=${page}&filter=${filter}&query=${encodeURIComponent(query)}`,
+    ),
+  setPublic: (id: string, on: boolean) =>
+    apiFetch<{ ok: true }>(`/api/admin/projects/${id}/public`, { method: on ? 'POST' : 'DELETE' }),
+  setFeatured: (id: string, on: boolean) =>
+    apiFetch<{ ok: true }>(`/api/admin/projects/${id}/feature`, { method: on ? 'POST' : 'DELETE' }),
+  deleteProject: (id: string) =>
+    apiFetch<{ ok: true }>(`/api/admin/projects/${id}`, { method: 'DELETE' }),
+  restoreProject: (id: string) =>
+    apiFetch<{ ok: true }>(`/api/admin/projects/${id}/restore`, { method: 'POST' }),
+  purgeProject: (id: string) =>
+    apiFetch<{ ok: true }>(`/api/admin/projects/${id}/purge`, { method: 'DELETE' }),
+  /** Снимок сцены без входа в комнату — участники хозяина не увидят */
+  preview: (id: string) => apiFetch<SharedViewPayload>(`/api/admin/projects/${id}/preview`),
 };

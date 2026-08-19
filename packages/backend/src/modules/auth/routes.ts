@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+﻿import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
@@ -44,6 +44,26 @@ const resetSchema = z.object({
 });
 
 const AVATAR_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+/**
+ * Что отдаём как профиль. Один список на все четыре маршрута: расходящиеся
+ * наборы полей означали бы, что после смены аватара из ответа тихо пропадает
+ * что-нибудь, что было при входе.
+ *
+ * `isAdmin` здесь для того, чтобы интерфейс знал, показывать ли вход в
+ * админку. Секрета в нём нет: свой собственный признак человек и так узнает,
+ * постучавшись по адресу панели.
+ */
+const PROFILE_SELECT = {
+  id: true,
+  email: true,
+  displayName: true,
+  avatarUrl: true,
+  createdAt: true,
+  emailVerified: true,
+  isAdmin: true,
+  accountLevel: true,
+} as const;
 
 /** Профиль наружу: аватар уходит подписанной ссылкой, как и любой файл */
 function toUserDTO<T extends { avatarUrl: string | null }>(user: T) {
@@ -94,10 +114,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     // Create user
     const user = await prisma.user.create({
       data: { email, passwordHash, displayName },
-      select: {
-        id: true, email: true, displayName: true, avatarUrl: true, createdAt: true,
-        tokenVersion: true, emailVerified: true,
-      },
+      select: { ...PROFILE_SELECT, tokenVersion: true },
     });
 
     /*
@@ -295,6 +312,23 @@ export default async function authRoutes(fastify: FastifyInstance) {
       });
     }
 
+    /*
+     * Заблокированному токен не выдаём вовсе.
+     *
+     * Проверка стоит ПОСЛЕ пароля намеренно: иначе по разнице ответов любой
+     * желающий перебирал бы адреса и узнавал, кто у нас заблокирован, не зная
+     * ни одного пароля.
+     */
+    if (user.bannedAt) {
+      return reply.code(403).send({
+        error: 'ACCOUNT_BANNED',
+        message: user.banReason
+          ? `Учётная запись заблокирована. Причина: ${user.banReason}`
+          : 'Учётная запись заблокирована',
+        statusCode: 403,
+      });
+    }
+
     const accessToken = fastify.jwt.sign({
       userId: user.id,
       email: user.email,
@@ -312,6 +346,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
         avatarUrl: user.avatarUrl,
         createdAt: user.createdAt,
         emailVerified: user.emailVerified,
+        isAdmin: user.isAdmin,
+        accountLevel: user.accountLevel,
       }),
       accessToken,
     });
@@ -321,7 +357,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
   fastify.get('/me', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     const user = await prisma.user.findUnique({
       where: { id: request.user.userId },
-      select: { id: true, email: true, displayName: true, avatarUrl: true, createdAt: true, emailVerified: true },
+      select: PROFILE_SELECT,
     });
 
     if (!user) {
@@ -345,7 +381,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     const user = await prisma.user.update({
       where: { id: request.user.userId },
       data: parsed.data,
-      select: { id: true, email: true, displayName: true, avatarUrl: true, createdAt: true, emailVerified: true },
+      select: PROFILE_SELECT,
     });
 
     return reply.send(toUserDTO(user));
@@ -446,7 +482,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     const user = await prisma.user.update({
       where: { id: request.user.userId },
       data: { avatarUrl },
-      select: { id: true, email: true, displayName: true, avatarUrl: true, createdAt: true, emailVerified: true },
+      select: PROFILE_SELECT,
     });
 
     return reply.send(toUserDTO(user));

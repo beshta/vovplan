@@ -11,6 +11,7 @@ const KEY = 'vovplan_anon';
 
 export type AnalyticsEvent =
   | 'landing.view'
+  | 'landing.featured.open'
   | 'register.start'
   | 'register.done'
   | 'login.done'

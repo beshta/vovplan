@@ -22,6 +22,23 @@ declare module '@fastify/jwt' {
 const unauthorized = (reply: FastifyReply) =>
   reply.code(401).send({ error: 'UNAUTHORIZED', message: 'Требуется авторизация', statusCode: 401 });
 
+/**
+ * Ответ заблокированному.
+ *
+ * Не 401 и не молчаливый отказ: человек обязан понять, что происходит, иначе
+ * он будет чинить пароль, писать в поддержку и злиться на «поломанный сайт».
+ * Причина показывается ему целиком — её пишет администратор, зная, что она
+ * будет прочитана вслух.
+ */
+const banned = (reply: FastifyReply, reason: string | null) =>
+  reply.code(403).send({
+    error: 'ACCOUNT_BANNED',
+    message: reason
+      ? `Учётная запись заблокирована. Причина: ${reason}`
+      : 'Учётная запись заблокирована',
+    statusCode: 403,
+  });
+
 // fp() обязателен: без него декораторы остались бы внутри плагина и не
 // достались бы маршрутам — авторизация просто перестала бы существовать
 export default fp(async function authPlugin(fastify: FastifyInstance) {
@@ -55,13 +72,26 @@ export default fp(async function authPlugin(fastify: FastifyInstance) {
 
     const account = await prisma.user.findUnique({
       where: { id: request.user.userId },
-      select: { tokenVersion: true },
+      select: { tokenVersion: true, bannedAt: true, banReason: true },
     });
 
     // Пользователя удалили — токен обязан перестать работать вместе с ним
     if (!account) return unauthorized(reply);
 
-    // Токены прежнего поколения: пароль сменили, сессии отозвали или забанили
+    /*
+     * Блокировка проверяется здесь, а не только на входе, и ДО поколения.
+     *
+     * Проверять её вообще нужно потому, что полагаться на одно поднятие
+     * поколения нельзя: оно может не подняться из-за сбоя посреди операции, а
+     * «забанен, но работает» — худший из возможных исходов.
+     *
+     * А раньше поколения — потому что бан его поднимает, и при обратном
+     * порядке заблокированный получал бы безликое «требуется авторизация».
+     * Человек шёл бы чинить пароль вместо того, чтобы прочитать причину.
+     */
+    if (account.bannedAt) return banned(reply, account.banReason);
+
+    // Токены прежнего поколения: пароль сменили или отозвали сессии
     if (account.tokenVersion !== request.user.ver) return unauthorized(reply);
   });
 

@@ -24,6 +24,7 @@ export default function DashboardPage() {
     onSuccess: () => {
       track('project.create');
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['quota'] });
       setShowCreate(false);
     },
   });

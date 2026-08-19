@@ -9,6 +9,7 @@ import { ProjectRole, ProjectStatus } from '@prisma/client';
 import prisma from '../../db/prisma.js';
 import { logActivity } from '../../utils/activity.js';
 import { getUserRole, requirePermission, requireMaster } from '../../utils/permissions.js';
+import { assertCanCreateProject, assertRoleAllowed, projectQuota } from '../../utils/accountLevel.js';
 import { signUploadUrl, signTerrainMeta } from '../../utils/signedUrl.js';
 import { IMAGE_LIMIT } from '../../utils/uploadLimits.js';
 import { findUserByEmail } from '../../utils/email.js';
@@ -50,7 +51,9 @@ export default async function projectRoutes(fastify: FastifyInstance) {
     const userId = request.user.userId;
 
     const memberships = await prisma.projectMember.findMany({
-      where: { userId },
+      // Удалённые не показываем никому, включая хозяина проекта: корзина
+      // живёт в админке, а не в списке проектов
+      where: { userId, project: { deletedAt: null } },
       include: {
         project: true,
       },
@@ -59,6 +62,11 @@ export default async function projectRoutes(fastify: FastifyInstance) {
 
     const projects = memberships.map((m) => toProjectDTO(m.project, m.role));
     return reply.send({ data: projects });
+  });
+
+  // ── GET /api/projects/quota — сколько своих проектов можно и занято ──
+  fastify.get('/quota', async (request, reply) => {
+    return reply.send(await projectQuota(request.user.userId));
   });
 
   // ── POST /api/projects — create a new project ──
@@ -74,6 +82,10 @@ export default async function projectRoutes(fastify: FastifyInstance) {
 
     const userId = request.user.userId;
     const { name, description, centerLat, centerLng, bounds } = parsed.data;
+
+    // Уровень проверяем до создания: отказ после того, как проект уже завели,
+    // означал бы либо мусор в базе, либо откат в транзакции ради очевидного
+    await assertCanCreateProject(userId);
 
     // Create project + creator as MASTER in a transaction
     const project = await prisma.$transaction(async (tx) => {
@@ -187,13 +199,25 @@ export default async function projectRoutes(fastify: FastifyInstance) {
   fastify.post('/:id/icon', (request, reply) => uploadImage(request, reply, 'icon'));
   fastify.post('/:id/preview', (request, reply) => uploadImage(request, reply, 'preview'));
 
-  // ── DELETE /api/projects/:id — delete project (MASTER only) ──
+  /*
+   * ── DELETE /api/projects/:id — в корзину (только мастер) ──
+   *
+   * Строка остаётся в базе с проставленным `deletedAt`. Раньше здесь был
+   * `prisma.project.delete`, и вместе с проектом каскадом уходили модели,
+   * сцена, комментарии и снимки — безвозвратно, по одному нажатию, без
+   * подтверждения на сервере. Теперь проект исчезает у всех участников
+   * (`getUserRole` перестаёт отдавать роль), но хозяин сервиса может вернуть
+   * его целиком. Насовсем стирает только админка.
+   */
   fastify.delete('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
 
     await requireMaster(request, id);
 
-    await prisma.project.delete({ where: { id } });
+    await prisma.project.update({
+      where: { id },
+      data: { deletedAt: new Date(), featuredAt: null, publicAt: null },
+    });
     return reply.code(204).send();
   });
 
@@ -246,6 +270,10 @@ export default async function projectRoutes(fastify: FastifyInstance) {
       return reply.code(409).send({ error: 'CONFLICT', message: 'Уже участник проекта', statusCode: 409 });
     }
 
+    // Потолок уровня приглашаемого, а не приглашающего: зрителя нельзя
+    // сделать мастером чужого проекта в обход его собственного уровня
+    await assertRoleAllowed(userToAdd.id, role as ProjectRole);
+
     const member = await prisma.projectMember.create({
       data: {
         projectId: id,
@@ -268,6 +296,8 @@ export default async function projectRoutes(fastify: FastifyInstance) {
     await requireMaster(request, id);
 
     const { role } = request.body as { role: string };
+
+    await assertRoleAllowed(userId, role as ProjectRole);
 
     const updated = await prisma.projectMember.update({
       where: { projectId_userId: { projectId: id, userId } },

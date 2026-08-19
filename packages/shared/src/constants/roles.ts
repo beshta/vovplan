@@ -1,4 +1,4 @@
-import { ProjectRole, type Permission } from '../types';
+import { AccountLevel, ProjectRole, type Permission } from '../types';
 
 // ═══════════════════════════════════════════════
 // Role Hierarchy & Permissions
@@ -83,3 +83,54 @@ export function hasPermission(role: ProjectRole, permission: Permission): boolea
 export function hasRoleLevel(roleA: ProjectRole, roleB: ProjectRole): boolean {
   return ROLE_HIERARCHY.indexOf(roleA) >= ROLE_HIERARCHY.indexOf(roleB);
 }
+
+// ═══════════════════════════════════════════════
+// Уровни доступа к продукту
+// ═══════════════════════════════════════════════
+
+/**
+ * Числа лежат здесь, а не в бэкенде, намеренно.
+ *
+ * Кабинет пишет «осталось 2 из 3», а сервер отказывает на четвёртом — эти
+ * два места обязаны считать одинаково. Если предел живёт только на сервере,
+ * интерфейс рано или поздно начнёт обещать не то, что произойдёт.
+ */
+
+export const LEVEL_LABELS: Record<AccountLevel, string> = {
+  [AccountLevel.MASTER_UNLIMITED]: 'Мастер без ограничений',
+  [AccountLevel.MASTER]: 'Мастер',
+  [AccountLevel.DESIGNER]: 'Проектировщик',
+  [AccountLevel.SUPER_SPECTATOR]: 'Супер-зритель',
+  [AccountLevel.SPECTATOR]: 'Зритель',
+};
+
+/** Сколько своих проектов разрешено. null — без счёта */
+export const LEVEL_PROJECT_LIMIT: Record<AccountLevel, number | null> = {
+  [AccountLevel.MASTER_UNLIMITED]: null,
+  [AccountLevel.MASTER]: 3,
+  [AccountLevel.DESIGNER]: 0,
+  [AccountLevel.SUPER_SPECTATOR]: 0,
+  [AccountLevel.SPECTATOR]: 0,
+};
+
+/**
+ * Выше этой роли человека нельзя позвать в чужой проект.
+ *
+ * Мастером в чужом проекте зритель не станет, даже если хозяин проекта очень
+ * хочет: иначе уровень обходился бы одним приглашением.
+ */
+export const LEVEL_MAX_ROLE: Record<AccountLevel, ProjectRole> = {
+  [AccountLevel.MASTER_UNLIMITED]: ProjectRole.MASTER,
+  [AccountLevel.MASTER]: ProjectRole.MASTER,
+  [AccountLevel.DESIGNER]: ProjectRole.DESIGNER,
+  [AccountLevel.SUPER_SPECTATOR]: ProjectRole.SUPER_SPECTATOR,
+  [AccountLevel.SPECTATOR]: ProjectRole.SPECTATOR,
+};
+
+/** Может ли человек заводить свои проекты — вопрос только предела */
+export const canCreateProjects = (level: AccountLevel): boolean =>
+  LEVEL_PROJECT_LIMIT[level] !== 0;
+
+/** Допустима ли роль в проекте для этого уровня */
+export const roleAllowedAtLevel = (level: AccountLevel, role: ProjectRole): boolean =>
+  hasRoleLevel(LEVEL_MAX_ROLE[level], role);

@@ -10,15 +10,23 @@ import prisma from '../db/prisma.js';
 import { HttpError } from './errors.js';
 
 /**
- * Get the user's role in a specific project.
- * Returns null if user is not a member.
+ * Роль человека в проекте. null — не участник или проект в корзине.
+ *
+ * Проверка удалённого проекта стоит именно здесь, а не в маршрутах списка.
+ * Через эту функцию проходят `requirePermission`, `requireMaster` и хендшейк
+ * сокетов — то есть вообще всё, что спрашивает «пускать ли». Убери проект из
+ * одного списка — и он останется доступен по прямой ссылке, через модель,
+ * через комментарии и в комнате совместной работы, потому что участие в базе
+ * никуда не делось. Один запрос с присоединённым `deletedAt` закрывает все
+ * двери разом, включая те, которых ещё нет.
  */
 export async function getUserRole(userId: string, projectId: string): Promise<PrismaRole | null> {
   const member = await prisma.projectMember.findUnique({
     where: { projectId_userId: { projectId, userId } },
-    select: { role: true },
+    select: { role: true, project: { select: { deletedAt: true } } },
   });
-  return member?.role ?? null;
+  if (!member || member.project.deletedAt) return null;
+  return member.role;
 }
 
 /**

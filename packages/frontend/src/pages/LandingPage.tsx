@@ -13,10 +13,14 @@ import {
   RotateCcw,
   ArrowRight,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { track } from '../shared/analytics';
+import { publicApi } from '../shared/api';
 
 // Тяжёлый three.js-канвас грузим отдельным чанком — текст героя рисуется сразу
 const LandingScene = lazy(() => import('./landing/LandingScene'));
+// Витрина настоящего проекта — тоже отдельным чанком и тоже по требованию
+const FeaturedScene = lazy(() => import('./landing/FeaturedScene'));
 
 const STEPS = [
   { icon: MapIcon, title: 'Импорт местности', text: 'Введите координаты — VOVPLAN подгрузит реальный рельеф 1:1, здания OSM и спутник.' },
@@ -91,38 +95,7 @@ export default function LandingPage() {
         </div>
 
         {/* Правая половина — 3D во всю высоту, без рамки */}
-        <div className="relative bg-[#0b1020] min-h-[420px] lg:min-h-0 overflow-hidden">
-          <Suspense fallback={<SceneFallback />}>
-            <LandingScene />
-          </Suspense>
-
-          {/* Подсказка «покрутите» */}
-          <div className="absolute top-5 right-5 flex items-center gap-1.5 text-[11px] text-slate-300 bg-white/5 backdrop-blur rounded-full px-2.5 py-1 border border-white/10 pointer-events-none">
-            <RotateCcw size={12} /> покрутите мышью
-          </div>
-
-          {/* Координаты */}
-          <div className="absolute top-5 left-5 text-[11px] font-mono text-slate-500 pointer-events-none">
-            55.7558°N · 37.6173°E
-          </div>
-
-          {/* Масштабная линейка */}
-          <div className="absolute bottom-5 right-5 flex items-center gap-1.5 text-[10px] font-mono text-slate-500 pointer-events-none">
-            <span className="flex items-end h-2.5">
-              <span className="w-px h-2.5 bg-slate-500/70" />
-              <span className="w-14 h-px self-center bg-slate-500/70" />
-              <span className="w-px h-2.5 bg-slate-500/70" />
-            </span>
-            50&nbsp;м
-          </div>
-
-          {/* Подпись поверх сцены */}
-          <div className="absolute bottom-5 left-5 pointer-events-none">
-            <span className="text-[10px] font-bold tracking-widest text-cyan-300/90 border border-cyan-400/30 rounded px-1.5 py-0.5">
-              LIVE 3D
-            </span>
-          </div>
-        </div>
+        <Showcase />
       </section>
 
       {/* ── Как это работает ── */}
@@ -224,6 +197,79 @@ function SceneFallback() {
   return (
     <div className="w-full h-full flex items-center justify-center text-slate-500 text-sm">
       <div className="animate-pulse">Загрузка 3D-демо…</div>
+    </div>
+  );
+}
+
+/**
+ * Правая половина героя: витрина настоящего проекта, если он выбран.
+ *
+ * Нарисованная кодом сцена осталась запасным вариантом и грузится только
+ * когда витрина пуста — иначе в один экран приезжали бы два тяжёлых
+ * three.js-чанка, из которых виден один.
+ *
+ * Ошибка запроса тоже ведёт к запасной сцене. Главная страница обязана
+ * выглядеть одинаково при живом и при лежащем сервере: пустая чёрная
+ * половина экрана — худшее первое впечатление из возможных.
+ */
+function Showcase() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['featured'],
+    queryFn: publicApi.featured,
+    retry: false,
+    // Витрину меняют раз в месяц, а лендинг открывают часто
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const featured = data && 'projectId' in data ? data : null;
+
+  return (
+    <div className="relative bg-[#0b1020] min-h-[420px] lg:min-h-0 overflow-hidden">
+      {isLoading ? (
+        <SceneFallback />
+      ) : (
+        <Suspense fallback={<SceneFallback />}>
+          {featured ? <FeaturedScene data={featured} /> : <LandingScene />}
+        </Suspense>
+      )}
+
+      <div className="absolute top-5 right-5 flex items-center gap-1.5 text-[11px] text-slate-300 bg-white/5 backdrop-blur rounded-full px-2.5 py-1 border border-white/10 pointer-events-none">
+        <RotateCcw size={12} /> покрутите мышью
+      </div>
+
+      {/* Координаты и линейка — только у нарисованной сцены: у настоящего
+          проекта они были бы выдумкой, а масштаб у него свой */}
+      {!featured && (
+        <>
+          <div className="absolute top-5 left-5 text-[11px] font-mono text-slate-500 pointer-events-none">
+            55.7558°N · 37.6173°E
+          </div>
+          <div className="absolute bottom-5 right-5 flex items-center gap-1.5 text-[10px] font-mono text-slate-500 pointer-events-none">
+            <span className="flex items-end h-2.5">
+              <span className="w-px h-2.5 bg-slate-500/70" />
+              <span className="w-14 h-px self-center bg-slate-500/70" />
+              <span className="w-px h-2.5 bg-slate-500/70" />
+            </span>
+            50&nbsp;м
+          </div>
+        </>
+      )}
+
+      <div className="absolute bottom-5 left-5 flex items-center gap-2">
+        <span className="text-[10px] font-bold tracking-widest text-cyan-300/90 border border-cyan-400/30 rounded px-1.5 py-0.5 pointer-events-none">
+          LIVE 3D
+        </span>
+        {featured && (
+          <Link
+            to={`/p/${featured.projectId}`}
+            onClick={() => track('landing.featured.open')}
+            className="text-xs text-slate-300 hover:text-white bg-white/5 backdrop-blur border border-white/10 rounded-full px-2.5 py-1 flex items-center gap-1.5 transition-colors"
+          >
+            {featured.project.name} <ArrowRight size={12} />
+          </Link>
+        )}
+      </div>
     </div>
   );
 }

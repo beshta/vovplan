@@ -3,11 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, User as UserIcon, Lock, FolderOpen, CreditCard,
-  Camera, Check, MapPin, LogOut, TrendingDown,
+  Camera, Check, MapPin, LogOut, TrendingDown, Shield,
 } from 'lucide-react';
 import { authApi, projectsApi, analyticsApi } from '../shared/api';
 import { useAuthStore } from '../shared/authStore';
-import { ROLE_LABELS, type Project } from '@vovplan/shared';
+import { ROLE_LABELS, LEVEL_LABELS, type Project } from '@vovplan/shared';
 
 type Section = 'profile' | 'password' | 'projects' | 'billing' | 'funnel';
 
@@ -61,6 +61,17 @@ export default function AccountPage() {
               <s.icon size={17} /> {s.label}
             </button>
           ))}
+
+          {/* Вход в админку виден только хозяину сервиса. Остальным ссылки нет
+              и адрес отвечает «не найдено» — знать о ней им незачем */}
+          {user?.isAdmin && (
+            <Link
+              to="/admin"
+              className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors text-muted hover:text-strong hover:bg-slate-900/5 dark:hover:bg-white/5 lg:mt-2 lg:border-t lg:border-slate-200 lg:dark:border-white/10 lg:pt-4"
+            >
+              <Shield size={17} /> Админка
+            </Link>
+          )}
         </nav>
 
         <div className="min-w-0">
@@ -345,15 +356,43 @@ const PLANS = [
   },
 ];
 
+/**
+ * Уровень берётся из профиля, остаток — отдельным запросом.
+ *
+ * Раньше здесь стояло «Бесплатный» текстом, одинаковое для всех. Пока
+ * уровень ни на что не влиял, это была просто заглушка; теперь он решает,
+ * заведётся ли следующий проект, и человек обязан видеть настоящий — иначе
+ * отказ на кнопке «создать» выглядит поломкой, а не пределом.
+ */
 function BillingSection() {
   const queryClient = useQueryClient();
   void queryClient; // задел под будущую инвалидацию после оплаты
+  const { user } = useAuthStore();
+
+  const { data: quota } = useQuery({
+    queryKey: ['quota'],
+    queryFn: projectsApi.quota,
+    retry: false,
+  });
+
+  const level = user?.accountLevel;
 
   return (
-    <Card title="Подписка" description="Текущий тариф и доступные планы.">
+    <Card title="Подписка" description="Текущий уровень доступа и планы.">
       <div className="mb-6 p-4 rounded-xl bg-vovplan-500/[0.07] border border-vovplan-500/20">
-        <p className="text-sm text-muted">Текущий тариф</p>
-        <p className="font-display text-lg font-bold text-strong mt-0.5">Бесплатный</p>
+        <p className="text-sm text-muted">Уровень доступа</p>
+        <p className="font-display text-lg font-bold text-strong mt-0.5">
+          {level ? LEVEL_LABELS[level] : '—'}
+        </p>
+        {quota && (
+          <p className="text-sm text-muted mt-1">
+            {quota.limit === null
+              ? `Своих проектов: ${quota.used}, без ограничения`
+              : quota.limit === 0
+                ? 'Свои проекты недоступны — можно работать в чужих по приглашению'
+                : `Свои проекты: ${quota.used} из ${quota.limit}, осталось ${Math.max(0, quota.limit - quota.used)}`}
+          </p>
+        )}
       </div>
 
       <div className="grid sm:grid-cols-3 gap-4">

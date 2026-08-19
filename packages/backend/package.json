@@ -8,7 +8,7 @@
     "build": "node build.mjs",
     "start": "node dist/server.js",
     "lint": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --fileParallelism=false",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

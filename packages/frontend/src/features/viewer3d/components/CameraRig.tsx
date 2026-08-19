@@ -102,8 +102,12 @@ export default function CameraRig() {
   }, [selectedObjectId, cameraView]); // NOT objects — so camera doesn't follow during drag
 
   // Switch camera position for top view vs orbit
+  const prevView = useRef(cameraView);
   useEffect(() => {
     if (!controlsRef.current) return;
+    const switched = prevView.current !== cameraView;
+    prevView.current = cameraView;
+
     if (cameraView === 'top') {
       // Straight down — look at center of scene
       const target = controlsRef.current.target.clone();
@@ -115,11 +119,20 @@ export default function CameraRig() {
       // Restore perspective limits (до ~88° — можно опуститься почти к земле)
       controlsRef.current.maxPolarAngle = MAX_POLAR;
       controlsRef.current.minPolarAngle = 0;
-      camera.position.set(sceneSize * 0.2, sceneSize * 0.22, sceneSize * 0.2);
-      controlsRef.current.target.set(0, 0, 0);
+      /*
+       * Позу сбрасываем только при входе в обзор из другого режима.
+       * Иначе смена объекта камеры (R3F пересобирает её, когда меняется
+       * `far` вместе с размером площадки) каждый раз ставит камеру в одну
+       * точку, а незавершённый перелёт в это же время тянет в другую —
+       * со стороны это бесконечное приближение.
+       */
+      if (switched) {
+        camera.position.set(sceneSize * 0.2, sceneSize * 0.22, sceneSize * 0.2);
+        controlsRef.current.target.set(0, 0, 0);
+      }
       controlsRef.current.update();
     }
-  }, [cameraView, camera]);
+  }, [cameraView, camera, sceneSize]);
 
   // В first-person камерой управляет FirstPersonView (drag-look мышью + WASD).
   // Никаких OrbitControls/PointerLock здесь — иначе они перехватывают ввод.

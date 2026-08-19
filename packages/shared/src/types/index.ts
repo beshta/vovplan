@@ -17,6 +17,23 @@ export enum ProjectStatus {
   ARCHIVED = 'ARCHIVED',
 }
 
+/**
+ * Уровень доступа к продукту — потолок возможностей учётной записи.
+ *
+ * Не то же, что ProjectRole. Роль выдаёт мастер внутри своего проекта: она
+ * говорит, что человек делает в этом проекте. Уровень выдаёт хозяин сервиса:
+ * он говорит, заводить ли человеку свои проекты и до какой роли его вообще
+ * можно позвать в чужие.
+ */
+export enum AccountLevel {
+  /** Всё без ограничений. Не продаётся — для тестировщиков и друзей */
+  MASTER_UNLIMITED = 'MASTER_UNLIMITED',
+  MASTER = 'MASTER',
+  DESIGNER = 'DESIGNER',
+  SUPER_SPECTATOR = 'SUPER_SPECTATOR',
+  SPECTATOR = 'SPECTATOR',
+}
+
 // ── User ───────────────────────────────────────
 export interface User {
   id: string;
@@ -26,6 +43,10 @@ export interface User {
   createdAt: string;
   /** Когда подтверждён адрес почты; null — ещё не подтверждён */
   emailVerified: string | null;
+  /** Хозяин сервиса. Нужен интерфейсу, чтобы решить, показывать ли вход в админку */
+  isAdmin: boolean;
+  /** Что доступно в продукте: заводить проекты, работать в чужих, только смотреть */
+  accountLevel: AccountLevel;
 }
 
 export interface AuthResponse {

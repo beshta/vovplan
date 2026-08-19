@@ -102,14 +102,16 @@ export default function Scene({ currentUserId, projectId, shared = false }: { cu
 
   return (
     <Canvas
-      shadows={quality.enableShadows ? 'soft' : false}
-      dpr={quality.pixelRatio}
+      shadows={!shared && quality.enableShadows ? 'soft' : false}
+      dpr={shared ? 1 : quality.pixelRatio}
       gl={{
-        antialias: !quality.isMobile,
+        antialias: !shared && !quality.isMobile,
         powerPreference: 'high-performance',
         // Нужен для снимка превью: без него toBlob отдаёт пустой кадр,
-        // потому что буфер очищается сразу после отрисовки
-        preserveDrawingBuffer: true,
+        // потому что буфер очищается сразу после отрисовки. Публичному
+        // просмотру снимок не нужен, а лишний буфер на большом экране
+        // стоит кадров.
+        preserveDrawingBuffer: !shared,
         toneMapping: ACESFilmicToneMapping,
         // 1.8 пересвечивало схему-карту (светлые тайлы OSM уходили в белое)
         toneMappingExposure: 1.05,

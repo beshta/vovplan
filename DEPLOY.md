@@ -33,6 +33,11 @@ nano .env
 - `POSTGRES_PASSWORD` — надёжный пароль.
 - `JWT_SECRET` — сгенерировать: `openssl rand -base64 48` и вставить.
 - `SITE_ADDRESS` / `CORS_ORIGINS` — оставить с `vovplan.com` (уже верны).
+- `SMTP_*` — хост, порт и ящик уже заполнены (Яндекс, `info@vovarch.ru`).
+  В `SMTP_PASS` впишите пароль этого ящика — тот же, что у КП на api.vovarch.ru.
+  В репозиторий пароль не кладётся.
+- `PUBLIC_URL=https://vovplan.com` — из него собираются ссылки в письмах.
+- `BOOTSTRAP_ADMIN_EMAIL` — почта, под которой зарегистрируетесь как хозяин.
 
 **5. Поднять стек** (первая сборка ~3–5 мин):
 ```bash
@@ -48,6 +53,18 @@ curl -I https://vovplan.com                        # 200
 Открыть **https://vovplan.com** — должна открыться страница входа.
 
 **7. Создать первого пользователя** — зарегистрироваться через UI (`/register`).
+
+**8. Первый хозяин.** В `.env` задайте `BOOTSTRAP_ADMIN_EMAIL` той почтой, под
+которой зарегистрировались, и перезапустите backend:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env up -d backend
+```
+
+Если в базе ещё нет ни одного администратора, права выдадутся сами. Если
+пользователя с этой почтой ещё нет — в лог напишет подождать регистрации и
+следующего старта. Если хозяин уже есть — повторный пуск ничего не меняет.
+Запасной путь: `docker compose -f docker-compose.prod.yml exec backend npx tsx scripts/make-admin.mts почта`.
 
 ## Обновление до новой версии
 ```bash

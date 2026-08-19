@@ -37,6 +37,15 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: 7d
       CORS_ORIGINS: ${CORS_ORIGINS}
+      PUBLIC_URL: ${PUBLIC_URL:-https://vovplan.com}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-VOVPLAN <info@vovarch.ru>}
+      # Почта первого хозяина. Пусто — ничего не происходит. Выдаёт права
+      # только если в базе ещё нет ни одного администратора.
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
     volumes:
       - uploads:/app/packages/backend/uploads      # модели GLB + текстуры ландшафта
       - tilecache:/app/packages/backend/.tilecache  # кэш тайлов рельефа

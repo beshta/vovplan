@@ -77,9 +77,9 @@ export function setupRealtime(fastify: FastifyInstance): SocketServer {
       // бы соединение и продолжал получать поток проекта
       const account = await prisma.user.findUnique({
         where: { id: payload.userId },
-        select: { tokenVersion: true },
+        select: { tokenVersion: true, bannedAt: true },
       });
-      if (!account || account.tokenVersion !== payload.ver) {
+      if (!account || account.tokenVersion !== payload.ver || account.bannedAt) {
         return next(new Error('UNAUTHORIZED'));
       }
 
