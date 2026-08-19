@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../shared/authStore';
 import AuthLayout, { authInput, authLabel } from './auth/AuthLayout';
+import SocialButtons from './auth/SocialButtons';
 import { track } from '../shared/analytics';
 
 export default function RegisterPage() {
@@ -27,7 +28,7 @@ export default function RegisterPage() {
   return (
     <AuthLayout
       title="Создать аккаунт"
-      subtitle="Пара минут — и вы сможете собрать первый проект на реальной местности."
+      subtitle="Через соцсеть — в один клик. Или почта и пароль, как обычно."
       footer={
         <>
           Уже есть аккаунт?{' '}
@@ -42,6 +43,8 @@ export default function RegisterPage() {
           {error}
         </div>
       )}
+
+      <SocialButtons next="/" />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

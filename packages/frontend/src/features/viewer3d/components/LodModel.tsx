@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 import { useGLTF, Detailed } from '@react-three/drei';
 import ModelPlaceholder from './ModelPlaceholder';
 import { collapseInstances } from '../utils/instancing';
+import { API_URL } from '../../../shared/api';
+import { assetUrl } from '../../../shared/assetUrl';
 
 interface LodModelProps {
   /** Primary GLB URL (highest detail, always present) */
@@ -14,12 +16,6 @@ interface LodModelProps {
   lod2Url?: string | null;
   /** Fallback name for placeholder */
   name: string;
-}
-
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
-
-function toAbsolute(url: string): string {
-  return url.startsWith('http') ? url : `${API_URL}${url}`;
 }
 
 /**
@@ -45,7 +41,7 @@ function prepare(url: string, scene: THREE.Object3D): THREE.Object3D {
 }
 
 function GlbScene({ url }: { url: string }) {
-  const { scene } = useGLTF(toAbsolute(url));
+  const { scene } = useGLTF(assetUrl(url, API_URL));
 
   // Отдавать наружу саму заготовку нельзя: у объекта three.js один родитель,
   // и вторая сцена с той же моделью просто отняла бы её у первой. Клонируем —

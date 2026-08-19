@@ -11,6 +11,8 @@ interface AuthState {
   init: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName: string) => Promise<void>;
+  /** Вход по уже выданному токену — возврат из Яндекса / Google / Telegram */
+  acceptToken: (accessToken: string) => Promise<void>;
   logout: () => void;
   clearError: () => void;
   /** Обновить пользователя в сторе после правок профиля (имя, аватар) */
@@ -59,6 +61,18 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user, isAuthenticated: true, isLoading: false });
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
+      throw err;
+    }
+  },
+
+  acceptToken: async (accessToken) => {
+    setToken(accessToken);
+    try {
+      const user = await authApi.me();
+      set({ user, isAuthenticated: true, isLoading: false, error: null });
+    } catch (err: any) {
+      clearToken();
+      set({ user: null, isAuthenticated: false, error: err.message, isLoading: false });
       throw err;
     }
   },

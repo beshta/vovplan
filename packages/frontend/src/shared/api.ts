@@ -1,6 +1,6 @@
 import type { User, AuthResponse, Project, ProjectMember, AccountLevel } from '@vovplan/shared';
 
-const API_URL = import.meta.env.VITE_API_URL ?? '';
+export const API_URL = import.meta.env.VITE_API_URL ?? '';
 const TOKEN_KEY = 'vovplan_token';
 
 // ── Token management ──────────────────────────

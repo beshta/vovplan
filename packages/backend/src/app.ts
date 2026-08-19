@@ -6,6 +6,7 @@ import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import { join } from 'node:path';
 import authRoutes from './modules/auth/routes.js';
+import oauthRoutes from './modules/auth/oauth.js';
 import analyticsRoutes from './modules/analytics/routes.js';
 import projectRoutes from './modules/projects/routes.js';
 import sceneRoutes from './modules/scene/routes.js';
@@ -125,6 +126,7 @@ export async function buildServer(opts: { logger?: boolean } = {}): Promise<Fast
 
   // ── API Routes ─────────────────────────────
   await fastify.register(authRoutes, { prefix: '/api/auth' });
+  await fastify.register(oauthRoutes, { prefix: '/api/auth' });
   await fastify.register(analyticsRoutes, { prefix: '/api/analytics' });
   await fastify.register(projectRoutes, { prefix: '/api/projects' });
   await fastify.register(sceneRoutes, { prefix: '/api/projects' });

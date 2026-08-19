@@ -15,6 +15,7 @@ import InvitePage from '../pages/InvitePage';
 import VerifyEmailPage from '../pages/VerifyEmailPage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
 import ResetPasswordPage from '../pages/ResetPasswordPage';
+import OAuthCallbackPage from '../pages/OAuthCallbackPage';
 import LoadingScreen from '../components/LoadingScreen';
 import ThemeToggle from '../components/ThemeToggle';
 
@@ -49,6 +50,9 @@ export default function App() {
             служит сам токен, а письмо часто открывают на другом устройстве */}
         <Route path="/verify/:token" element={<VerifyEmailPage />} />
         <Route path="/reset/:token" element={<ResetPasswordPage />} />
+        {/* Возврат из Яндекса / Google / VK / Facebook / WeChat. Токен в query,
+            страница сама его съест и вычистит из адресной строки. */}
+        <Route path="/auth/oauth" element={<OAuthCallbackPage />} />
 
         {/* Auth routes — redirect to dashboard if already logged in */}
         <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <LoginPage />} />

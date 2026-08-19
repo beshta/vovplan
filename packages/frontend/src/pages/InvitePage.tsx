@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ROLE_LABELS, type ProjectRole } from '@vovplan/shared';
 import { invitesApi } from '../shared/api';
 import { useAuthStore } from '../shared/authStore';
+import SocialButtons from './auth/SocialButtons';
 
 /**
  * Приём приглашения по ссылке (/invite/:token).
@@ -98,24 +99,31 @@ export default function InvitePage() {
               {busy ? 'Присоединение…' : 'Присоединиться к проекту'}
             </button>
           ) : (
-            <form onSubmit={handleAuthAndAccept} className="mt-5 space-y-3">
-              <div className="flex gap-1 p-1 bg-white/5 rounded-xl">
-                {(['register', 'login'] as const).map((m) => (
-                  <button key={m} type="button" onClick={() => setMode(m)}
-                    className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${mode === m ? 'bg-vovplan-600 text-white' : 'text-slate-400'}`}>
-                    {m === 'register' ? 'Регистрация' : 'Вход'}
-                  </button>
-                ))}
-              </div>
-              {mode === 'register' && (
-                <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Ваше имя" className="input-field" />
+            <>
+              {token && (
+                <div className="mt-5">
+                  <SocialButtons next={`/invite/${token}`} />
+                </div>
               )}
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="Email" className="input-field" autoComplete="email" />
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="Пароль" className="input-field" autoComplete={mode === 'register' ? 'new-password' : 'current-password'} />
-              <button type="submit" disabled={busy} className="btn-primary w-full">
-                {busy ? 'Подождите…' : mode === 'register' ? 'Зарегистрироваться и войти' : 'Войти и присоединиться'}
-              </button>
-            </form>
+              <form onSubmit={handleAuthAndAccept} className="space-y-3">
+                <div className="flex gap-1 p-1 bg-white/5 rounded-xl">
+                  {(['register', 'login'] as const).map((m) => (
+                    <button key={m} type="button" onClick={() => setMode(m)}
+                      className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${mode === m ? 'bg-vovplan-600 text-white' : 'text-slate-400'}`}>
+                      {m === 'register' ? 'Регистрация' : 'Вход'}
+                    </button>
+                  ))}
+                </div>
+                {mode === 'register' && (
+                  <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Ваше имя" className="input-field" />
+                )}
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="Email" className="input-field" autoComplete="email" />
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="Пароль" className="input-field" autoComplete={mode === 'register' ? 'new-password' : 'current-password'} />
+                <button type="submit" disabled={busy} className="btn-primary w-full">
+                  {busy ? 'Подождите…' : mode === 'register' ? 'Зарегистрироваться и войти' : 'Войти и присоединиться'}
+                </button>
+              </form>
+            </>
           )}
         </div>
       </div>

@@ -128,6 +128,37 @@ export const config = {
    * и смена провайдера — это правка переменных, а не кода.
    * Без host письма не отправляются, а печатаются в лог.
    */
+  /**
+   * Вход через соцсети. Пустые ключи — провайдер выключен, кнопки на сайте нет.
+   * Секреты только в .env на сервере, в git не класть.
+   */
+  oauth: {
+    google: {
+      id: process.env.GOOGLE_CLIENT_ID ?? '',
+      secret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+    },
+    yandex: {
+      id: process.env.YANDEX_CLIENT_ID ?? '',
+      secret: process.env.YANDEX_CLIENT_SECRET ?? '',
+    },
+    facebook: {
+      id: process.env.FACEBOOK_APP_ID ?? '',
+      secret: process.env.FACEBOOK_APP_SECRET ?? '',
+    },
+    vk: {
+      id: process.env.VK_CLIENT_ID ?? '',
+      secret: process.env.VK_CLIENT_SECRET ?? '',
+    },
+    wechat: {
+      id: process.env.WECHAT_APP_ID ?? '',
+      secret: process.env.WECHAT_APP_SECRET ?? '',
+    },
+    telegram: {
+      token: process.env.TELEGRAM_BOT_TOKEN ?? '',
+      username: process.env.TELEGRAM_BOT_USERNAME ?? '',
+    },
+  },
+
   smtp: {
     host: process.env.SMTP_HOST ?? '',
     port: parseInt(process.env.SMTP_PORT ?? '587', 10),

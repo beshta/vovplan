@@ -51,6 +51,16 @@ enum AccountLevel {
   SPECTATOR
 }
 
+/** Через какую соцсеть человек вошёл. Не путать с ролью в проекте. */
+enum AuthProvider {
+  GOOGLE
+  YANDEX
+  FACEBOOK
+  VK
+  TELEGRAM
+  WECHAT
+}
+
 enum UtilityType {
   WATER
   GAS
@@ -78,7 +88,8 @@ enum FenceType {
 model User {
   id           String           @id @default(cuid())
   email        String           @unique
-  passwordHash String
+  /// Пусто, если человек вошёл только через соцсеть и пароль ещё не задавал.
+  passwordHash String?
   displayName  String
   avatarUrl    String?
   /// Поколение выданных токенов. Увеличение обесценивает все выпущенные
@@ -116,10 +127,30 @@ model User {
   objects      SceneObject[]
   activity     ActivityEvent[]
   emailTokens  EmailToken[]
-  backupCodes  TotpBackupCode[]
-  adminActions AdminAction[]
+  backupCodes    TotpBackupCode[]
+  adminActions   AdminAction[]
+  socialAccounts SocialAccount[]
 
   @@map("users")
+}
+
+/**
+ * Привязка соцсети к учётке. Один человек может войти и через Яндекс, и через
+ * Google — это одна запись User и две строки здесь. Ищем по паре
+ * провайдер + id у провайдера, а не по почте: у Telegram и WeChat почты нет.
+ */
+model SocialAccount {
+  id             String       @id @default(cuid())
+  userId         String
+  provider       AuthProvider
+  providerUserId String
+  createdAt      DateTime     @default(now())
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+  @@map("social_accounts")
 }
 
 // ═══════════════════════════════════════════════

@@ -43,9 +43,22 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-VOVPLAN <info@vovarch.ru>}
-      # Почта первого хозяина. Пусто — ничего не происходит. Выдаёт права
-      # только если в базе ещё нет ни одного администратора.
+      # Первый хозяин на пустой базе. Почта, под которой вы зарегистрируетесь.
+      # Выдаёт права только если в базе ещё нет ни одного администратора.
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      # Вход через соцсети. Пусто — кнопки на сайте нет.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      YANDEX_CLIENT_ID: ${YANDEX_CLIENT_ID:-}
+      YANDEX_CLIENT_SECRET: ${YANDEX_CLIENT_SECRET:-}
+      FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
+      FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
+      VK_CLIENT_ID: ${VK_CLIENT_ID:-}
+      VK_CLIENT_SECRET: ${VK_CLIENT_SECRET:-}
+      WECHAT_APP_ID: ${WECHAT_APP_ID:-}
+      WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
     volumes:
       - uploads:/app/packages/backend/uploads      # модели GLB + текстуры ландшафта
       - tilecache:/app/packages/backend/.tilecache  # кэш тайлов рельефа

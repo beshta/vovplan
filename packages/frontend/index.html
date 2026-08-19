@@ -21,17 +21,19 @@
         unsafe-inline для стилей — React расставляет style={{…}} по элементам,
           и drei вставляет свои стили для подписей в сцене;
         blob: — рабочий поток разбора чертежей и текстуры, собранные в canvas;
-        tile.openstreetmap.org — подложка карты при выборе участка.
+        tile.openstreetmap.org — подложка карты при выборе участка;
+        telegram.org / oauth.telegram.org — виджет входа через Telegram.
       Шрифты и всё остальное — свои, поэтому default-src 'self'.
     -->
     <meta
       http-equiv="Content-Security-Policy-Report-Only"
       content="default-src 'self';
-               script-src 'self' 'wasm-unsafe-eval';
+               script-src 'self' 'wasm-unsafe-eval' https://telegram.org;
                style-src 'self' 'unsafe-inline';
-               img-src 'self' data: blob: https://tile.openstreetmap.org;
+               img-src 'self' data: blob: https://tile.openstreetmap.org https://telegram.org;
                font-src 'self' data:;
                connect-src 'self' https://tile.openstreetmap.org;
+               frame-src https://oauth.telegram.org;
                worker-src 'self' blob:;
                media-src 'self' blob:;
                object-src 'none';

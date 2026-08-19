@@ -1,14 +1,17 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../shared/authStore';
 import AuthLayout, { authInput, authLabel } from './auth/AuthLayout';
+import SocialButtons from './auth/SocialButtons';
 import { track } from '../shared/analytics';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const { login, isLoading, error, clearError } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const oauthError = params.get('error');
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -25,7 +28,7 @@ export default function LoginPage() {
   return (
     <AuthLayout
       title="Вход в аккаунт"
-      subtitle="Введите email и пароль, чтобы продолжить работу над проектами."
+      subtitle="Через Яндекс, Google, Telegram — или по почте и паролю."
       footer={
         <>
           Нет аккаунта?{' '}
@@ -35,11 +38,13 @@ export default function LoginPage() {
         </>
       }
     >
-      {error && (
+      {(error || oauthError) && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 dark:bg-red-500/15 dark:border-red-500/25 dark:text-red-300 rounded-xl text-sm">
-          {error}
+          {error || oauthError}
         </div>
       )}
+
+      <SocialButtons next="/" />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

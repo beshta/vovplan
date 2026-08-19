@@ -305,6 +305,14 @@ export default async function authRoutes(fastify: FastifyInstance) {
       });
     }
 
+    if (!user.passwordHash) {
+      return reply.code(401).send({
+        error: 'SOCIAL_ONLY',
+        message: 'Этот аккаунт входит через соцсеть. Нажмите кнопку Яндекс, Google или Telegram на странице входа.',
+        statusCode: 401,
+      });
+    }
+
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       return reply.code(401).send({
@@ -409,6 +417,14 @@ export default async function authRoutes(fastify: FastifyInstance) {
     const user = await prisma.user.findUnique({ where: { id: request.user.userId } });
     if (!user) {
       return reply.code(404).send({ error: 'NOT_FOUND', message: 'Пользователь не найден', statusCode: 404 });
+    }
+
+    if (!user.passwordHash) {
+      return reply.code(400).send({
+        error: 'SOCIAL_ONLY',
+        message: 'У этого аккаунта нет пароля — входите через ту соцсеть, которой регистрировались.',
+        statusCode: 400,
+      });
     }
 
     // Текущий пароль обязателен — иначе угнанная сессия меняет пароль молча
