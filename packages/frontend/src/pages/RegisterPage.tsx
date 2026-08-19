@@ -1,16 +1,19 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../shared/authStore';
 import AuthLayout, { authInput, authLabel } from './auth/AuthLayout';
 import SocialButtons from './auth/SocialButtons';
 import { track } from '../shared/analytics';
+import { safeNext } from '../shared/safeNext';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const { register, isLoading, error, clearError } = useAuthStore();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const next = safeNext(params.get('next'));
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -19,7 +22,7 @@ export default function RegisterPage() {
     try {
       await register(email, password, displayName);
       track('register.done');
-      navigate('/');
+      navigate(next);
     } catch {
       /* error is in store */
     }
@@ -32,7 +35,7 @@ export default function RegisterPage() {
       footer={
         <>
           Уже есть аккаунт?{' '}
-          <Link to="/login" className="text-vovplan-600 font-medium hover:underline">
+          <Link to={next !== '/' ? `/login?next=${encodeURIComponent(next)}` : '/login'} className="text-vovplan-600 font-medium hover:underline">
             Войти
           </Link>
         </>
@@ -44,7 +47,7 @@ export default function RegisterPage() {
         </div>
       )}
 
-      <SocialButtons next="/" />
+      <SocialButtons next={next} />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../shared/authStore';
+import { safeNext } from '../shared/safeNext';
 
 /**
  * Возврат из Яндекса / Google / VK / Facebook / WeChat.
@@ -17,7 +18,7 @@ export default function OAuthCallbackPage() {
   useEffect(() => {
     if (started.current) return;
     const token = params.get('accessToken');
-    const next = params.get('next') || '/';
+    const next = safeNext(params.get('next'));
     if (!token) {
       setError('Нет токена входа. Попробуйте ещё раз.');
       return;
@@ -26,7 +27,7 @@ export default function OAuthCallbackPage() {
     window.history.replaceState({}, document.title, '/auth/oauth');
     void acceptToken(token)
       .then(() => {
-        navigate(next.startsWith('/') && !next.startsWith('//') ? next : '/', { replace: true });
+        navigate(next, { replace: true });
       })
       .catch((err: Error) => {
         setError(err.message || 'Не удалось войти');
@@ -38,7 +39,7 @@ export default function OAuthCallbackPage() {
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
           <p className="text-red-600 dark:text-red-400 text-sm mb-4">{error}</p>
-          <a href="/login" className="btn-primary text-sm">Ко входу</a>
+          <a href={`/login?next=${encodeURIComponent(safeNext(params.get('next')))}`} className="btn-primary text-sm">Ко входу</a>
         </div>
       </div>
     );

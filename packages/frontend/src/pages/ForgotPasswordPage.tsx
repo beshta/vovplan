@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { KeyRound, MailCheck } from 'lucide-react';
 import { authApi } from '../shared/api';
+import SocialButtons from './auth/SocialButtons';
 
 /**
  * Запрос письма для смены пароля.
@@ -74,6 +75,8 @@ export default function ForgotPasswordPage() {
         />
 
         {error && <p className="text-sm text-red-400 mb-4">{error}</p>}
+
+        <SocialButtons next="/" />
 
         <button type="submit" disabled={busy || !email} className="btn-primary w-full text-sm mb-4">
           {busy ? 'Отправляем…' : 'Прислать ссылку'}

@@ -174,11 +174,12 @@ describe('oauth HTTP', () => {
   });
 
   it('неизвестный провайдер уводит на страницу входа', async () => {
-    const res = await app.inject({ method: 'GET', url: '/api/auth/oauth/twitter' });
+    const res = await app.inject({ method: 'GET', url: '/api/auth/oauth/twitter?next=/invite/abc' });
     expect(res.statusCode).toBe(302);
     const location = res.headers.location as string;
     expect(location).toContain('/login?error=');
     expect(decodeURIComponent(location)).toContain('выключен');
+    expect(location).toContain('next=%2Finvite%2Fabc');
   });
 
   it('Telegram без данных не проходит', async () => {

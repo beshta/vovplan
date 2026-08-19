@@ -18,6 +18,7 @@ import ResetPasswordPage from '../pages/ResetPasswordPage';
 import OAuthCallbackPage from '../pages/OAuthCallbackPage';
 import LoadingScreen from '../components/LoadingScreen';
 import ThemeToggle from '../components/ThemeToggle';
+import { GuestOnly, RequireAuth } from '../pages/auth/guards';
 
 export default function App() {
   const { init, isAuthenticated, isLoading, user } = useAuthStore();
@@ -54,25 +55,28 @@ export default function App() {
             страница сама его съест и вычистит из адресной строки. */}
         <Route path="/auth/oauth" element={<OAuthCallbackPage />} />
 
-        {/* Auth routes — redirect to dashboard if already logged in */}
-        <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <LoginPage />} />
-        <Route path="/register" element={isAuthenticated ? <Navigate to="/" /> : <RegisterPage />} />
-        <Route path="/forgot" element={isAuthenticated ? <Navigate to="/" /> : <ForgotPasswordPage />} />
+        {/* Уже вошедшего возвращаем на next (приглашение), а не всегда на корень */}
+        <Route path="/login" element={<GuestOnly><LoginPage /></GuestOnly>} />
+        <Route path="/register" element={<GuestOnly><RegisterPage /></GuestOnly>} />
+        <Route path="/forgot" element={<GuestOnly><ForgotPasswordPage /></GuestOnly>} />
 
         {/* Корень: залогиненным — дашборд, гостям — публичный лендинг */}
         <Route path="/" element={isAuthenticated ? <DashboardPage /> : <LandingPage />} />
 
         {/* Protected routes */}
-        <Route path="/account" element={isAuthenticated ? <AccountPage /> : <Navigate to="/login" />} />
+        <Route path="/account" element={<RequireAuth><AccountPage /></RequireAuth>} />
         {/* Админка. Гостю — на вход, а не «не найдено»: страница сама решит,
             что показать хозяину, а что всем остальным */}
-        <Route path="/admin" element={isAuthenticated ? <AdminPage /> : <Navigate to="/login" />} />
+        <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
         {/* Тихий просмотр. До catch-all, иначе /* заберёт /admin/view/:id.
             Пропуск из sessionStorage жив только в этой вкладке — новая
             вкладка спросила бы код заново */}
-        <Route path="/admin/view/:id" element={isAuthenticated ? <AdminViewPage /> : <Navigate to="/login" />} />
-        <Route path="/projects/:id" element={isAuthenticated ? <ProjectPage /> : <Navigate to="/login" />} />
-        <Route path="/*" element={isAuthenticated ? <DashboardPage /> : <Navigate to="/login" />} />
+        <Route path="/admin/view/:id" element={<RequireAuth><AdminViewPage /></RequireAuth>} />
+        <Route path="/projects/:id" element={<RequireAuth><ProjectPage /></RequireAuth>} />
+        <Route
+          path="/*"
+          element={isAuthenticated ? <DashboardPage /> : <Navigate to="/login" />}
+        />
       </Routes>
     </>
   );

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import type { ReactNode } from 'react';
 import { useGLTF, Detailed } from '@react-three/drei';
 import ModelPlaceholder from './ModelPlaceholder';
-import { collapseInstances } from '../utils/instancing';
+import { optimizeModel } from '../utils/instancing';
 import { API_URL } from '../../../shared/api';
 import { assetUrl } from '../../../shared/assetUrl';
 
@@ -21,10 +21,9 @@ interface LodModelProps {
 /**
  * Загружает GLB и готовит его к показу.
  *
- * Повторы схлопываются в аппаратные копии сразу после клонирования: чертёж на
- * пятнадцать тысяч деталей иначе даёт столько же вызовов отрисовки, и сцена
- * идёт двадцатью кадрами в секунду при вполне скромных двух миллионах
- * треугольников.
+ * Повторы схлопываются в аппаратные копии, оставшиеся разные детали с одним
+ * материалом склеиваются в один меш: иначе CAD-сцена даёт тысячи вызовов
+ * отрисовки даже в стоп-кадре, хотя треугольников всего пара миллионов.
  *
  * Результат запоминается по ссылке на файл: клонирование и перебор узлов —
  * работа не бесплатная, а один и тот же GLB стоит в сцене помногу раз.
@@ -35,7 +34,7 @@ function prepare(url: string, scene: THREE.Object3D): THREE.Object3D {
   const cached = prepared.get(url);
   if (cached) return cached;
   const template = scene.clone(true);
-  collapseInstances(template);
+  optimizeModel(template);
   prepared.set(url, template);
   return template;
 }

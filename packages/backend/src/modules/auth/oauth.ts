@@ -121,8 +121,9 @@ function pkce(): { verifier: string; challenge: string } {
   return { verifier, challenge };
 }
 
-function failRedirect(message: string): string {
-  return `${config.publicUrl}/login?error=${encodeURIComponent(message)}`;
+function failRedirect(message: string, next = '/'): string {
+  const q = new URLSearchParams({ error: message, next: safeNext(next) });
+  return `${config.publicUrl}/login?${q.toString()}`;
 }
 
 function okRedirect(token: string, next: string): string {
@@ -419,11 +420,10 @@ export default async function oauthRoutes(fastify: FastifyInstance) {
   fastify.get('/oauth/:provider', async (request, reply) => {
     rateLimit(request, 'oauth-start', 30, 15 * 60_000);
     const provider = (request.params as { provider: string }).provider as OAuthId;
-    if (!PROVIDER_ENUM[provider] || !creds(provider).id || !creds(provider).secret) {
-      return reply.redirect(failRedirect('Этот вход сейчас выключен'));
-    }
-
     const next = safeNext((request.query as { next?: string }).next);
+    if (!PROVIDER_ENUM[provider] || !creds(provider).id || !creds(provider).secret) {
+      return reply.redirect(failRedirect('Этот вход сейчас выключен', next));
+    }
     const { verifier, challenge } = pkce();
     const ticket: OauthTicket = { p: provider, v: verifier, n: next, t: Date.now() };
     const state = signBlob({ p: provider, t: ticket.t, n: next });
@@ -436,24 +436,23 @@ export default async function oauthRoutes(fastify: FastifyInstance) {
     rateLimit(request, 'oauth-cb', 30, 15 * 60_000);
     const provider = (request.params as { provider: string }).provider as OAuthId;
     const query = request.query as { code?: string; state?: string; error?: string; error_description?: string };
-
-    if (query.error) {
-      clearOauthCookie(reply);
-      return reply.redirect(failRedirect('Вход через соцсеть отменён'));
-    }
-
     const ticket = readBlob<OauthTicket>(readCookie(request));
     const state = readBlob<{ p: OAuthId; t: number; n: string }>(query.state);
+    const next = ticket?.n || state?.n || '/';
     clearOauthCookie(reply);
 
+    if (query.error) {
+      return reply.redirect(failRedirect('Вход через соцсеть отменён', next));
+    }
+
     if (!ticket || !state || ticket.p !== provider || state.p !== provider) {
-      return reply.redirect(failRedirect('Сессия входа истекла. Попробуйте ещё раз'));
+      return reply.redirect(failRedirect('Сессия входа истекла. Попробуйте ещё раз', next));
     }
     if (Date.now() - ticket.t > COOKIE_MAX_AGE * 1000) {
-      return reply.redirect(failRedirect('Сессия входа истекла. Попробуйте ещё раз'));
+      return reply.redirect(failRedirect('Сессия входа истекла. Попробуйте ещё раз', next));
     }
     if (!query.code) {
-      return reply.redirect(failRedirect('Провайдер не вернул код'));
+      return reply.redirect(failRedirect('Провайдер не вернул код', next));
     }
 
     try {
@@ -464,7 +463,7 @@ export default async function oauthRoutes(fastify: FastifyInstance) {
       return reply.redirect(okRedirect(token, ticket.n || state.n || '/'));
     } catch (err) {
       const message = err instanceof HttpError ? err.message : 'Не удалось войти через соцсеть';
-      return reply.redirect(failRedirect(message));
+      return reply.redirect(failRedirect(message, next));
     }
   });
 

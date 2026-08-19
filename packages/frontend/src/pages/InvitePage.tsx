@@ -1,15 +1,17 @@
-import { useState, type FormEvent } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ROLE_LABELS, type ProjectRole } from '@vovplan/shared';
 import { invitesApi } from '../shared/api';
 import { useAuthStore } from '../shared/authStore';
+import AuthLayout, { authInput, authLabel } from './auth/AuthLayout';
 import SocialButtons from './auth/SocialButtons';
 
 /**
- * Приём приглашения по ссылке (/invite/:token).
- * Если пользователь не вошёл — форма входа/регистрации прямо здесь;
- * после авторизации приглашение принимается и открывается проект.
+ * Приём приглашения. Гость регистрируется или входит прямо здесь — в том
+ * числе через соцсеть. Кто уже вошёл, сразу принимается в проект: иначе
+ * после Яндекса человек оказывался на этой странице ещё раз и думал, что
+ * ссылка сломана.
  */
 export default function InvitePage() {
   const { token } = useParams<{ token: string }>();
@@ -30,111 +32,163 @@ export default function InvitePage() {
     retry: false,
   });
 
-  const accept = async () => {
-    const res = await invitesApi.accept(token!);
-    navigate(`/projects/${res.projectId}`);
-  };
+  useEffect(() => {
+    if (!isAuthenticated || !token || !info) return;
+    let cancelled = false;
+    setBusy(true);
+    invitesApi
+      .accept(token)
+      .then((res) => {
+        if (!cancelled) navigate(`/projects/${res.projectId}`, { replace: true });
+      })
+      .catch((err: Error) => {
+        if (!cancelled) {
+          setError(err.message);
+          setBusy(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, token, info, navigate]);
 
-  const handleAuthAndAccept = async (e: FormEvent) => {
+  const handleAuth = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
       if (mode === 'register') await register(email, password, name);
       else await login(email, password);
-      await accept();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleJoin = async () => {
-    setBusy(true);
-    setError('');
-    try {
-      await accept();
-    } catch (err: any) {
-      setError(err.message);
+      // Принятие — в эффекте, когда isAuthenticated станет true
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Не удалось войти');
       setBusy(false);
     }
   };
 
   if (isLoading) {
-    return <Centered><div className="inline-block w-10 h-10 border-4 border-vovplan-500 border-t-transparent rounded-full animate-spin" /></Centered>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-vovplan-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
   if (infoError || !info) {
     const msg = infoError instanceof Error ? infoError.message : 'Приглашение недействительно';
     return (
-      <Centered>
-        <div className="glass p-8 max-w-md w-full text-center">
-          <div className="text-5xl mb-3">🔗</div>
-          <h1 className="text-lg font-semibold text-white mb-1">Приглашение недоступно</h1>
-          <p className="text-sm text-slate-400">{msg}</p>
-          <button onClick={() => navigate('/')} className="btn-secondary mt-5 text-sm">На главную</button>
-        </div>
-      </Centered>
+      <AuthLayout
+        title="Приглашение недоступно"
+        subtitle={msg}
+        footer={
+          <Link to="/" className="text-vovplan-600 font-medium hover:underline">
+            На главную
+          </Link>
+        }
+      >
+        <p className="text-sm text-muted">Попросите новую ссылку у того, кто вас приглашал.</p>
+      </AuthLayout>
+    );
+  }
+
+  const role = ROLE_LABELS[info.role as ProjectRole] ?? info.role;
+  const next = token ? `/invite/${token}` : '/';
+
+  if (isAuthenticated) {
+    return (
+      <AuthLayout
+        title="Входим в проект"
+        subtitle={`${info.projectName} · роль: ${role}`}
+        footer={<span> </span>}
+      >
+        {error ? (
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        ) : (
+          <p className="text-sm text-muted">{busy ? 'Присоединяем…' : 'Секунду…'}</p>
+        )}
+      </AuthLayout>
     );
   }
 
   return (
-    <Centered>
-      <div className="w-full max-w-md">
-        <div className="text-center mb-6">
-          <h1 className="font-display text-3xl font-bold text-white tracking-wide">VOVPLAN</h1>
+    <AuthLayout
+      title="Вас приглашают"
+      subtitle={`${info.projectName} · роль: ${role}`}
+      footer={
+        <>
+          Уже есть аккаунт? Переключитесь на вход — или зайдите через соцсеть.
+        </>
+      }
+    >
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 dark:bg-red-500/15 dark:border-red-500/25 dark:text-red-300 rounded-xl text-sm">
+          {error}
         </div>
-        <div className="glass p-8">
-          <p className="text-sm text-slate-400">Вас приглашают в проект</p>
-          <h2 className="text-xl font-semibold text-white tracking-tight mt-1">{info.projectName}</h2>
-          <span className="inline-block mt-2 text-xs px-2.5 py-1 bg-vovplan-500/10 text-vovplan-700 dark:bg-vovplan-600/20 dark:text-vovplan-200 rounded-full font-medium">
-            роль: {ROLE_LABELS[info.role as ProjectRole]}
-          </span>
+      )}
 
-          {error && <div className="mt-4 p-3 bg-red-500/15 border border-red-500/20 text-red-300 rounded-xl text-sm">{error}</div>}
+      <SocialButtons next={next} />
 
-          {isAuthenticated ? (
-            <button onClick={handleJoin} disabled={busy} className="btn-primary w-full mt-6">
-              {busy ? 'Присоединение…' : 'Присоединиться к проекту'}
+      <form onSubmit={handleAuth} className="space-y-4">
+        <div className="flex gap-1 p-1 bg-slate-100 dark:bg-white/5 rounded-xl">
+          {(['register', 'login'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                mode === m ? 'bg-vovplan-600 text-white' : 'text-muted'
+              }`}
+            >
+              {m === 'register' ? 'Регистрация' : 'Вход'}
             </button>
-          ) : (
-            <>
-              {token && (
-                <div className="mt-5">
-                  <SocialButtons next={`/invite/${token}`} />
-                </div>
-              )}
-              <form onSubmit={handleAuthAndAccept} className="space-y-3">
-                <div className="flex gap-1 p-1 bg-white/5 rounded-xl">
-                  {(['register', 'login'] as const).map((m) => (
-                    <button key={m} type="button" onClick={() => setMode(m)}
-                      className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${mode === m ? 'bg-vovplan-600 text-white' : 'text-slate-400'}`}>
-                      {m === 'register' ? 'Регистрация' : 'Вход'}
-                    </button>
-                  ))}
-                </div>
-                {mode === 'register' && (
-                  <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Ваше имя" className="input-field" />
-                )}
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="Email" className="input-field" autoComplete="email" />
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="Пароль" className="input-field" autoComplete={mode === 'register' ? 'new-password' : 'current-password'} />
-                <button type="submit" disabled={busy} className="btn-primary w-full">
-                  {busy ? 'Подождите…' : mode === 'register' ? 'Зарегистрироваться и войти' : 'Войти и присоединиться'}
-                </button>
-              </form>
-            </>
-          )}
+          ))}
         </div>
-      </div>
-    </Centered>
-  );
-}
-
-function Centered({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0b1020] bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(37,99,235,0.25),transparent)] px-4">
-      {children}
-    </div>
+        {mode === 'register' && (
+          <div>
+            <label htmlFor="inv-name" className={authLabel}>Имя</label>
+            <input
+              id="inv-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              minLength={2}
+              placeholder="Ваше имя"
+              className={authInput}
+              autoComplete="name"
+            />
+          </div>
+        )}
+        <div>
+          <label htmlFor="inv-email" className={authLabel}>Email</label>
+          <input
+            id="inv-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="you@example.com"
+            className={authInput}
+            autoComplete="email"
+          />
+        </div>
+        <div>
+          <label htmlFor="inv-password" className={authLabel}>Пароль</label>
+          <input
+            id="inv-password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={mode === 'register' ? 8 : 1}
+            placeholder={mode === 'register' ? 'Минимум 8 символов' : 'Пароль'}
+            className={authInput}
+            autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+          />
+        </div>
+        <button type="submit" disabled={busy} className="btn-primary w-full py-2.5">
+          {busy ? 'Подождите…' : mode === 'register' ? 'Создать аккаунт и войти' : 'Войти в проект'}
+        </button>
+      </form>
+    </AuthLayout>
   );
 }

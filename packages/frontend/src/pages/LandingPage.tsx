@@ -16,6 +16,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { track } from '../shared/analytics';
 import { publicApi } from '../shared/api';
+import SocialButtons from './auth/SocialButtons';
 
 // Тяжёлый three.js-канвас грузим отдельным чанком — текст героя рисуется сразу
 const LandingScene = lazy(() => import('./landing/LandingScene'));
@@ -79,16 +80,19 @@ export default function LandingPage() {
               Импортируйте настоящий рельеф, здания и спутник по координатам. Расставляйте объекты
               и инженерные сети, размечайте и обсуждайте — всей командой и в реальном времени.
             </p>
-            <div className="mt-9 flex flex-wrap items-center gap-3">
-              <Link to="/register" className="btn-primary text-base px-6 py-3 flex items-center gap-2">
-                Создать аккаунт <ArrowRight size={18} />
-              </Link>
-              <Link
-                to="/login"
-                className="btn-secondary text-base px-6 py-3"
-              >
-                Войти
-              </Link>
+            <div className="mt-9 max-w-sm">
+              <SocialButtons next="/" />
+              <div className="flex flex-wrap items-center gap-3">
+                <Link to="/register" className="btn-primary text-base px-6 py-3 flex items-center gap-2">
+                  Создать аккаунт <ArrowRight size={18} />
+                </Link>
+                <Link
+                  to="/login"
+                  className="btn-secondary text-base px-6 py-3"
+                >
+                  Войти по почте
+                </Link>
+              </div>
             </div>
             <p className="mt-7 text-sm text-muted">Масштаб 1:1 · реальные координаты · без установки</p>
           </div>
@@ -148,9 +152,10 @@ export default function LandingPage() {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_80%_at_80%_120%,rgba(34,211,238,0.25),transparent)] pointer-events-none" />
           <h2 className="relative font-display text-3xl sm:text-4xl font-bold text-white tracking-tight">Начните бесплатно</h2>
           <p className="relative mt-3 text-slate-300 text-lg">Создайте первый проект на реальной местности за пару минут.</p>
-          <div className="relative mt-8 flex justify-center">
-            <Link to="/register" className="btn-primary text-base px-7 py-3.5 flex items-center gap-2">
-              Создать аккаунт <ArrowRight size={18} />
+          <div className="relative mt-8 max-w-sm mx-auto dark">
+            <SocialButtons next="/" />
+            <Link to="/register" className="btn-primary text-base px-7 py-3.5 inline-flex items-center gap-2">
+              Создать аккаунт по почте <ArrowRight size={18} />
             </Link>
           </div>
         </div>

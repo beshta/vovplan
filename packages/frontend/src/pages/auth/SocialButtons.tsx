@@ -2,13 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../../shared/api';
 import { useAuthStore } from '../../shared/authStore';
+import { safeNext } from '../../shared/safeNext';
 
 /**
- * Кнопки быстрого входа. Рисуются только те, для которых на сервере есть ключи:
- * иначе человек жмёт «Яндекс» и получает чужую страницу ошибки.
- *
- * Telegram — виджет, не редирект: подпись проверяет наш бэкенд, токен бота
- * на фронт не попадает.
+ * Быстрый вход. Кнопки всегда на экране: иначе человек думает, что соцсетей
+ * нет. Если провайдер ещё не подключён ключами на сервере — остаёмся на
+ * странице и говорим об этом, а не уводим с приглашения на чужой логин.
  */
 
 export type OAuthId = 'google' | 'yandex' | 'facebook' | 'vk' | 'wechat';
@@ -32,8 +31,10 @@ const STYLE: Record<OAuthId, string> = {
 };
 
 export default function SocialButtons({ next = '/' }: { next?: string }) {
-  const [providers, setProviders] = useState<OAuthId[]>([]);
+  const dest = safeNext(next);
+  const [enabled, setEnabled] = useState<OAuthId[]>([]);
   const [telegram, setTelegram] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -42,11 +43,12 @@ export default function SocialButtons({ next = '/' }: { next?: string }) {
       .then((r) => r.json())
       .then((body: { providers?: OAuthId[]; telegram?: { username: string } | null }) => {
         if (cancelled) return;
-        setProviders(ORDER.filter((id) => body.providers?.includes(id)));
+        setEnabled(ORDER.filter((id) => body.providers?.includes(id)));
         setTelegram(body.telegram?.username ?? null);
+        setLoaded(true);
       })
       .catch(() => {
-        /* нет кнопок — остаётся обычная форма */
+        if (!cancelled) setLoaded(true);
       });
     return () => {
       cancelled = true;
@@ -54,14 +56,16 @@ export default function SocialButtons({ next = '/' }: { next?: string }) {
   }, []);
 
   const start = (id: OAuthId) => {
-    const q = new URLSearchParams({ next });
+    if (loaded && !enabled.includes(id)) {
+      setError('Этот вход ещё не подключён на сервере. Пока зайдите по почте — или через другую кнопку.');
+      return;
+    }
+    const q = new URLSearchParams({ next: dest });
     window.location.href = `${API_URL}/api/auth/oauth/${id}?${q.toString()}`;
   };
 
-  const beforeTg = providers.filter((id) => id === 'yandex' || id === 'google');
-  const afterTg = providers.filter((id) => id === 'vk' || id === 'facebook' || id === 'wechat');
-
-  if (providers.length === 0 && !telegram) return null;
+  const beforeTg = ORDER.filter((id) => id === 'yandex' || id === 'google');
+  const afterTg = ORDER.filter((id) => id === 'vk' || id === 'facebook' || id === 'wechat');
 
   const button = (id: OAuthId) => (
     <button
@@ -79,9 +83,21 @@ export default function SocialButtons({ next = '/' }: { next?: string }) {
       {error && (
         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
       )}
-      {beforeTg.length > 0 && <div className="grid gap-2">{beforeTg.map(button)}</div>}
-      {telegram && <TelegramWidget username={telegram} next={next} onError={setError} />}
-      {afterTg.length > 0 && <div className="grid gap-2">{afterTg.map(button)}</div>}
+      <div className="grid gap-2">{beforeTg.map(button)}</div>
+      {telegram ? (
+        <TelegramWidget username={telegram} next={dest} onError={setError} />
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            if (loaded) setError('Вход через Telegram ещё не подключён на сервере. Пока зайдите по почте.');
+          }}
+          className="w-full py-2.5 rounded-xl text-sm font-medium bg-[#229ED9] text-white hover:brightness-110 transition"
+        >
+          Войти через Telegram
+        </button>
+      )}
+      <div className="grid gap-2">{afterTg.map(button)}</div>
       <div className="flex items-center gap-3 text-xs text-muted">
         <span className="flex-1 h-px bg-slate-200 dark:bg-white/10" />
         или по почте
@@ -118,7 +134,7 @@ function TelegramWidget({
         const body = await res.json();
         if (!res.ok) throw new Error(body.message ?? 'Telegram не принял вход');
         await acceptToken(body.accessToken);
-        navigate(typeof body.next === 'string' ? body.next : next, { replace: true });
+        navigate(safeNext(typeof body.next === 'string' ? body.next : next), { replace: true });
       } catch (err) {
         onError(err instanceof Error ? err.message : 'Не удалось войти через Telegram');
       }

@@ -4,6 +4,7 @@ import { useAuthStore } from '../shared/authStore';
 import AuthLayout, { authInput, authLabel } from './auth/AuthLayout';
 import SocialButtons from './auth/SocialButtons';
 import { track } from '../shared/analytics';
+import { safeNext } from '../shared/safeNext';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const oauthError = params.get('error');
+  const next = safeNext(params.get('next'));
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -19,7 +21,7 @@ export default function LoginPage() {
     try {
       await login(email, password);
       track('login.done');
-      navigate('/');
+      navigate(next);
     } catch {
       /* error is in store */
     }
@@ -32,7 +34,7 @@ export default function LoginPage() {
       footer={
         <>
           Нет аккаунта?{' '}
-          <Link to="/register" className="text-vovplan-600 font-medium hover:underline">
+          <Link to={next !== '/' ? `/register?next=${encodeURIComponent(next)}` : '/register'} className="text-vovplan-600 font-medium hover:underline">
             Зарегистрироваться
           </Link>
         </>
@@ -44,7 +46,7 @@ export default function LoginPage() {
         </div>
       )}
 
-      <SocialButtons next="/" />
+      <SocialButtons next={next} />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
