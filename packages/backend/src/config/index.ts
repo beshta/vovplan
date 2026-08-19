@@ -79,18 +79,6 @@ function corsSibling(origin: string): string | null {
 }
 
 export const config = {
-  analytics: {
-    /**
-     * Кому доступна сводка воронки. Отдельной роли админа в системе нет,
-     * поэтому список задаётся переменной окружения ANALYTICS_ADMIN_EMAILS
-     * (через запятую). Пусто — сводку не видит никто.
-     */
-    adminEmails: (process.env.ANALYTICS_ADMIN_EMAILS ?? '')
-      .split(',')
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean),
-  },
-
   port: parseInt(process.env.PORT ?? '4000', 10),
   host: process.env.HOST ?? '0.0.0.0',
   nodeEnv,

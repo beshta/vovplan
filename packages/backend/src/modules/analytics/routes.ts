@@ -1,7 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../../db/prisma.js';
-import { config } from '../../config/index.js';
 import { rateLimit } from '../../utils/rateLimit.js';
 import { Errors } from '../../utils/errors.js';
 
@@ -78,9 +77,9 @@ export default async function analyticsRoutes(fastify: FastifyInstance) {
   fastify.get('/funnel', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     const me = await prisma.user.findUnique({
       where: { id: request.user.userId },
-      select: { email: true },
+      select: { isAdmin: true },
     });
-    if (!me || !config.analytics.adminEmails.includes(me.email.toLowerCase())) {
+    if (!me?.isAdmin) {
       Errors.Forbidden('Сводка доступна только владельцам продукта');
     }
 

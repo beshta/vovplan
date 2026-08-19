@@ -567,3 +567,24 @@ describe('журнал', () => {
     }
   });
 });
+
+describe('воронка', () => {
+  it('обычный пользователь сводку не читает', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/analytics/funnel',
+      headers: auth(plainToken),
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('хозяин читает без второго фактора — это кабинет, не админка', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/analytics/funnel',
+      headers: auth(adminToken),
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().steps.length).toBeGreaterThan(0);
+  });
+});

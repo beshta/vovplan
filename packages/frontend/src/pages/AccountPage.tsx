@@ -11,18 +11,20 @@ import { ROLE_LABELS, LEVEL_LABELS, type Project } from '@vovplan/shared';
 
 type Section = 'profile' | 'password' | 'projects' | 'billing' | 'funnel';
 
-const SECTIONS: { id: Section; label: string; icon: typeof UserIcon }[] = [
+const SECTIONS: { id: Section; label: string; icon: typeof UserIcon; admin?: boolean }[] = [
   { id: 'profile', label: 'Профиль', icon: UserIcon },
   { id: 'password', label: 'Безопасность', icon: Lock },
   { id: 'projects', label: 'Мои проекты', icon: FolderOpen },
   { id: 'billing', label: 'Подписка', icon: CreditCard },
-  { id: 'funnel', label: 'Воронка', icon: TrendingDown },
+  { id: 'funnel', label: 'Воронка', icon: TrendingDown, admin: true },
 ];
 
 export default function AccountPage() {
   const [section, setSection] = useState<Section>('profile');
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const nav = SECTIONS.filter((s) => !s.admin || user?.isAdmin);
+  const shown: Section = nav.some((s) => s.id === section) ? section : 'profile';
 
   return (
     <div className="min-h-screen surface-page">
@@ -48,12 +50,12 @@ export default function AccountPage() {
       <main className="max-w-6xl mx-auto px-5 py-10 grid lg:grid-cols-[220px_1fr] gap-8">
         {/* Боковая навигация */}
         <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
-          {SECTIONS.map((s) => (
+          {nav.map((s) => (
             <button
               key={s.id}
               onClick={() => setSection(s.id)}
               className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${
-                section === s.id
+                shown === s.id
                   ? 'bg-vovplan-500/10 text-vovplan-700 ring-1 ring-vovplan-500/25 dark:bg-vovplan-600/20 dark:text-vovplan-200 dark:ring-vovplan-500/30'
                   : 'text-muted hover:text-strong hover:bg-slate-900/5 dark:hover:bg-white/5'
               }`}
@@ -75,11 +77,11 @@ export default function AccountPage() {
         </nav>
 
         <div className="min-w-0">
-          {section === 'profile' && <ProfileSection />}
-          {section === 'password' && <PasswordSection />}
-          {section === 'projects' && <ProjectsSection />}
-          {section === 'billing' && <BillingSection />}
-          {section === 'funnel' && <FunnelSection />}
+          {shown === 'profile' && <ProfileSection />}
+          {shown === 'password' && <PasswordSection />}
+          {shown === 'projects' && <ProjectsSection />}
+          {shown === 'billing' && <BillingSection />}
+          {shown === 'funnel' && user?.isAdmin && <FunnelSection />}
         </div>
       </main>
 
@@ -446,9 +448,8 @@ function BillingSection() {
  * Считаются уникальные люди на каждом шаге, а не события — иначе один
  * человек, обновивший лендинг десять раз, исказил бы всю картину.
  *
- * Раздел виден всем, но данные отдаёт только тем, чей email в
- * ANALYTICS_ADMIN_EMAILS: остальным сервер ответит отказом, и мы честно
- * об этом пишем, а не притворяемся, что данных нет.
+ * Вкладка есть только у хозяина (`isAdmin`). Остальным её нет в меню,
+ * а API отвечает отказом — знать о сводке им незачем.
  */
 function FunnelSection() {
   const [days, setDays] = useState(30);
@@ -479,11 +480,7 @@ function FunnelSection() {
       {isLoading && <p className="text-sm text-muted">Считаю...</p>}
 
       {error && (
-        <Alert kind="error">
-          {(error as Error).message.includes('прав') || (error as Error).message.includes('владельц')
-            ? 'Сводка доступна только владельцам продукта. Добавьте свой email в ANALYTICS_ADMIN_EMAILS на сервере.'
-            : (error as Error).message}
-        </Alert>
+        <Alert kind="error">{(error as Error).message}</Alert>
       )}
 
       {data && (
