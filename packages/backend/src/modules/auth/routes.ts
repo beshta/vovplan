@@ -147,8 +147,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
     rateLimit(request, 'verify', 60, 15 * 60_000);
 
     const token = (request.body as { token?: string })?.token ?? '';
-    const userId = await claimEmailToken(token, 'VERIFY_EMAIL');
-    if (!userId) {
+    const claimed = await claimEmailToken(token, 'VERIFY_EMAIL');
+    if (!claimed) {
       return reply.code(400).send({
         error: 'INVALID_TOKEN',
         message: 'Ссылка недействительна или устарела. Запросите письмо заново.',
@@ -157,11 +157,11 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
 
     await prisma.user.update({
-      where: { id: userId },
+      where: { id: claimed.userId },
       data: { emailVerified: new Date() },
     });
 
-    return reply.send({ ok: true });
+    return reply.send({ ok: true, already: claimed.already });
   });
 
   // ── POST /api/auth/verify/resend — отправить письмо заново ──
@@ -234,14 +234,15 @@ export default async function authRoutes(fastify: FastifyInstance) {
       });
     }
 
-    const userId = await claimEmailToken(parsed.data.token, 'RESET_PASSWORD');
-    if (!userId) {
+    const claimed = await claimEmailToken(parsed.data.token, 'RESET_PASSWORD');
+    if (!claimed) {
       return reply.code(400).send({
         error: 'INVALID_TOKEN',
         message: 'Ссылка недействительна или устарела. Запросите новую.',
         statusCode: 400,
       });
     }
+    const userId = claimed.userId;
 
     /*
      * Вместе с паролем обесцениваем все выданные токены доступа.

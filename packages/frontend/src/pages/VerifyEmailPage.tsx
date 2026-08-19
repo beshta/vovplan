@@ -24,7 +24,7 @@ export default function VerifyEmailPage() {
     sent.current = true;
 
     authApi
-      .verifyEmail(token)
+      .verifyEmail(token.trim())
       .then(async () => {
         setState('ok');
         // Если человек уже вошёл в этой вкладке — обновим профиль,

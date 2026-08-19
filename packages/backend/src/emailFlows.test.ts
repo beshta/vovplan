@@ -65,7 +65,7 @@ describe('подтверждение адреса почты', () => {
     expect(tokens).toBe(1);
   });
 
-  it('переход по ссылке подтверждает адрес, повторный — нет', async () => {
+  it('переход по ссылке подтверждает адрес, повторный тоже успех', async () => {
     const { user } = await register('verify-b');
     const token = await issueEmailToken(user.id, 'VERIFY_EMAIL', VERIFY_TTL_MS);
 
@@ -75,9 +75,16 @@ describe('подтверждение адреса почты', () => {
     const after = await prisma.user.findUnique({ where: { id: user.id }, select: { emailVerified: true } });
     expect(after?.emailVerified).not.toBeNull();
 
-    // Ссылка одноразовая: перехваченное письмо не должно работать вечно
+    // Повтор — не ошибка: сканер почты часто открывает ссылку раньше человека
     const second = await app.inject({ method: 'POST', url: '/api/auth/verify', payload: { token } });
-    expect(second.statusCode).toBe(400);
+    expect(second.statusCode).toBe(200);
+    expect(second.json().already).toBe(true);
+  });
+
+  it('токен подтверждения без дефиса — иначе почта рвёт ссылку пополам', async () => {
+    const { user } = await register('verify-hex');
+    const token = await issueEmailToken(user.id, 'VERIFY_EMAIL', VERIFY_TTL_MS);
+    expect(token).toMatch(/^[0-9a-f]{32}$/);
   });
 
   it('истёкший токен не подтверждает', async () => {
