@@ -86,6 +86,30 @@ describe('обязательные переменные окружения', () 
     expect(config.isDev).toBe(true);
   });
 
+  it('CORS срезает пробелы и добавляет пару www / без www', async () => {
+    const { config } = await loadConfig({
+      NODE_ENV: 'test',
+      CORS_ORIGINS: 'https://vovplan.com, https://other.example',
+    });
+    expect(config.cors.origins).toEqual([
+      'https://vovplan.com',
+      'https://other.example',
+      'https://www.vovplan.com',
+      'https://www.other.example',
+    ]);
+  });
+
+  it('CORS не приделывает www к localhost', async () => {
+    const { config } = await loadConfig({
+      NODE_ENV: 'test',
+      CORS_ORIGINS: 'http://localhost:5173,http://127.0.0.1:5173',
+    });
+    expect(config.cors.origins).toEqual([
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+    ]);
+  });
+
   // Строгость включает именно production. Тесты идут под NODE_ENV=test, и
   // приравнять их к продакшну — значит уронить загрузку всего набора
   it('под NODE_ENV=test запасные значения тоже работают', async () => {

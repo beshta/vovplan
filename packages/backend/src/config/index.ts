@@ -45,6 +45,39 @@ function requireStrongSecret(key: string, fallback: string): string {
   return val;
 }
 
+/**
+ * Список origin'ов для CORS.
+ *
+ * Пробелы по краям срезаются: в .env часто пишут запятую с пробелом, и тогда
+ * `https://www.vovplan.com` не совпадает с ` https://www.vovplan.com` — браузер
+ * видит это как «Failed to fetch», а не как отказ CORS.
+ *
+ * www и голый домен считаются парой: страница открыта с одного, а запрос
+ * ушёл на другой (закладка, редирект, абсолютный URL в старом бандле).
+ * localhost и IP не трогаем — `www.127.0.0.1` никому не нужен.
+ */
+export function parseCorsOrigins(raw: string): string[] {
+  const listed = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  const extra: string[] = [];
+  for (const origin of listed) {
+    const sibling = corsSibling(origin);
+    if (sibling && !listed.includes(sibling)) extra.push(sibling);
+  }
+  return [...listed, ...extra];
+}
+
+function corsSibling(origin: string): string | null {
+  try {
+    const u = new URL(origin);
+    if (u.hostname === 'localhost' || /^\d/.test(u.hostname)) return null;
+    const host = u.hostname.startsWith('www.') ? u.hostname.slice(4) : `www.${u.hostname}`;
+    const port = u.port ? `:${u.port}` : '';
+    return `${u.protocol}//${host}${port}`;
+  } catch {
+    return null;
+  }
+}
+
 export const config = {
   analytics: {
     /**
@@ -83,7 +116,9 @@ export const config = {
    */
 
   cors: {
-    origins: (process.env.CORS_ORIGINS ?? 'http://localhost:5173,http://127.0.0.1:5173').split(','),
+    origins: parseCorsOrigins(
+      process.env.CORS_ORIGINS ?? 'http://localhost:5173,http://127.0.0.1:5173',
+    ),
   },
 
   /**

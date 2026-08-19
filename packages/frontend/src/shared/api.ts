@@ -105,7 +105,16 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     if (pass) headers['X-Admin-Token'] = pass;
   }
 
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, { ...options, headers, cache: 'no-store' });
+  } catch {
+    throw new ApiError(
+      'NETWORK',
+      'Нет связи с сервером. Обновите страницу (Ctrl+Shift+R) и попробуйте снова.',
+      0,
+    );
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: 'Ошибка сети' }));

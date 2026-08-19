@@ -34,6 +34,11 @@ function getTransport(): Transporter | null {
     // 465 — TLS сразу, 587 и 25 — STARTTLS уже внутри соединения
     secure: config.smtp.port === 465,
     auth: config.smtp.user ? { user: config.smtp.user, pass: config.smtp.pass } : undefined,
+    // Без этого зависший SMTP (закрытый 465 на VPS, неверный пароль) держит
+    // регистрацию минутами, nginx обрывает соединение, в браузере — Failed to fetch.
+    connectionTimeout: 8_000,
+    greetingTimeout: 8_000,
+    socketTimeout: 15_000,
   });
   return transport;
 }

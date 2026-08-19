@@ -126,7 +126,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
      * отдельные вещи — приглашения на их адрес и лимиты бесплатного тарифа.
      */
     const verifyToken = await issueEmailToken(user.id, 'VERIFY_EMAIL', VERIFY_TTL_MS);
-    await sendMail(request.log, verifyEmailLetter(user.email, verifyToken));
+    // Не ждём SMTP: письмо не должно держать ответ. Сбой ловит sendMail сам.
+    void sendMail(request.log, verifyEmailLetter(user.email, verifyToken));
 
     // Поколение токена вшивается в него: хук сверит его с базой на каждом запросе
     const accessToken = fastify.jwt.sign({
