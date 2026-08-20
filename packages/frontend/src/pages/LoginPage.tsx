@@ -30,7 +30,7 @@ export default function LoginPage() {
   return (
     <AuthLayout
       title="Вход в аккаунт"
-      subtitle="Через Яндекс, Google, Telegram — или по почте и паролю."
+      subtitle="Продолжите работу над проектами."
       footer={
         <>
           Нет аккаунта?{' '}
@@ -45,8 +45,6 @@ export default function LoginPage() {
           {error || oauthError}
         </div>
       )}
-
-      <SocialButtons next={next} />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -80,15 +78,16 @@ export default function LoginPage() {
         <button type="submit" disabled={isLoading} className="btn-primary w-full py-2.5">
           {isLoading ? 'Вход...' : 'Войти'}
         </button>
-
-        {/* Под кнопкой, а не рядом с полем пароля: ищут её именно после
-            неудачной попытки войти */}
-        <p className="text-center text-sm">
-          <Link to="/forgot" className="text-muted hover:text-vovplan-600 hover:underline">
-            Забыли пароль?
-          </Link>
-        </p>
       </form>
+
+      <SocialButtons next={next} />
+
+      {/* После основной кнопки и соцсетей: ищут её после неудачной попытки войти */}
+      <p className="mt-5 text-center text-sm">
+        <Link to="/forgot" className="text-muted hover:text-vovplan-600 hover:underline">
+          Забыли пароль?
+        </Link>
+      </p>
     </AuthLayout>
   );
 }

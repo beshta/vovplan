@@ -76,13 +76,13 @@ export default function ForgotPasswordPage() {
 
         {error && <p className="text-sm text-red-400 mb-4">{error}</p>}
 
-        <SocialButtons next="/" />
-
-        <button type="submit" disabled={busy || !email} className="btn-primary w-full text-sm mb-4">
+        <button type="submit" disabled={busy || !email} className="btn-primary w-full text-sm">
           {busy ? 'Отправляем…' : 'Прислать ссылку'}
         </button>
 
-        <p className="text-center text-xs text-muted">
+        <SocialButtons next="/" />
+
+        <p className="mt-5 text-center text-xs text-muted">
           Вспомнили? <Link to="/login" className="text-vovplan-400 hover:underline">Войти</Link>
         </p>
       </form>

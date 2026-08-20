@@ -31,7 +31,7 @@ export default function RegisterPage() {
   return (
     <AuthLayout
       title="Создать аккаунт"
-      subtitle="Через соцсеть — в один клик. Или почта и пароль, как обычно."
+      subtitle="Чтобы собрать первый проект на реальной местности."
       footer={
         <>
           Уже есть аккаунт?{' '}
@@ -46,8 +46,6 @@ export default function RegisterPage() {
           {error}
         </div>
       )}
-
-      <SocialButtons next={next} />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -99,6 +97,8 @@ export default function RegisterPage() {
           {isLoading ? 'Создание...' : 'Создать аккаунт'}
         </button>
       </form>
+
+      <SocialButtons next={next} />
     </AuthLayout>
   );
 }

@@ -11,13 +11,12 @@ import { telegramDisplayName, verifyTelegramAuth } from './telegram.js';
 /**
  * Вход через соцсети.
  *
- * Кнопки на сайте рисуются только для провайдеров с ключами в .env: иначе
- * человек нажимает «Войти через Яндекс» и получает мёртвую страницу ошибки
- * Яндекса. Пустой ключ = провайдер выключен.
+ * На фронте — ряд иконок под основной кнопкой формы. Пустой ключ в .env
+ * не прячет иконку: человек видит, что сервис есть, и короткое «ещё не
+ * подключён», а не пустую дыру в ряду.
  *
- * Telegram — не OAuth: виджет на странице, проверка HMAC на сервере.
- * WeChat — то, чем в Китае входят почти все; без аккаунта Open Platform
- * кнопка просто не показывается.
+ * Telegram — Login Widget через редирект oauth.telegram.org (как иконка,
+ * без iframe). HMAC проверяем так же, как у POST /telegram.
  */
 
 export type OAuthId = 'google' | 'yandex' | 'facebook' | 'vk' | 'wechat';
@@ -130,6 +129,16 @@ function okRedirect(token: string, next: string): string {
   const q = new URLSearchParams({ accessToken: token, next });
   return `${config.publicUrl}/auth/oauth?${q.toString()}`;
 }
+
+const telegramQuerySchema = z.object({
+  id: z.coerce.number(),
+  first_name: z.string().optional(),
+  last_name: z.string().optional(),
+  username: z.string().optional(),
+  photo_url: z.string().optional(),
+  auth_date: z.coerce.number(),
+  hash: z.string(),
+});
 
 async function formPost(url: string, body: Record<string, string>): Promise<Record<string, unknown>> {
   const res = await fetch(url, {
@@ -467,7 +476,64 @@ export default async function oauthRoutes(fastify: FastifyInstance) {
     }
   });
 
+  async function finishTelegram(
+    payload: z.infer<typeof telegramQuerySchema>,
+    next: string,
+    reply: FastifyReply,
+  ) {
+    if (!verifyTelegramAuth(payload, config.oauth.telegram.token)) {
+      return reply.redirect(failRedirect('Telegram не подтвердил вход', next));
+    }
+    const user = await loginWithSocial({
+      provider: 'TELEGRAM',
+      providerUserId: String(payload.id),
+      email: null,
+      emailVerified: false,
+      displayName: telegramDisplayName(payload),
+    });
+    return reply.redirect(okRedirect(sessionOf(fastify, user), next));
+  }
+
+  // ── GET /api/auth/telegram/start ───────────
+  // Иконка Telegram ведёт сюда — дальше oauth.telegram.org, как у OAuth.
+  fastify.get('/telegram/start', async (request, reply) => {
+    rateLimit(request, 'telegram-start', 30, 15 * 60_000);
+    const next = safeNext((request.query as { next?: string }).next);
+    if (!telegramEnabled()) {
+      return reply.redirect(failRedirect('Вход через Telegram выключен', next));
+    }
+    const botId = config.oauth.telegram.token.split(':')[0];
+    if (!/^\d+$/.test(botId)) {
+      return reply.redirect(failRedirect('Telegram-бот настроен неверно', next));
+    }
+    setOauthCookie(reply, signBlob({ n: next, t: Date.now() }));
+    const returnTo = `${config.publicUrl}/api/auth/telegram/callback`;
+    const url = new URL('https://oauth.telegram.org/auth');
+    url.searchParams.set('bot_id', botId);
+    url.searchParams.set('origin', config.publicUrl);
+    url.searchParams.set('request_access', 'write');
+    url.searchParams.set('return_to', returnTo);
+    return reply.redirect(url.toString());
+  });
+
+  // ── GET /api/auth/telegram/callback ────────
+  fastify.get('/telegram/callback', async (request, reply) => {
+    rateLimit(request, 'telegram-cb', 30, 15 * 60_000);
+    const ticket = readBlob<{ n?: string; t?: number }>(readCookie(request));
+    const next = ticket?.n || '/';
+    clearOauthCookie(reply);
+    if (!telegramEnabled()) {
+      return reply.redirect(failRedirect('Вход через Telegram выключен', next));
+    }
+    const parsed = telegramQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.redirect(failRedirect('Telegram не вернул данные входа', next));
+    }
+    return finishTelegram(parsed.data, next, reply);
+  });
+
   // ── POST /api/auth/telegram ────────────────
+  // Старый путь: виджет POST-ит payload. Оставляем для совместимости.
   fastify.post('/telegram', async (request, reply) => {
     rateLimit(request, 'oauth-tg', 30, 15 * 60_000);
     if (!telegramEnabled()) {
@@ -478,18 +544,7 @@ export default async function oauthRoutes(fastify: FastifyInstance) {
       });
     }
 
-    const parsed = z
-      .object({
-        id: z.coerce.number(),
-        first_name: z.string().optional(),
-        last_name: z.string().optional(),
-        username: z.string().optional(),
-        photo_url: z.string().optional(),
-        auth_date: z.coerce.number(),
-        hash: z.string(),
-        next: z.string().optional(),
-      })
-      .safeParse(request.body);
+    const parsed = telegramQuerySchema.extend({ next: z.string().optional() }).safeParse(request.body);
     if (!parsed.success) {
       return reply.code(400).send({
         error: 'VALIDATION_ERROR',

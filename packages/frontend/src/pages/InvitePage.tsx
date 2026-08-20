@@ -116,7 +116,7 @@ export default function InvitePage() {
       subtitle={`${info.projectName} · роль: ${role}`}
       footer={
         <>
-          Уже есть аккаунт? Переключитесь на вход — или зайдите через соцсеть.
+          Уже есть аккаунт? Переключитесь на вход.
         </>
       }
     >
@@ -125,8 +125,6 @@ export default function InvitePage() {
           {error}
         </div>
       )}
-
-      <SocialButtons next={next} />
 
       <form onSubmit={handleAuth} className="space-y-4">
         <div className="flex gap-1 p-1 bg-slate-100 dark:bg-white/5 rounded-xl">
@@ -189,6 +187,8 @@ export default function InvitePage() {
           {busy ? 'Подождите…' : mode === 'register' ? 'Создать аккаунт и войти' : 'Войти в проект'}
         </button>
       </form>
+
+      <SocialButtons next={next} />
     </AuthLayout>
   );
 }

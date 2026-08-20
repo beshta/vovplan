@@ -191,6 +191,28 @@ describe('oauth HTTP', () => {
     expect([400, 404]).toContain(res.statusCode);
   });
 
+  it('Telegram start без ключей уводит на вход и сохраняет next', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/auth/telegram/start?next=/invite/abc',
+    });
+    expect(res.statusCode).toBe(302);
+    const location = res.headers.location as string;
+    if (location.includes('oauth.telegram.org')) {
+      expect(location).toContain('bot_id=');
+      expect(location).toContain('return_to=');
+    } else {
+      expect(location).toContain('/login?error=');
+      expect(location).toContain('next=%2Finvite%2Fabc');
+    }
+  });
+
+  it('Telegram callback без данных уводит на вход', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/auth/telegram/callback' });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location as string).toContain('/login?error=');
+  });
+
   it('учётка только из соцсети не входит по паролю', async () => {
     const user = await loginWithSocial({
       provider: 'YANDEX',
