@@ -161,6 +161,37 @@ const telegramQuerySchema = z.object({
   hash: z.string(),
 });
 
+/**
+ * oauth.telegram.org кладёт пользователя в hash (#tgAuthResult=...), а не в query.
+ * Сервер hash не видит — отдаём крошечную страницу, она перекладывает поля в ?id=&hash=
+ */
+const TELEGRAM_HASH_BRIDGE = `<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><title>VOVPLAN</title></head>
+<body>
+<p>Входим…</p>
+<script>
+(function () {
+  function fail() {
+    location.replace('/login?error=' + encodeURIComponent('Telegram не вернул данные входа'));
+  }
+  try {
+    var hash = location.hash.replace(/^#/, '');
+    var b64 = new URLSearchParams(hash).get('tgAuthResult');
+    if (!b64) { fail(); return; }
+    b64 = b64.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    var data = JSON.parse(atob(b64));
+    var q = new URLSearchParams();
+    ['id','first_name','last_name','username','photo_url','auth_date','hash'].forEach(function (k) {
+      if (data[k] != null && data[k] !== '') q.set(k, String(data[k]));
+    });
+    if (!q.get('id') || !q.get('hash') || !q.get('auth_date')) { fail(); return; }
+    location.replace(location.pathname + '?' + q.toString());
+  } catch (e) { fail(); }
+})();
+</script>
+</body></html>`;
+
 async function formPost(url: string, body: Record<string, string>): Promise<Record<string, unknown>> {
   const res = await fetch(url, {
     method: 'POST',
@@ -561,14 +592,20 @@ export default async function oauthRoutes(fastify: FastifyInstance) {
     rateLimit(request, 'telegram-cb', 30, 15 * 60_000);
     const ticket = readBlob<{ n?: string; t?: number }>(readCookie(request));
     const next = ticket?.n || '/';
-    clearOauthCookie(reply);
     if (!telegramEnabled()) {
+      clearOauthCookie(reply);
       return reply.redirect(failRedirect('Вход через Telegram выключен', next));
     }
     const parsed = telegramQuerySchema.safeParse(request.query);
     if (!parsed.success) {
+      const q = request.query as { id?: string; hash?: string };
+      if (!q.id && !q.hash) {
+        return reply.type('text/html; charset=utf-8').send(TELEGRAM_HASH_BRIDGE);
+      }
+      clearOauthCookie(reply);
       return reply.redirect(failRedirect('Telegram не вернул данные входа', next));
     }
+    clearOauthCookie(reply);
     return finishTelegram(parsed.data, next, reply);
   });
 

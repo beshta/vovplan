@@ -207,10 +207,15 @@ describe('oauth HTTP', () => {
     }
   });
 
-  it('Telegram callback без данных уводит на вход', async () => {
+  it('Telegram callback без query: выключен — на вход, включён — HTML-мост для hash', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/auth/telegram/callback' });
-    expect(res.statusCode).toBe(302);
-    expect(res.headers.location as string).toContain('/login?error=');
+    if (res.statusCode === 302) {
+      expect(res.headers.location as string).toContain('/login?error=');
+      return;
+    }
+    expect(res.statusCode).toBe(200);
+    expect(String(res.headers['content-type'])).toContain('text/html');
+    expect(res.body).toContain('tgAuthResult');
   });
 
   it('учётка только из соцсети не входит по паролю', async () => {
