@@ -112,12 +112,33 @@ interface OauthTicket {
   v: string;
   n: string;
   t: number;
+  /** OAuth state: латиница, без точки — VK ID иначе отклоняет запрос */
+  s: string;
 }
 
 function pkce(): { verifier: string; challenge: string } {
   const verifier = randomBytes(32).toString('base64url');
   const challenge = createHash('sha256').update(verifier).digest('base64url');
   return { verifier, challenge };
+}
+
+function oauthNonce(): string {
+  return randomBytes(24).toString('base64url');
+}
+
+/** VK ID иногда кладёт code/state/device_id в JSON-параметр payload. */
+function parseVkPayload(raw: string | undefined): { code?: string; state?: string; device_id?: string } {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as { code?: unknown; state?: unknown; device_id?: unknown };
+    return {
+      code: typeof parsed.code === 'string' ? parsed.code : undefined,
+      state: typeof parsed.state === 'string' ? parsed.state : undefined,
+      device_id: typeof parsed.device_id === 'string' ? parsed.device_id : undefined,
+    };
+  } catch {
+    return {};
+  }
 }
 
 function failRedirect(message: string, next = '/'): string {
@@ -235,25 +256,28 @@ async function profileFrom(provider: OAuthId, accessToken: string, extra: Record
   }
 
   if (provider === 'vk') {
-    const userId = extra.user_id != null ? String(extra.user_id) : '';
-    const email = str(extra.email) || null;
-    const u = new URL('https://api.vk.com/method/users.get');
-    u.searchParams.set('access_token', accessToken);
-    u.searchParams.set('v', '5.199');
-    u.searchParams.set('fields', 'photo_200');
-    const res = await fetch(u);
-    const body = (await res.json()) as {
-      response?: { id: number; first_name?: string; last_name?: string }[];
-    };
-    const person = body.response?.[0];
-    const id = person ? String(person.id) : userId;
+    const json = await formPost('https://id.vk.ru/oauth2/user_info', {
+      client_id: creds('vk').id,
+      access_token: accessToken,
+    });
+    const person =
+      json.user && typeof json.user === 'object'
+        ? (json.user as {
+            user_id?: string | number;
+            first_name?: string;
+            last_name?: string;
+            email?: string;
+          })
+        : {};
+    const id = person.user_id != null ? String(person.user_id) : extra.user_id != null ? String(extra.user_id) : '';
     if (!id) throw new HttpError(502, 'OAUTH_PROVIDER', 'VK не вернул id');
+    const email = str(person.email) || str(extra.email) || null;
     return {
       provider: enumId,
       providerUserId: id,
       email,
       emailVerified: Boolean(email),
-      displayName: [person?.first_name, person?.last_name].filter(Boolean).join(' '),
+      displayName: [person.first_name, person.last_name].filter(Boolean).join(' '),
     };
   }
 
@@ -314,14 +338,16 @@ function authorizeUrl(provider: OAuthId, state: string, challenge: string): stri
   }
 
   if (provider === 'vk') {
-    const u = new URL('https://oauth.vk.com/authorize');
+    // VK ID, OAuth 2.1: не oauth.vk.com. Без PKCE и device_id кабинет ключи не примет.
+    const u = new URL('https://id.vk.ru/authorize');
+    u.searchParams.set('response_type', 'code');
     u.searchParams.set('client_id', id);
     u.searchParams.set('redirect_uri', redirect);
-    u.searchParams.set('response_type', 'code');
-    u.searchParams.set('scope', 'email');
     u.searchParams.set('state', state);
-    u.searchParams.set('display', 'page');
-    u.searchParams.set('v', '5.199');
+    u.searchParams.set('code_challenge', challenge);
+    u.searchParams.set('code_challenge_method', 'S256');
+    u.searchParams.set('scope', 'vkid.personal_info email');
+    u.searchParams.set('lang_id', '0');
     return u.toString();
   }
 
@@ -338,6 +364,7 @@ async function exchangeCode(
   provider: OAuthId,
   code: string,
   verifier: string,
+  deviceId?: string,
 ): Promise<{ accessToken: string; extra: Record<string, unknown> }> {
   const { id, secret } = creds(provider);
   const redirect = callbackUrl(provider);
@@ -383,14 +410,17 @@ async function exchangeCode(
   }
 
   if (provider === 'vk') {
-    const u = new URL('https://oauth.vk.com/access_token');
-    u.searchParams.set('client_id', id);
-    u.searchParams.set('client_secret', secret);
-    u.searchParams.set('redirect_uri', redirect);
-    u.searchParams.set('code', code);
-    const res = await fetch(u);
-    const json = (await res.json()) as Record<string, unknown>;
-    if (!res.ok || json.error) throw new HttpError(502, 'OAUTH_PROVIDER', 'VK не выдал токен');
+    if (!deviceId) throw new HttpError(502, 'OAUTH_PROVIDER', 'VK не вернул device_id');
+    const json = await formPost('https://id.vk.ru/oauth2/auth', {
+      grant_type: 'authorization_code',
+      client_id: id,
+      service_token: secret,
+      code,
+      code_verifier: verifier,
+      device_id: deviceId,
+      redirect_uri: redirect,
+    });
+    if (json.error) throw new HttpError(502, 'OAUTH_PROVIDER', 'VK не выдал токен');
     const accessToken = str(json.access_token);
     if (!accessToken) throw new HttpError(502, 'OAUTH_PROVIDER', 'VK не выдал токен');
     return { accessToken, extra: json };
@@ -434,42 +464,52 @@ export default async function oauthRoutes(fastify: FastifyInstance) {
       return reply.redirect(failRedirect('Этот вход сейчас выключен', next));
     }
     const { verifier, challenge } = pkce();
-    const ticket: OauthTicket = { p: provider, v: verifier, n: next, t: Date.now() };
-    const state = signBlob({ p: provider, t: ticket.t, n: next });
+    const nonce = oauthNonce();
+    const ticket: OauthTicket = { p: provider, v: verifier, n: next, t: Date.now(), s: nonce };
     setOauthCookie(reply, signBlob(ticket));
-    return reply.redirect(authorizeUrl(provider, state, challenge));
+    return reply.redirect(authorizeUrl(provider, nonce, challenge));
   });
 
   // ── GET /api/auth/oauth/:provider/callback ─
   fastify.get('/oauth/:provider/callback', async (request, reply) => {
     rateLimit(request, 'oauth-cb', 30, 15 * 60_000);
     const provider = (request.params as { provider: string }).provider as OAuthId;
-    const query = request.query as { code?: string; state?: string; error?: string; error_description?: string };
+    const query = request.query as {
+      code?: string;
+      state?: string;
+      error?: string;
+      error_description?: string;
+      device_id?: string;
+      payload?: string;
+    };
+    const fromPayload = parseVkPayload(query.payload);
+    const code = query.code || fromPayload.code;
+    const deviceId = query.device_id || fromPayload.device_id;
+    const stateRaw = query.state || fromPayload.state;
     const ticket = readBlob<OauthTicket>(readCookie(request));
-    const state = readBlob<{ p: OAuthId; t: number; n: string }>(query.state);
-    const next = ticket?.n || state?.n || '/';
+    const next = ticket?.n || '/';
     clearOauthCookie(reply);
 
     if (query.error) {
       return reply.redirect(failRedirect('Вход через соцсеть отменён', next));
     }
 
-    if (!ticket || !state || ticket.p !== provider || state.p !== provider) {
+    if (!ticket || ticket.p !== provider || !stateRaw || ticket.s !== stateRaw) {
       return reply.redirect(failRedirect('Сессия входа истекла. Попробуйте ещё раз', next));
     }
     if (Date.now() - ticket.t > COOKIE_MAX_AGE * 1000) {
       return reply.redirect(failRedirect('Сессия входа истекла. Попробуйте ещё раз', next));
     }
-    if (!query.code) {
+    if (!code) {
       return reply.redirect(failRedirect('Провайдер не вернул код', next));
     }
 
     try {
-      const { accessToken, extra } = await exchangeCode(provider, query.code, ticket.v);
+      const { accessToken, extra } = await exchangeCode(provider, code, ticket.v, deviceId);
       const profile = await profileFrom(provider, accessToken, extra);
       const user = await loginWithSocial(profile);
       const token = sessionOf(fastify, user);
-      return reply.redirect(okRedirect(token, ticket.n || state.n || '/'));
+      return reply.redirect(okRedirect(token, ticket.n || '/'));
     } catch (err) {
       const message = err instanceof HttpError ? err.message : 'Не удалось войти через соцсеть';
       return reply.redirect(failRedirect(message, next));

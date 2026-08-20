@@ -147,7 +147,7 @@ export const config = {
     },
     vk: {
       id: process.env.VK_CLIENT_ID ?? '',
-      secret: process.env.VK_CLIENT_SECRET ?? '',
+      secret: process.env.VK_CLIENT_SECRET ?? '', // сервисный ключ VK ID, не client_secret oauth.vk.com
     },
     wechat: {
       id: process.env.WECHAT_APP_ID ?? '',
