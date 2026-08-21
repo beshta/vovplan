@@ -1,5 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { useViewerStore } from '../stores/viewerStore';
+
+/** Плоская земля — всюду на нулевой отметке */
+const FLAT: (x: number, z: number) => number = () => 0;
 
 /**
  * Terrain / ground mesh.
@@ -9,12 +13,25 @@ import * as THREE from 'three';
  */
 export default function Terrain({ size = 200, xray = false }: { size?: number; xray?: boolean }) {
   const gridTexture = useMemo(() => createGridTexture(size), [size]);
+  const setGroundSampler = useViewerStore((s) => s.setGroundSampler);
+
+  // Текстура рисуется на канве при каждой смене размера площадки: без
+  // освобождения предыдущая оставалась бы висеть в видеопамяти
+  useEffect(() => () => gridTexture.dispose(), [gridTexture]);
+
+  // Земля плоская, но высоту всё равно надо публиковать: без неё объекты не
+  // садятся на грунт, а инструменты рисования не находят точку под курсором
+  useEffect(() => {
+    setGroundSampler(FLAT);
+    return () => setGroundSampler(null);
+  }, [setGroundSampler]);
 
   return (
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
       position={[0, 0, 0]}
       receiveShadow
+      userData={{ isTerrain: true }}
     >
       <planeGeometry args={[size, size, 1, 1]} />
       {/* key пересоздаёт материал при переключении X-ray (см. DemTerrain) */}

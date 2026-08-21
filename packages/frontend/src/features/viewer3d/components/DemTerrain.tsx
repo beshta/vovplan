@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useRef, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { useLoader, useThree } from '@react-three/fiber';
 import { fbm, ridged } from '../utils/noise';
@@ -6,6 +6,7 @@ import { detectQuality } from '../utils/deviceProfiler';
 import { useViewerStore } from '../stores/viewerStore';
 import { TERRAIN_ADJUST_OFF, type TerrainMeta } from '../../../shared/api';
 import { buildHeightGrid } from '../utils/heightGrid';
+import { makeHeightfieldRaycast, type HeightSampler } from '../utils/heightfieldPick';
 
 /**
  * DEM-based terrain with vertex displacement.
@@ -67,6 +68,53 @@ export function imageToData(img: HTMLImageElement): ImageData {
   return ctx.getImageData(0, 0, img.width, img.height);
 }
 
+/**
+ * Меш рельефа с быстрым пересечением луча и опубликованной высотой.
+ *
+ * Общий для всех трёх режимов, потому что снаружи рельеф нужен одинаково:
+ * ходьбе от первого лица — высота под ногами, инструментам рисования — точка
+ * под курсором, объектам — отметка земли под ними. Раньше высоту публиковал
+ * только импортированный DEM, а точку под курсором искали перебором
+ * треугольников — по 820 тысяч на каждое движение мыши.
+ */
+function TerrainMesh({
+  geometry,
+  sampler,
+  sizeX,
+  sizeZ,
+  children,
+}: {
+  geometry: THREE.BufferGeometry;
+  sampler: HeightSampler;
+  sizeX: number;
+  sizeZ: number;
+  children: ReactNode;
+}) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const setGroundSampler = useViewerStore((s) => s.setGroundSampler);
+
+  // Отдаём высоту наружу. Снимаем при размонтировании, чтобы следующий проект
+  // не ходил по чужому рельефу.
+  useEffect(() => {
+    setGroundSampler(sampler);
+    return () => setGroundSampler(null);
+  }, [sampler, setGroundSampler]);
+
+  useEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    const original = mesh.raycast;
+    mesh.raycast = makeHeightfieldRaycast(sampler, sizeX, sizeZ);
+    return () => { mesh.raycast = original; };
+  }, [sampler, sizeX, sizeZ]);
+
+  return (
+    <mesh ref={meshRef} geometry={geometry} receiveShadow userData={{ isTerrain: true }}>
+      {children}
+    </mesh>
+  );
+}
+
 export default function DemTerrain(props: DemTerrainProps) {
   if (props.heightmapUrl && props.meta) {
     return <RealTerrain {...props} heightmapUrl={props.heightmapUrl} meta={props.meta} />;
@@ -104,7 +152,7 @@ function RealTerrain({
     surfaceTex.needsUpdate = true;
   }, [surfaceTex, maxAnisotropy]);
 
-  const { geometry, sampleAt } = useMemo(() => {
+  const { geometry, sampleAt, sizeX, sizeZ } = useMemo(() => {
     // Масштаб 1:1 — один юнит сцены = один метр. Сетка, объекты,
     // вид от первого лица (1.7м) и рельеф в одной честной системе.
     const sizeX = meta.widthM;
@@ -167,24 +215,15 @@ function RealTerrain({
     }
     geo.computeVertexNormals();
 
-    return { geometry: geo, sampleAt };
+    return { geometry: geo, sampleAt, sizeX, sizeZ };
   }, [heightTex, meta]);
 
   // Геометрия рельефа — до 410 тыс. вершин (~13 МБ в видеопамяти). Без
   // освобождения каждый переимпорт ландшафта оставлял бы предыдущую висеть.
   useEffect(() => () => geometry.dispose(), [geometry]);
 
-  // Отдаём высоту наружу: ходьба от первого лица идёт по рельефу, а не по
-  // плоскости. Снимаем при размонтировании, чтобы следующий проект не ходил
-  // по чужому рельефу.
-  const setGroundSampler = useViewerStore((s) => s.setGroundSampler);
-  useEffect(() => {
-    setGroundSampler(sampleAt);
-    return () => setGroundSampler(null);
-  }, [sampleAt, setGroundSampler]);
-
   return (
-    <mesh geometry={geometry} receiveShadow userData={{ isTerrain: true }}>
+    <TerrainMesh geometry={geometry} sampler={sampleAt} sizeX={sizeX} sizeZ={sizeZ}>
       <meshStandardMaterial
         key={xray ? 'real-xray' : 'real-solid'}
         map={surfaceTex}
@@ -195,7 +234,7 @@ function RealTerrain({
         opacity={xray ? 0.25 : 1.0}
         depthWrite={!xray}
       />
-    </mesh>
+    </TerrainMesh>
   );
 }
 
@@ -211,8 +250,19 @@ function HeightmapTerrain({
 }: DemTerrainProps & { heightmapUrl: string }) {
   const heightTex = useLoader(THREE.TextureLoader, heightmapUrl);
 
-  const { geometry } = useMemo(() => {
+  const { geometry, sampleAt } = useMemo(() => {
     const hm = imageToData(heightTex.image as HTMLImageElement);
+
+    // Той же формулой смещаются вершины и отвечает высота наружу: разойдись
+    // они — объекты сядут не на ту землю, которую видно
+    const sampleAt = (x: number, z: number): number => {
+      const u = (x / size + 0.5) * (hm.width - 1);
+      const v = (z / size + 0.5) * (hm.height - 1);
+      const px = Math.min(hm.width - 1, Math.max(0, Math.floor(u)));
+      const py = Math.min(hm.height - 1, Math.max(0, Math.floor(v)));
+      const idx = (py * hm.width + px) * 4;
+      return ((hm.data[idx] / 255) * 2 - 1) * heightScale;
+    };
 
     const geo = new THREE.PlaneGeometry(size, size, segments, segments);
     geo.rotateX(-Math.PI / 2);
@@ -224,13 +274,10 @@ function HeightmapTerrain({
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const z = pos.getZ(i);
-      const u = (x / size + 0.5) * (hm.width - 1);
-      const v = (z / size + 0.5) * (hm.height - 1);
-      const idx = (Math.floor(v) * hm.width + Math.floor(u)) * 4;
-      const elevation = (hm.data[idx] / 255) * 2 - 1; // [-1, 1]
-      pos.setY(i, elevation * heightScale);
+      const y = sampleAt(x, z);
+      pos.setY(i, y);
 
-      getTerrainColor(elevation * 0.5 + 0.5, color);
+      getTerrainColor((y / heightScale) * 0.5 + 0.5, color);
       colors[i * 3] = color.r;
       colors[i * 3 + 1] = color.g;
       colors[i * 3 + 2] = color.b;
@@ -238,7 +285,7 @@ function HeightmapTerrain({
 
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.computeVertexNormals();
-    return { geometry: geo };
+    return { geometry: geo, sampleAt };
   }, [heightTex, size, segments, heightScale]);
 
   // Геометрия рельефа — до 410 тыс. вершин (~13 МБ в видеопамяти). Без
@@ -246,7 +293,7 @@ function HeightmapTerrain({
   useEffect(() => () => geometry.dispose(), [geometry]);
 
   return (
-    <mesh geometry={geometry} receiveShadow userData={{ isTerrain: true }}>
+    <TerrainMesh geometry={geometry} sampler={sampleAt} sizeX={size} sizeZ={size}>
       <meshStandardMaterial
         key={xray ? 'hm-xray' : 'hm-solid'}
         vertexColors
@@ -257,7 +304,7 @@ function HeightmapTerrain({
         opacity={xray ? 0.25 : 1.0}
         depthWrite={!xray}
       />
-    </mesh>
+    </TerrainMesh>
   );
 }
 
@@ -272,7 +319,18 @@ function ProceduralTerrain({
   wireframe = false,
   xray = false,
 }: DemTerrainProps) {
-  const { geometry } = useMemo(() => {
+  const { geometry, sampleAt } = useMemo(() => {
+    // Шум считается и для вершин, и для запросов высоты снаружи: рельеф
+    // процедурный, но ходить и ставить объекты по нему надо так же честно
+    const elevationAt = (x: number, z: number): number => {
+      const nx = (x + seed * 100) * frequency;
+      const nz = (z + seed * 100) * frequency;
+      const base = fbm(nx, nz, 5, 2.0, 0.5);
+      const mountains = ridged(nx * 0.5, nz * 0.5, 4, 2.0, 0.5);
+      return base * 0.7 + mountains * 0.3;
+    };
+    const sampleAt = (x: number, z: number): number => elevationAt(x, z) * heightScale;
+
     const geo = new THREE.PlaneGeometry(size, size, segments, segments);
     geo.rotateX(-Math.PI / 2);
 
@@ -281,13 +339,7 @@ function ProceduralTerrain({
     const color = new THREE.Color();
 
     for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const z = pos.getZ(i);
-      const nx = (x + seed * 100) * frequency;
-      const nz = (z + seed * 100) * frequency;
-      const base = fbm(nx, nz, 5, 2.0, 0.5);
-      const mountains = ridged(nx * 0.5, nz * 0.5, 4, 2.0, 0.5);
-      const elevation = base * 0.7 + mountains * 0.3;
+      const elevation = elevationAt(pos.getX(i), pos.getZ(i));
       pos.setY(i, elevation * heightScale);
 
       getTerrainColor(elevation * 0.5 + 0.5, color);
@@ -298,7 +350,7 @@ function ProceduralTerrain({
 
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.computeVertexNormals();
-    return { geometry: geo };
+    return { geometry: geo, sampleAt };
   }, [size, segments, heightScale, seed, frequency]);
 
   // Геометрия рельефа — до 410 тыс. вершин (~13 МБ в видеопамяти). Без
@@ -306,7 +358,7 @@ function ProceduralTerrain({
   useEffect(() => () => geometry.dispose(), [geometry]);
 
   return (
-    <mesh geometry={geometry} receiveShadow userData={{ isTerrain: true }}>
+    <TerrainMesh geometry={geometry} sampler={sampleAt} sizeX={size} sizeZ={size}>
       <meshStandardMaterial
         key={xray ? 'proc-xray' : 'proc-solid'}
         vertexColors
@@ -317,6 +369,6 @@ function ProceduralTerrain({
         opacity={xray ? 0.25 : 1.0}
         depthWrite={!xray}
       />
-    </mesh>
+    </TerrainMesh>
   );
 }

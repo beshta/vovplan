@@ -64,6 +64,10 @@ export default function BuildingsLayer({ meta }: { meta: TerrainMeta }) {
     return merged;
   }, [buildings]);
 
+  // Слитая застройка — десятки мегабайт вершин. При переимпорте местности
+  // прежняя оставалась бы в видеопамяти целиком
+  useEffect(() => () => geometry?.dispose(), [geometry]);
+
   if (!geometry || !showBuildings) return null;
 
   return (

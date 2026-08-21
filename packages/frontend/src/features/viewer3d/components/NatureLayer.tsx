@@ -248,9 +248,19 @@ export default function NatureLayer({ meta }: { meta: TerrainMeta }) {
     waterGeometry?.dispose();
   }, [trunkGeo, needleGeo, broadGeo, waterGeometry]);
 
-  if (!showNature) return null;
+  /*
+   * Стволы — это кроны обоих видов вместе.
+   *
+   * Список нужен именно постоянный: по нему Instanced решает, пересобирать
+   * ли аппаратные копии. Пока он склеивался прямо в теле компонента, каждая
+   * перерисовка слоя строила InstancedMesh на тысячи деревьев заново.
+   */
+  const allTrees = useMemo(
+    () => (trees ? [...trees.needle, ...trees.broad] : []),
+    [trees],
+  );
 
-  const allTrees = trees ? [...trees.needle, ...trees.broad] : [];
+  if (!showNature) return null;
 
   return (
     <group>
@@ -312,8 +322,11 @@ function Instanced({
     return im;
   }, [geometry, matrices, color, castShadow]);
 
+  // Материал и матрицы копий уходят вместе с мешем; геометрия общая на слой
+  // и освобождается там, где создана
   useEffect(() => () => {
     (mesh.material as THREE.Material).dispose();
+    mesh.dispose();
   }, [mesh]);
 
   return <primitive object={mesh} />;

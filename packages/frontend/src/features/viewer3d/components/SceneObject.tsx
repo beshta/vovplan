@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { TransformControls } from '@react-three/drei';
-import { useThree, useFrame } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useViewerStore } from '../stores/viewerStore';
 import type { SceneObjectData } from '../types';
@@ -27,14 +27,20 @@ interface Props {
  * - Reset to original transform
  * - Undo/redo history (Ctrl+Z / Ctrl+Shift+Z)
  */
-// Переиспользуемые объекты для рейкаста привязки к земле
-const _ray = new THREE.Raycaster();
-const _down = new THREE.Vector3(0, -1, 0);
+/** Общая коробка для замера габаритов: считается покадрово, но не копится */
 const _box = new THREE.Box3();
+
+/**
+ * Сколько кадров пытаться померить модель, прежде чем сдаться.
+ *
+ * Обмер обходит всё дерево модели, и на пустом или битом GLB коробка не
+ * появится никогда — попытка повторялась бы каждый кадр до конца сеанса,
+ * на каждом объекте сцены сразу.
+ */
+const SIZE_ATTEMPTS = 240;
 
 export default function SceneObject({ data, currentUserId, projectId }: Props) {
   const groupRef = useRef<THREE.Group>(null);
-  const { scene } = useThree();
   const snapped = useRef(false);
 
   const mode = useViewerStore((s) => s.mode);
@@ -189,31 +195,36 @@ export default function SceneObject({ data, currentUserId, projectId }: Props) {
    * снимается, так что размер получается по осям объекта, а не по мировым.
    */
   const sized = useRef(false);
-  useEffect(() => { sized.current = false; }, [data.modelId]);
+  const sizeTries = useRef(0);
+  useEffect(() => { sized.current = false; sizeTries.current = 0; }, [data.modelId]);
   useFrame(() => {
     const g = groupRef.current;
     if (!g || sized.current) return;
+    if (++sizeTries.current > SIZE_ATTEMPTS) { sized.current = true; return; }
     const size = localSize(g);
     if (size[0] === 0 && size[1] === 0 && size[2] === 0) return; // модель ещё грузится
     sized.current = true;
     setObjectSize(data.id, size);
   });
 
+  /*
+   * Привязка к земле.
+   *
+   * Отметку берём выборкой из рельефа, а не лучом вниз. Луч перебирал все
+   * треугольники меша — до 820 тысяч, — и делал это каждый кадр на каждом
+   * ещё не севшем объекте, вдобавок обходя всю сцену в поисках самого
+   * рельефа. Стоило потащить объект мышью, как привязка сбрасывалась и весь
+   * этот перебор запускался заново на каждом кадре перетаскивания.
+   */
   useFrame(() => {
     const g = groupRef.current;
     if (!g || !groundSnap || snapped.current) return;
-    // Рейкаст вниз через точку объекта до террейн-мешей
-    const terrains: THREE.Object3D[] = [];
-    scene.traverse((o) => { if (o.userData?.isTerrain) terrains.push(o); });
-    if (terrains.length === 0) return; // террейн ещё не смонтирован
-    _ray.set(new THREE.Vector3(g.position.x, g.position.y + 1000, g.position.z), _down);
-    const hits = _ray.intersectObjects(terrains, true);
-    if (hits.length === 0) return; // мимо — ждём следующего кадра
-    const groundY = hits[0].point.y;
+    const ground = useViewerStore.getState().groundSampler;
+    if (!ground) return; // рельеф ещё не смонтирован — ждём следующего кадра
     _box.setFromObject(g);
     if (_box.isEmpty() || !isFinite(_box.min.y)) return; // модель ещё грузится
     const bottomLocal = _box.min.y - g.position.y; // низ объекта относительно pivot (инвариант)
-    g.position.y = groundY - bottomLocal;
+    g.position.y = ground(g.position.x, g.position.z) - bottomLocal;
     snapped.current = true;
   });
 

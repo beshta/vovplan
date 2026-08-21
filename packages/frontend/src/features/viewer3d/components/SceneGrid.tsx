@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { Html } from '@react-three/drei';
 
@@ -54,6 +54,12 @@ export default function SceneGrid({ size = 200 }: { size?: number }) {
     return { gridHelper, labels };
   }, [size]);
 
+  // Сетка пересобирается при смене размера площадки — прежнюю надо отпустить
+  useEffect(() => () => {
+    gridHelper.geometry.dispose();
+    (gridHelper.material as THREE.Material).dispose();
+  }, [gridHelper]);
+
   return (
     <group>
       {/* Grid */}
@@ -82,18 +88,25 @@ export default function SceneGrid({ size = 200 }: { size?: number }) {
 }
 
 function AxisLine({ axis, size }: { axis: 'x' | 'z'; size: number }) {
-  const half = size / 2;
   const color = axis === 'x' ? '#dc2626' : '#2563eb';
 
-  const positions: [number, number, number][] = axis === 'x'
-    ? [[-half, 0.02, 0], [half, 0.02, 0]]
-    : [[0, 0.02, -half], [0, 0.02, half]];
-
+  /*
+   * Зависимости — числа, а не массив точек.
+   *
+   * Раньше useMemo сторожил массив, который создавался заново на каждую
+   * перерисовку: буфер собирался опять, а прежний оставался в видеопамяти
+   * навсегда. Две оси × каждая перерисовка сцены — отсюда и росли счётчики
+   * геометрий на панели нагрузки.
+   */
   const geom = useMemo(() => {
-    return new THREE.BufferGeometry().setFromPoints(
-      positions.map((p) => new THREE.Vector3(...p)),
-    );
-  }, [positions]);
+    const half = size / 2;
+    const points = axis === 'x'
+      ? [new THREE.Vector3(-half, 0.02, 0), new THREE.Vector3(half, 0.02, 0)]
+      : [new THREE.Vector3(0, 0.02, -half), new THREE.Vector3(0, 0.02, half)];
+    return new THREE.BufferGeometry().setFromPoints(points);
+  }, [axis, size]);
+
+  useEffect(() => () => geom.dispose(), [geom]);
 
   return (
     <line>
