@@ -1,9 +1,10 @@
+import { useMemo } from 'react';
 import { Fence, Undo2, Trash2, Check, X, Spline, Eye, EyeOff } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useViewerStore } from '../stores/viewerStore';
 import { fencesApi } from '../../../shared/api';
-import { FENCE_TYPES, fenceLength } from '../utils/fenceLayout';
-import type { FenceType } from '../types';
+import { FENCE_TYPES, planFence } from '../utils/fenceLayout';
+import type { FenceData, FenceType } from '../types';
 
 const TYPES = Object.entries(FENCE_TYPES) as [FenceType, (typeof FENCE_TYPES)[FenceType]][];
 
@@ -26,9 +27,28 @@ export default function FenceDrawPanel({ projectId }: { projectId: string }) {
   const selectedFenceId = useViewerStore((s) => s.selectedFenceId);
   const selectFence = useViewerStore((s) => s.selectFence);
 
+  const groundSampler = useViewerStore((s) => s.groundSampler);
+
   const spec = FENCE_TYPES[draft.type];
   const height = draft.height ?? spec.height;
-  const total = fenceLength(draft.points, draft.closed);
+
+  /*
+   * Считаем той же раскладкой, что идёт в геометрию.
+   *
+   * Раньше в подсказке стояло «длина ÷ длина секции, округлить вверх», и
+   * число расходилось с тем, что вставало в сцену: на углах набор начинается
+   * заново, а остаток секцией не закрывается. Человек видел 5 секций в
+   * панели и 4 на площадке.
+   */
+  const plan = useMemo(
+    () => planFence(draft.points, {
+      sectionLength: spec.sectionLength,
+      height,
+      closed: draft.closed,
+      ground: groundSampler ?? undefined,
+    }),
+    [draft.points, draft.closed, spec.sectionLength, height, groundSampler],
+  );
 
   const reload = async () => {
     const updated = await fencesApi.list(projectId);
@@ -117,8 +137,13 @@ export default function FenceDrawPanel({ projectId }: { projectId: string }) {
       {/* Инфо */}
       <div className="text-xs text-muted mb-2">
         Точек: <span className="text-slate-700 dark:text-slate-200">{draft.points.length}</span>
-        {' · '}Длина: <span className="text-slate-700 dark:text-slate-200">{total.toFixed(1)}м</span>
-        {total > 0 && <> · <span className="text-slate-700 dark:text-slate-200">{Math.ceil(total / spec.sectionLength)}</span> секц.</>}
+        {' · '}Длина: <span className="text-slate-700 dark:text-slate-200">{plan.length.toFixed(1)}м</span>
+        {plan.length > 0 && <> · <span className="text-slate-700 dark:text-slate-200">{plan.spans.length}</span> секц.</>}
+        {plan.remainder >= 0.15 && (
+          <div className="text-[11px] text-amber-500 dark:text-amber-400 mt-0.5">
+            Проём {plan.remainder.toFixed(1)}м: целая секция не встаёт
+          </div>
+        )}
         {draft.points.length < 2 && <div className="text-[11px] text-vovplan-300 mt-0.5">Двойной клик по земле — минимум 2 точки</div>}
       </div>
 
@@ -158,31 +183,63 @@ export default function FenceDrawPanel({ projectId }: { projectId: string }) {
           </div>
           <div className="flex flex-col gap-1 max-h-32 overflow-y-auto">
             {fences.map((f) => (
-              <div
+              <FenceRow
                 key={f.id}
-                onClick={() => selectFence(selectedFenceId === f.id ? null : f.id)}
-                className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] cursor-pointer transition-colors ${
-                  selectedFenceId === f.id ? 'bg-white/15 text-strong' : 'bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-white/10'
-                }`}
-              >
-                <span
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ backgroundColor: FENCE_TYPES[f.type].color }}
-                />
-                <span className="flex-1 truncate">{FENCE_TYPES[f.type].label}</span>
-                <span className="opacity-60 shrink-0">{fenceLength(f.geometry, f.closed).toFixed(0)}м</span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDelete(f.id); }}
-                  className="text-slate-500 hover:text-red-400 transition-colors shrink-0"
-                  title="Убрать ограждение"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
+                fence={f}
+                selected={selectedFenceId === f.id}
+                onSelect={() => selectFence(selectedFenceId === f.id ? null : f.id)}
+                onDelete={() => handleDelete(f.id)}
+              />
             ))}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Строка списка: собственное имя, число секций и длина — как в ведомости */
+function FenceRow({
+  fence,
+  selected,
+  onSelect,
+  onDelete,
+}: {
+  fence: FenceData;
+  selected: boolean;
+  onSelect: () => void;
+  onDelete: () => void;
+}) {
+  const groundSampler = useViewerStore((s) => s.groundSampler);
+  const spec = FENCE_TYPES[fence.type];
+  const plan = useMemo(
+    () => planFence(fence.geometry, {
+      sectionLength: spec.sectionLength,
+      height: fence.height ?? spec.height,
+      closed: fence.closed,
+      ground: groundSampler ?? undefined,
+    }),
+    [fence, spec, groundSampler],
+  );
+
+  return (
+    <div
+      onClick={onSelect}
+      className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] cursor-pointer transition-colors ${
+        selected ? 'bg-white/15 text-strong' : 'bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-white/10'
+      }`}
+      title={`${spec.label}: ${plan.spans.length} секц. по ${spec.sectionLength}м, длина ${plan.length.toFixed(1)}м`}
+    >
+      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: spec.color }} />
+      <span className="flex-1 truncate">{spec.label}</span>
+      <span className="opacity-60 shrink-0">{plan.spans.length} секц. · {plan.length.toFixed(0)}м</span>
+      <button
+        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+        className="text-slate-500 hover:text-red-400 transition-colors shrink-0"
+        title="Убрать ограждение"
+      >
+        <Trash2 size={12} />
+      </button>
     </div>
   );
 }

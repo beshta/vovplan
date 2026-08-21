@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { layoutFence, fenceLength, FENCE_TYPES } from './fenceLayout';
+import { layoutFence, planFence, fenceLength, FENCE_TYPES } from './fenceLayout';
 
 /**
  * Раскладка забора ошибается молча: секции просто встают мимо земли или мимо
@@ -18,12 +18,29 @@ describe('раскладка ограждения', () => {
     expect(spans.map((s) => s.center[0])).toEqual([1.25, 3.75, 6.25, 8.75]);
   });
 
-  it('остаток закрывается подрезанной секцией', () => {
-    const spans = layoutFence([P(0, 0, 0), P(11, 0, 0)], { sectionLength: 2.5, height: 2 });
-    expect(spans).toHaveLength(5);
-    expect(spans[4].length).toBeCloseTo(1, 6);
-    // Подрезанная стоит в конце звена и не вылезает за него
-    expect(spans[4].center[0] + spans[4].length / 2).toBeCloseTo(11, 6);
+  it('остаток остаётся проёмом — подрезанных секций не бывает', () => {
+    const plan = planFence([P(0, 0, 0), P(11, 0, 0)], { sectionLength: 2.5, height: 2 });
+    expect(plan.spans).toHaveLength(4);
+    expect(plan.spans.every((s) => s.length === 2.5)).toBe(true);
+    expect(plan.remainder).toBeCloseTo(1, 6);
+    // Последняя целая секция кончается там, где начинается остаток
+    const last = plan.spans[3];
+    expect(last.center[0] + last.length / 2).toBeCloseTo(10, 6);
+  });
+
+  it('звено короче секции остаётся пустым и попадает в счёт коротких', () => {
+    const plan = planFence([P(0, 0, 0), P(1.5, 0, 0)], { sectionLength: 2.5, height: 2 });
+    expect(plan.spans).toHaveLength(0);
+    expect(plan.shortEdges).toBe(1);
+    expect(plan.remainder).toBeCloseTo(1.5, 6);
+  });
+
+  it('остатки считаются по каждому звену отдельно, а не по всей длине', () => {
+    // Два звена по 6 м: на каждом по две секции 2,5 м и по метру остатка
+    const plan = planFence([P(0, 0, 0), P(6, 0, 0), P(6, 0, 6)], { sectionLength: 2.5, height: 2 });
+    expect(plan.spans).toHaveLength(4);
+    expect(plan.length).toBeCloseTo(12, 6);
+    expect(plan.remainder).toBeCloseTo(2, 6);
   });
 
   it('заусенец в пару сантиметров секцией не считается', () => {
@@ -62,7 +79,7 @@ describe('раскладка ограждения', () => {
     expect(spans.every((s) => Number.isFinite(s.yaw))).toBe(true);
   });
 
-  it('на уклоне секция стоит низом на нижнем конце и подрастает на перепад', () => {
+  it('на уклоне секция стоит низом на нижнем конце и не меняет размер', () => {
     // Земля поднимается на метр за каждые 10 м на восток
     const ground = (x: number) => x / 10;
     const spans = layoutFence([P(0, 0, 0), P(10, 1, 0)], { sectionLength: 5, height: 2, ground });
@@ -70,8 +87,8 @@ describe('раскладка ограждения', () => {
     expect(spans).toHaveLength(2);
     expect(spans[0].center[1]).toBeCloseTo(0, 6);
     expect(spans[1].center[1]).toBeCloseTo(0.5, 6);
-    // Перепад под секцией — 0,5 м, на столько же она и выше типовой
-    expect(spans[0].height).toBeCloseTo(2.5, 6);
+    // Уклон двигает секцию ступенькой, но не тянет её: размер тот же
+    expect(spans.every((s) => s.height === 2 && s.length === 5)).toBe(true);
   });
 
   it('без пробы грунта высоты берутся у концов звена', () => {

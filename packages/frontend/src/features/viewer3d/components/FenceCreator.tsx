@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { Html } from '@react-three/drei';
 import { useViewerStore } from '../stores/viewerStore';
 import { FenceRun } from './Fences3D';
-import { FENCE_TYPES, fenceLength } from '../utils/fenceLayout';
+import { FENCE_TYPES, planFence } from '../utils/fenceLayout';
 import type { FenceData } from '../types';
 
 /**
@@ -15,6 +15,7 @@ export default function FenceCreator() {
   const draft = useViewerStore((s) => s.fenceDraft);
   const addFencePoint = useViewerStore((s) => s.addFencePoint);
   const setGroundHandlers = useViewerStore((s) => s.setGroundHandlers);
+  const groundSampler = useViewerStore((s) => s.groundSampler);
 
   useEffect(() => {
     setGroundHandlers({ onPlace: (pt) => addFencePoint(pt) });
@@ -43,7 +44,17 @@ export default function FenceCreator() {
 
   useEffect(() => () => guide?.dispose(), [guide]);
 
-  const total = fenceLength(draft.points, draft.closed);
+  // Та же раскладка, что уходит в геометрию: подсказка не должна обещать
+  // секций больше, чем встанет на площадку
+  const plan = useMemo(
+    () => planFence(draft.points, {
+      sectionLength: spec.sectionLength,
+      height: draft.height ?? spec.height,
+      closed: draft.closed,
+      ground: groundSampler ?? undefined,
+    }),
+    [draft.points, draft.closed, draft.height, spec, groundSampler],
+  );
 
   return (
     <>
@@ -71,9 +82,14 @@ export default function FenceCreator() {
           zIndexRange={[20, 0]}
         >
           <div className="bg-slate-900/90 text-white text-xs rounded-lg px-2 py-1 shadow-xl whitespace-nowrap pointer-events-none">
-            {total > 0
-              ? `${total.toFixed(1)}м · ${Math.ceil(total / spec.sectionLength)} секц.`
-              : 'двойной клик по земле'}
+            {plan.length > 0 ? (
+              <>
+                {plan.length.toFixed(1)}м · {plan.spans.length} секц.
+                {plan.remainder >= 0.15 && (
+                  <span className="text-amber-300"> · проём {plan.remainder.toFixed(1)}м</span>
+                )}
+              </>
+            ) : 'двойной клик по земле'}
           </div>
         </Html>
       )}

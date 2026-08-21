@@ -1,9 +1,12 @@
 /**
  * Раскладка ограждения: ломаная по земле → пролёты готовых секций.
  *
- * Забор не тянется резиновой лентой — он собирается из секций одинаковой
- * длины, и на каждом звене ломаной набор начинается заново: на углу секцию
- * не согнёшь. Остаток звена закрывается подрезанной секцией, как на площадке.
+ * Забор не тянется резиновой лентой — он собирается из секций одного размера,
+ * и на каждом звене ломаной набор начинается заново: на углу секцию не
+ * согнёшь. Размер секции неприкосновенен: подогнать её под длину звена
+ * растяжением нельзя, такой панели не существует. Что не закрылось целыми
+ * секциями — остаток, и он честно показывается человеку числом, чтобы тот
+ * подвинул точку, а не гадал, почему забор «немного не такой».
  *
  * Математика вынесена сюда и покрыта тестами по той же причине, что и правка
  * высот: ошибка здесь не падает, а молча ставит забор мимо земли — и заметить
@@ -123,10 +126,21 @@ export interface FenceSpan {
   center: [number, number, number];
   /** Поворот вокруг вертикали, радианы */
   yaw: number;
-  /** Длина пролёта: у последнего в звене — остаток, он короче секции */
+  /** Длина пролёта — всегда ровно секция выбранного типа */
   length: number;
-  /** Высота с добавкой на перепад под секцией */
+  /** Высота пролёта — всегда заданная высота ограждения */
   height: number;
+}
+
+/** Раскладка целиком: секции и то, что в них не уложилось */
+export interface FencePlan {
+  spans: FenceSpan[];
+  /** Длина ломаной по земле, метры */
+  length: number;
+  /** Не закрыто секциями, метры — сумма остатков всех звеньев */
+  remainder: number;
+  /** Звеньев короче одной секции: на них ограждения не будет вовсе */
+  shortEdges: number;
 }
 
 export interface LayoutOptions {
@@ -143,24 +157,32 @@ export interface LayoutOptions {
 }
 
 /**
- * Разбивает ломаную на пролёты.
+ * Разбивает ломаную на пролёты и считает, что в них не уложилось.
  *
- * Каждый пролёт ставится по своим двум концам: низ — на нижнем из них, а
- * высота растёт на перепад между ними. Так верх остаётся ровным (секции их
- * и делают ровными), нижний конец стоит на земле, а на верхнем низ секции
- * уходит в грунт — ровно как на настоящем откосе, где панели не наклоняют,
- * а ступенькой смещают.
+ * Звено закрывается целыми секциями от своего начала. Остаток короче секции
+ * остаётся проёмом: подрезать панель в модели легко, а на площадке — нет,
+ * и забор, «дотянутый» до точки растяжением, обманывает и по виду, и по
+ * ведомости. Поэтому остаток возвращается числом, а не прячется в геометрию.
+ *
+ * Каждый пролёт ставится низом на нижний из своих концов и сохраняет
+ * заданную высоту. Верх выходит ровным, на нижнем конце секция стоит на
+ * земле, на верхнем её низ уходит в грунт — так панели и ставят на откосе,
+ * ступенькой, а не наклоняя и не растягивая.
  */
-export function layoutFence(
+export function planFence(
   points: readonly [number, number, number][],
   opts: LayoutOptions,
-): FenceSpan[] {
+): FencePlan {
   const { sectionLength, height, closed = false, ground } = opts;
-  if (points.length < 2 || sectionLength <= 0) return [];
+  const empty: FencePlan = { spans: [], length: 0, remainder: 0, shortEdges: 0 };
+  if (points.length < 2 || sectionLength <= 0) return empty;
 
   // Замыкание — это ещё одно звено, а не особый случай в расчёте
   const verts = closed && points.length > 2 ? [...points, points[0]] : [...points];
   const spans: FenceSpan[] = [];
+  let length = 0;
+  let remainder = 0;
+  let shortEdges = 0;
 
   for (let i = 1; i < verts.length; i++) {
     const a = verts[i - 1];
@@ -171,21 +193,19 @@ export function layoutFence(
     // и растягивать ради этого секции незачем
     const len = Math.hypot(dx, dz);
     if (len < MIN_SPAN) continue;
+    length += len;
 
     // Ry(yaw) должен перевести локальную ось X в направление звена
     const yaw = Math.atan2(-dz, dx);
 
     const whole = Math.floor(len / sectionLength);
     const rest = len - whole * sectionLength;
-    const pieces: { start: number; length: number }[] = [];
-    for (let k = 0; k < whole; k++) {
-      pieces.push({ start: k * sectionLength, length: sectionLength });
-    }
-    if (rest >= MIN_SPAN) pieces.push({ start: whole * sectionLength, length: rest });
+    if (rest >= MIN_SPAN) remainder += rest;
+    if (whole === 0) shortEdges++;
 
-    for (const piece of pieces) {
-      const t0 = piece.start / len;
-      const t1 = (piece.start + piece.length) / len;
+    for (let k = 0; k < whole; k++) {
+      const t0 = (k * sectionLength) / len;
+      const t1 = ((k + 1) * sectionLength) / len;
       const x0 = a[0] + dx * t0;
       const z0 = a[2] + dz * t0;
       const x1 = a[0] + dx * t1;
@@ -196,13 +216,21 @@ export function layoutFence(
       spans.push({
         center: [(x0 + x1) / 2, Math.min(y0, y1), (z0 + z1) / 2],
         yaw,
-        length: piece.length,
-        height: height + Math.abs(y1 - y0),
+        length: sectionLength,
+        height,
       });
     }
   }
 
-  return spans;
+  return { spans, length, remainder, shortEdges };
+}
+
+/** Только пролёты — самая частая нужда, когда забор просто надо нарисовать */
+export function layoutFence(
+  points: readonly [number, number, number][],
+  opts: LayoutOptions,
+): FenceSpan[] {
+  return planFence(points, opts).spans;
 }
 
 /** Длина ограждения по земле, метры — то, что считают в смете */

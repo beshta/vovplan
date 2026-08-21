@@ -67,7 +67,15 @@ export function FenceRun({
     [data.geometry, data.closed, height, spec.sectionLength, groundSampler],
   );
 
-  const parts = useMemo(() => spec.parts(spec.sectionLength, spec.height), [spec]);
+  /*
+   * Детали строятся сразу в нужную высоту, а не подгоняются масштабом.
+   *
+   * Раньше секция собиралась в типовой размер и сплющивалась матрицей под
+   * фактический: при нетиповой высоте вместе с панелью растягивались прутки
+   * и рёбра, а на уклоне — вся секция целиком. Секция бывает только своего
+   * размера, поэтому размер и задаётся при сборке.
+   */
+  const parts = useMemo(() => spec.parts(spec.sectionLength, height), [spec, height]);
 
   const boxRef = useRef<THREE.InstancedMesh>(null);
   const meshRef = useRef<THREE.InstancedMesh>(null);
@@ -81,20 +89,15 @@ export function FenceRun({
     const full = new THREE.Matrix4();
     const quat = new THREE.Quaternion();
     const pos = new THREE.Vector3();
-    const scale = new THREE.Vector3();
+    const axis = new THREE.Vector3(0, 1, 0);
+    const noScale = new THREE.Vector3(1, 1, 1);
 
     let i = 0;
     spans.forEach((s, si) => {
-      /*
-       * Пролёт короче секции сжимается по длине, а не обрезается: у
-       * подрезанной секции прутки встают чуть теснее, чем у целой, и это
-       * ровно то, что видно на площадке. По высоте так же добирается перепад
-       * под секцией — на уклоне в 12° это единицы процентов.
-       */
-      quat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), s.yaw);
+      // Пролёт — только поворот и перенос: все секции одинаковые
+      quat.setFromAxisAngle(axis, s.yaw);
       pos.set(s.center[0], s.center[1], s.center[2]);
-      scale.set(s.length / spec.sectionLength, s.height / spec.height, 1);
-      span.compose(pos, quat, scale);
+      span.compose(pos, quat, noScale);
 
       parts.forEach((p) => {
         part.makeScale(p.size[0], p.size[1], p.size[2]);
@@ -105,8 +108,8 @@ export function FenceRun({
 
       if (meshRef.current) {
         // Полотно — одна плоскость во всю секцию, по её середине
-        part.makeScale(spec.sectionLength, spec.height, 1);
-        part.setPosition(0, spec.height / 2, 0);
+        part.makeScale(spec.sectionLength, height, 1);
+        part.setPosition(0, height / 2, 0);
         full.multiplyMatrices(span, part);
         meshRef.current.setMatrixAt(si, full);
       }
@@ -123,9 +126,12 @@ export function FenceRun({
       meshRef.current.instanceMatrix.needsUpdate = true;
       meshRef.current.computeBoundingSphere();
     }
-  }, [spans, parts, spec.sectionLength, spec.height]);
+  }, [spans, parts, spec.sectionLength, height]);
 
-  const meshTexture = useMemo(() => (spec.mesh ? buildMeshTexture() : null), [spec.mesh]);
+  const meshTexture = useMemo(
+    () => (spec.mesh ? buildMeshTexture(spec.sectionLength, height) : null),
+    [spec.mesh, spec.sectionLength, height],
+  );
   useLayoutEffect(() => () => meshTexture?.dispose(), [meshTexture]);
 
   if (spans.length === 0) return null;
@@ -183,11 +189,19 @@ export function FenceRun({
   );
 }
 
+/** Ячейка сварной сетки: 50 мм по горизонтали, 200 мм по вертикали */
+const CELL_W = 0.05;
+const CELL_H = 0.2;
+
 /**
  * Полотно сварной сетки 50×200 мм — повторяющаяся ячейка, а не рисунок всей
  * панели: так текстура весит килобайт и остаётся резкой на любом размере.
+ *
+ * Число повторов считается от габарита секции, а не задано числом: ячейка
+ * сетки — величина физическая, и на панели вдвое выше её должно быть вдвое
+ * больше, а не вдвое более вытянутых.
  */
-function buildMeshTexture(): THREE.Texture {
+function buildMeshTexture(sectionLength: number, height: number): THREE.Texture {
   const cellW = 16;
   const cellH = 64;
   const canvas = document.createElement('canvas');
@@ -204,8 +218,10 @@ function buildMeshTexture(): THREE.Texture {
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
-  // Ячейка 50×200 мм на секции 2,5×2,0 м
-  texture.repeat.set(50, 10);
+  texture.repeat.set(
+    Math.max(1, Math.round(sectionLength / CELL_W)),
+    Math.max(1, Math.round(height / CELL_H)),
+  );
   texture.anisotropy = 4;
   return texture;
 }
