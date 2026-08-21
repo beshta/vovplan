@@ -13,6 +13,7 @@ import NavigationHelp from './components/NavigationHelp';
 import UtilityLayersPanel from './components/UtilityLayersPanel';
 import UtilityDrawPanel from './components/UtilityDrawPanel';
 import FenceDrawPanel from './components/FenceDrawPanel';
+import FenceInfoPanel from './components/FenceInfoPanel';
 import ExportScenePanel from './components/ExportScenePanel';
 import TerrainPanel from './components/TerrainPanel';
 import AnnotationsList from './components/AnnotationsList';
@@ -431,28 +432,29 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
               </div>
             )}
 
-            <div className="pointer-events-auto flex flex-col items-center gap-2">
+            {/* Виды сохраняются и от первого лица: ровно тот кадр, который
+                человек видит с земли, — это и есть самый нужный вид на
+                площадке, а раньше запомнить его было нечем. */}
+            <div className="pointer-events-auto flex items-center gap-2">
+              <PresetsBar projectId={projectId} canEdit={canEdit} />
               {cameraView === 'first-person' ? (
-                <button onClick={() => setCameraView('orbit')} className="btn-primary text-sm shadow-xl">
+                <button onClick={() => setCameraView('orbit')} className="btn-primary text-sm shadow-xl whitespace-nowrap">
                   ↩ Назад к обзору
                 </button>
               ) : (
-                <div className="flex items-center gap-2">
-                  <PresetsBar projectId={projectId} canEdit={canEdit} />
-                  {canEdit && (
-                    <button
-                      onClick={capturePreview}
-                      disabled={capturing}
-                      title="Снять превью для карточки проекта"
-                      className="glass-chip"
-                    >
-                      <Camera size={14} />
-                      <span className="hidden sm:inline">
-                        {capturing ? 'Снимок...' : previewSaved ? 'Готово' : 'Превью'}
-                      </span>
-                    </button>
-                  )}
-                </div>
+                canEdit && (
+                  <button
+                    onClick={capturePreview}
+                    disabled={capturing}
+                    title="Снять превью для карточки проекта"
+                    className="glass-chip"
+                  >
+                    <Camera size={14} />
+                    <span className="hidden sm:inline">
+                      {capturing ? 'Снимок...' : previewSaved ? 'Готово' : 'Превью'}
+                    </span>
+                  </button>
+                )
               )}
             </div>
 
@@ -481,6 +483,7 @@ export default function Viewer3D({ projectId, role, userId }: Viewer3DProps) {
             <div className="pointer-events-auto flex-1 min-h-0 overflow-y-auto flex flex-col items-end gap-2">
               <ObjectInfoPanel projectId={projectId} />
               <UtilityEditPanel projectId={projectId} />
+              <FenceInfoPanel />
               <AnnotationEditPanel projectId={projectId} />
             </div>
             <div className="pointer-events-auto">

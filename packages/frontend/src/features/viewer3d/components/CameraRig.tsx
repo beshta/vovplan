@@ -21,6 +21,14 @@ import * as THREE from 'three';
 // но не «под землю» (раньше было 60°, к земле опуститься было нельзя)
 const MAX_POLAR = Math.PI * 0.49;
 
+/**
+ * На сколько метров вперёд ставится точка взгляда, когда орбиты нет.
+ *
+ * Пятнадцать — это уже «даль» для человека на площадке: вид, сохранённый от
+ * первого лица, вернётся тем же кадром, а не носом в ближайшую стену.
+ */
+const GAZE_DISTANCE = 15;
+
 export default function CameraRig() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const { camera } = useThree();
@@ -35,14 +43,26 @@ export default function CameraRig() {
   // Масштаб 1:1: пределы камеры растут вместе с площадкой
   const sceneSize = terrainMeta ? Math.max(terrainMeta.widthM, terrainMeta.heightM) : 200;
 
-  // Регистрируем геттер текущей позы камеры (для сохранения пресетов)
+  /*
+   * Геттер текущей позы камеры — им сохраняются виды.
+   *
+   * В режиме от первого лица орбиты нет, а с ней нет и точки, вокруг которой
+   * она вращается. Раньше в этом случае в пресет уходил ноль координат, то
+   * есть центр площадки: сохранённый вид смотрел куда угодно, только не туда,
+   * куда смотрел человек. Поэтому без орбиты цель берётся прямо по взгляду.
+   */
   useEffect(() => {
     setCameraGetter(() => {
-      const t = controlsRef.current?.target ?? new THREE.Vector3();
-      return {
-        position: [camera.position.x, camera.position.y, camera.position.z] as [number, number, number],
-        target: [t.x, t.y, t.z] as [number, number, number],
-      };
+      const position: [number, number, number] = [camera.position.x, camera.position.y, camera.position.z];
+      const controls = controlsRef.current;
+      if (controls) {
+        const t = controls.target;
+        return { position, target: [t.x, t.y, t.z] as [number, number, number] };
+      }
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      const ahead = camera.position.clone().addScaledVector(dir, GAZE_DISTANCE);
+      return { position, target: [ahead.x, ahead.y, ahead.z] as [number, number, number] };
     });
     return () => setCameraGetter(null);
   }, [camera, setCameraGetter]);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bookmark, Plus, X, Check } from 'lucide-react';
+import { Bookmark, Plus, X, Check, Footprints } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { presetsApi } from '../../../shared/api';
 import type { CameraPresetPayload } from '../../../shared/api';
@@ -48,8 +48,12 @@ export default function PresetsBar({ projectId, canEdit }: PresetsBarProps) {
   });
 
   const presets = data?.data ?? [];
-  if (cameraView === 'first-person') return null;
   if (presets.length === 0 && !canEdit) return null;
+
+  // Вид от первого лица сохраняется так же, как обзорный: поза камеры плюс
+  // точка взгляда. Возврат к нему — обычный перелёт, поэтому подпись честно
+  // говорит, что именно запомнится
+  const firstPerson = cameraView === 'first-person';
 
   return (
     <div className="glass rounded-full flex items-center gap-1.5 px-2 py-1.5 max-w-[70vw] overflow-x-auto">
@@ -80,9 +84,11 @@ export default function PresetsBar({ projectId, canEdit }: PresetsBarProps) {
         <button
           onClick={() => setSaving(true)}
           className="px-3 py-1 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-muted hover:text-strong border border-dashed border-slate-600 shrink-0"
-          title="Сохранить текущий вид как пресет"
+          title={firstPerson ? 'Запомнить вид с этой точки и в эту сторону' : 'Сохранить текущий вид как пресет'}
         >
-          <span className="flex items-center gap-1"><Plus size={13} /> Вид</span>
+          <span className="flex items-center gap-1">
+            {firstPerson ? <Footprints size={13} /> : <Plus size={13} />} Вид
+          </span>
         </button>
       )}
 
@@ -99,7 +105,7 @@ export default function PresetsBar({ projectId, canEdit }: PresetsBarProps) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === 'Escape' && setSaving(false)}
-            placeholder="Название вида"
+            placeholder={firstPerson ? 'Вид с точки' : 'Название вида'}
             className="w-32 px-2 py-1 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-strong border border-slate-600 focus:border-vovplan-500 outline-none"
           />
           <button type="submit" title="Сохранить" className="px-2 py-1 rounded-full text-xs bg-vovplan-600 text-white">
