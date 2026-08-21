@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useViewerStore } from '../stores/viewerStore';
 import { commentsApi } from '../../../shared/api';
+import { useAuthStore } from '../../../shared/authStore';
 
 /**
  * Annotation drawing tool — captures 3D points via raycasting.
@@ -30,19 +31,50 @@ export default function AnnotationTool({ projectId, drawMode, onFinished }: Anno
   const [isDragging, setIsDragging] = useState(false);
 
   const addAnnotation = useViewerStore((s) => s.addAnnotation);
+  const updateAnnotation = useViewerStore((s) => s.updateAnnotation);
+  const removeAnnotation = useViewerStore((s) => s.removeAnnotation);
   const setGroundHandlers = useViewerStore((s) => s.setGroundHandlers);
   const color = useViewerStore((s) => s.annColor);
   const width = useViewerStore((s) => s.annWidth);
   const selectAnnotation = useViewerStore((s) => s.selectAnnotation);
   const setCameraLocked = useViewerStore((s) => s.setCameraLocked);
   const setAnnDrawMode = useViewerStore((s) => s.setAnnDrawMode);
+  const authorId = useAuthStore((s) => s.user?.id ?? '');
+  const authorName = useAuthStore((s) => s.user?.displayName ?? s.user?.email ?? 'Вы');
 
+  /*
+   * Метка появляется в сцене сразу, до ответа сервера.
+   *
+   * Раньше двойной щелчок уходил в POST и ждал его: на площадке это заметная
+   * пауза между действием и результатом, и человек успевал щёлкнуть второй
+   * раз. Теперь метка ставится немедленно с временным номером, а ответ
+   * сервера лишь подменяет номер на настоящий. Не сохранилась — убираем и
+   * говорим об этом, а не оставляем призрак, который исчезнет при обновлении.
+   */
   const saveAnnotation = useCallback(async (pts: [number, number, number][]) => {
     if (pts.length === 0) return;
 
     const text = drawMode === 'pin'
       ? `Метка: ${new Date().toLocaleTimeString('ru-RU')}`
       : `Аннотация (${drawMode})`;
+    const tempId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    addAnnotation({
+      id: tempId,
+      type: drawMode,
+      points: pts,
+      color,
+      width,
+      text,
+      authorId,
+      authorName,
+      resolved: false,
+      createdAt: new Date().toISOString(),
+    });
+    // Сразу открываем редактор новой аннотации — задать текст/цвет/толщину
+    selectAnnotation(tempId);
+    setPoints([]);
+    onFinished();
 
     try {
       const result = await commentsApi.create(projectId, {
@@ -52,28 +84,27 @@ export default function AnnotationTool({ projectId, drawMode, onFinished }: Anno
         color,
         width,
       });
-
-      addAnnotation({
+      updateAnnotation(tempId, {
         id: result.id,
-        type: drawMode,
-        points: pts,
-        color,
-        width,
         text: result.text,
         authorId: result.authorId,
         authorName: result.authorName,
-        resolved: false,
         createdAt: result.createdAt,
       });
-      // Сразу открываем редактор новой аннотации — задать текст/цвет/толщину
-      selectAnnotation(result.id);
+      // Выделение держалось за временный номер — переводим на настоящий,
+      // иначе редактор откроется в пустоту
+      if (useViewerStore.getState().selectedAnnotationId === tempId) {
+        selectAnnotation(result.id);
+      }
     } catch (err) {
       console.error('Failed to save annotation:', err);
+      removeAnnotation(tempId);
+      if (useViewerStore.getState().selectedAnnotationId === tempId) selectAnnotation(null);
     }
-
-    setPoints([]);
-    onFinished();
-  }, [projectId, drawMode, color, width, addAnnotation, onFinished, selectAnnotation]);
+  }, [
+    projectId, drawMode, color, width, authorId, authorName,
+    addAnnotation, updateAnnotation, removeAnnotation, onFinished, selectAnnotation,
+  ]);
 
   // ── Click handler (по точке рельефа от Scene) ──
   const handleClick = useCallback((pt: [number, number, number]) => {
